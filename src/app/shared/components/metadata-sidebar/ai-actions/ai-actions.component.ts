@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { TtsService } from '../../../services/tts.service';
 import { AiPanelService } from '../../../services/ai-panel.service';
@@ -23,6 +24,7 @@ export class AiActionsComponent {
   private detailViewService = inject(DetailViewService);
   userService = inject(UserService);
   private authService = inject(AuthService);
+  private router = inject(Router);
   private settingsService = inject(SettingsService);
   documentInfoService = inject(DocumentInfoService);
   private configService = inject(ConfigService);
@@ -52,7 +54,12 @@ export class AiActionsComponent {
   }
 
   login(): void {
-    this.authService.login(window.location.pathname);
+    // Same flow as the header's login button: go through the terms/GDPR
+    // consent page first, and preserve the full path (incl. ?page=...) so the
+    // reader returns to the exact page they were on, not the document's first
+    // page (see GitHub issue #164).
+    const returnUrl = window.location.pathname + window.location.search;
+    this.router.navigate(['pages/terms'], { queryParams: { returnUrl } });
   }
 
   onRead(): void {

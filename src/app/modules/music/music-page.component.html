@@ -176,7 +176,7 @@
   <ng-container right-sidebar>
     <ng-container *ngIf="detailViewService.document$ | async as document">
       <app-metadata-sidebar [metadata]="document" mode="floating"
-        [tools]="{search: true, export: true, description: true}">
+        [tools]="{search: true, export: true, description: true, ai: true}">
       </app-metadata-sidebar>
     </ng-container>
   </ng-container>

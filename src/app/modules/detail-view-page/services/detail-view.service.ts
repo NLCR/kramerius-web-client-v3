@@ -371,21 +371,42 @@ export class DetailViewService {
   }
 
   /**
-   * Returns true if the page should show a lock overlay:
-   * document access is denied AND page hasn't been confirmed accessible via IIIF load.
+   * Whether a page's own license data (already returned with the page list —
+   * no need to wait for an actual image load) already shows it as accessible:
+   * either openly public, or covered by one of the user's licenses. Lets pages
+   * like the cover/title page/TOC show unlocked immediately instead of only
+   * after the reader clicks into them (see GitHub issues #121 / #158).
    */
-  isPageLocked(pid: string): boolean {
-    if (!this.isDocumentAccessDenied()) return false;
-    return !this._pageAccessMap().get(pid);
+  private isPageStaticallyAccessible(pid: string): boolean {
+    const page = this._pages().find(p => p.pid === pid);
+    if (!page) return false;
+
+    const licenses = this.recordHandlerService.getEffectiveRecordLicenses(
+      page.licenses,
+      page.contains_licenses,
+      page.licenses_of_ancestors
+    );
+    return !this.recordHandlerService.isRecordLocked(licenses);
   }
 
   /**
-   * Returns true if the page was confirmed accessible (runtime license unlocked it)
-   * while the document itself is still marked as access-denied.
+   * Returns true if the page should show a lock overlay: document access is
+   * denied AND the page isn't already known accessible, either from its own
+   * license data or because it was confirmed accessible via an IIIF load.
+   */
+  isPageLocked(pid: string): boolean {
+    if (!this.isDocumentAccessDenied()) return false;
+    if (this._pageAccessMap().get(pid)) return false;
+    return !this.isPageStaticallyAccessible(pid);
+  }
+
+  /**
+   * Returns true if the page is known accessible (via its own license data or
+   * a confirmed IIIF load) while the document itself is still access-denied.
    */
   isPageUnlocked(pid: string): boolean {
     if (!this.isDocumentAccessDenied()) return false;
-    return !!this._pageAccessMap().get(pid);
+    return !!this._pageAccessMap().get(pid) || this.isPageStaticallyAccessible(pid);
   }
 
   get isPdf(): boolean {

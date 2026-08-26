@@ -28,6 +28,11 @@ export class Page {
   'page.type': string = '';
   model?: DocumentTypeEnum | string | null;
   licenses_of_ancestors: string[] = [];
+  // Raw Solr fields (see SolrService.getChildrenByModel's `fl` list) — the page's
+  // own licenses and the licenses of records that contain/wrap it. Used to
+  // determine per-page lock state without waiting for an actual image load.
+  licenses?: string[];
+  contains_licenses?: string[];
 }
 
 export enum PagePosition {

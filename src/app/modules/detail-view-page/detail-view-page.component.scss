@@ -285,9 +285,12 @@ app-document-access-denied {
   margin: var(--spacing-x4);
 }
 
+// bottom offset accounts for the global mini-player (app-playback-bar), which
+// is also fixed to the viewport bottom and would otherwise sit underneath —
+// and hide — this bar instead of stacking above it (GitHub issue #172).
 app-mobile-nav-bar {
   position: fixed;
-  bottom: 0;
+  bottom: var(--playback-bar-height, 0px);
   left: 0;
   right: 0;
   z-index: 100;
@@ -296,7 +299,7 @@ app-mobile-nav-bar {
 // Compact prev/next/page-count strip, docked directly above the tab bar.
 app-page-navigator.mobile-page-nav-bar {
   position: fixed;
-  bottom: 60px;
+  bottom: calc(60px + var(--playback-bar-height, 0px));
   left: 0;
   right: 0;
   z-index: 100;
