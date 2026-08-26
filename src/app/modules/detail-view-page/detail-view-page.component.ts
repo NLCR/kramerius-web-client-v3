@@ -101,8 +101,10 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   // toggled by a clean tap on the viewer (see ViewerTapToggleDirective), then
   // hidden again when a slide-up panel opens.
   mobileNavVisible = signal(false);
-  // Reserved height (px) the visible nav bar takes from the viewer.
+  // Reserved height (px) the visible nav bar takes from the viewer. Includes the
+  // page prev/next/count strip (see showMobilePageNav) that sits above the tab bar.
   private static readonly MOBILE_NAV_BAR_HEIGHT = 60;
+  private static readonly MOBILE_PAGE_NAV_HEIGHT = 48;
   private static readonly NAV_HEIGHT_ANIM_MS = 250;
   private navHeightRaf: number | null = null;
   private navHeightCurrent = 0;
@@ -128,7 +130,11 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     // when the immersive bar shows/hides. Driven in JS because a CSS transition
     // cannot interpolate a calc() height that changes via a custom property.
     effect(() => {
-      const target = this.mobileNavVisible() ? DetailViewPageComponent.MOBILE_NAV_BAR_HEIGHT : 0;
+      const visible = this.mobileNavVisible();
+      const target = visible
+        ? DetailViewPageComponent.MOBILE_NAV_BAR_HEIGHT +
+          (this.showMobilePageNav ? DetailViewPageComponent.MOBILE_PAGE_NAV_HEIGHT : 0)
+        : 0;
       this.animateMobileNavBarHeight(target);
     });
     this.activeSidebarTab$ = route.queryParamMap.pipe(
@@ -303,6 +309,19 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
       items.push(this.mobileSearchNavItem);
     }
     return items;
+  }
+
+  /**
+   * Whether the mobile immersive chrome should show the prev/next/page-count strip.
+   * Hidden for EPUBs (own pagination concept) and the sound-recording track list,
+   * and when there is nothing to page through.
+   */
+  get showMobilePageNav(): boolean {
+    const document = this.detailViewService.document;
+    if (!document) return false;
+    if (this.detailViewService.isEpub || document.epub) return false;
+    if (document.model === DocumentTypeEnum.soundrecording && this.detailViewService.soundRecordingViewMode() === 'records') return false;
+    return this.detailViewService.totalPagesOnly > 1;
   }
 
   /** Viewer type for the mobile viewer-controls menu, mirroring the main-content viewer selection. */

@@ -301,14 +301,56 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       headers = headers.set('Authorization', authHeaders['Authorization']);
     }
 
-    // Fetch info.json with auth headers, then create viewer
+    // When book mode is already active (e.g. re-mounting after a brief access-check
+    // reload on page turn — see DetailViewService.loadPageInfo), open the current and
+    // next page side by side right away instead of always falling back to a single
+    // page, which would otherwise silently drop book mode on every page turn.
+    const isBookMode = this.iiifViewerService.isBookMode();
+    const nextPagePid = isBookMode ? this.getNextPagePid() : null;
+
+    if (!isBookMode || !nextPagePid) {
+      // Fetch info.json with auth headers, then create viewer
+      this.http.get(infoUrl, {
+        headers,
+        context: new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true)
+      }).subscribe({
+        next: (infoJson: any) => {
+          this.processInfoJson(infoJson, infoUrl);
+          this.createViewer(infoJson);
+        },
+        error: (error) => {
+          console.error('Failed to fetch IIIF info.json', error);
+          this.handleOpenFailed();
+        }
+      });
+      return;
+    }
+
+    this.clearThumbnailBackground();
+    const nextInfoUrl = this.iiifViewerService.getIIIFInfoUrl(nextPagePid);
     this.http.get(infoUrl, {
       headers,
       context: new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true)
     }).subscribe({
       next: (infoJson: any) => {
         this.processInfoJson(infoJson, infoUrl);
-        this.createViewer(infoJson);
+        this.http.get(nextInfoUrl, {
+          headers,
+          context: new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true)
+        }).subscribe({
+          next: (nextInfoJson: any) => {
+            this.processInfoJson(nextInfoJson, nextInfoUrl);
+            this.createViewer([
+              { tileSource: infoJson, x: 0, y: 0, width: 0.5 },
+              { tileSource: nextInfoJson, x: 0.5, y: 0, width: 0.5 }
+            ]);
+          },
+          error: (error) => {
+            console.error('Failed to fetch IIIF info.json for next page', error);
+            // Fall back to single page rather than failing the whole viewer.
+            this.createViewer(infoJson);
+          }
+        });
       },
       error: (error) => {
         console.error('Failed to fetch IIIF info.json', error);

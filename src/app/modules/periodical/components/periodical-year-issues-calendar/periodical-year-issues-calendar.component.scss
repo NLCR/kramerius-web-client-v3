@@ -6,7 +6,13 @@
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  contain: layout inline-size;
+  // inline-size containment only: plain "layout" containment would also make
+  // :host a containing block for position:fixed/absolute descendants, which
+  // broke the multi-issue popup below (.issues-popup-wrapper is fixed and
+  // positioned in viewport coordinates by PopupPositioningService — with
+  // layout containment it ended up positioned relative to this host instead
+  // of the viewport, landing far from the click or off-screen).
+  contain: inline-size;
 }
 
 h3 {

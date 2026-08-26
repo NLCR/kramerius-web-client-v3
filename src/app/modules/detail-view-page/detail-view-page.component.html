@@ -326,6 +326,18 @@
 
 <!-- Mobile navigation bar - immersive: hidden by default, tap viewer to toggle -->
 @if (breakpointService.isMobile()) {
+  @if (showMobilePageNav) {
+    <app-page-navigator
+      class="mobile-page-nav-bar"
+      [class.mobile-page-nav-bar--hidden]="!mobileNavVisible()"
+      [currentPage]="detailViewService.currentPageIndex + 1"
+      [totalPages]="detailViewService.totalPagesOnly"
+      (next)="detailViewService.goToNext()"
+      (prev)="detailViewService.goToPrevious()"
+      (pageChange)="detailViewService.goToPage($event)">
+    </app-page-navigator>
+  }
+
   <app-mobile-nav-bar
     class="mobile-nav-bar--immersive"
     [class.mobile-nav-bar--hidden]="!mobileNavVisible()"

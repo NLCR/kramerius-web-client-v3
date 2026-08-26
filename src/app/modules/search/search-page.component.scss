@@ -5,6 +5,11 @@
   padding: 0 var(--search-page-padding);
   height: calc(100vh - var(--header-height) - var(--playback-bar-height, 0px));
   overflow-y: auto;
+  // The hero/footer intentionally bleed edge-to-edge via negative margins (see
+  // below); overflow-x:hidden keeps that bleed (or any accidental overflow from
+  // a section's content) from making the whole page horizontally scrollable,
+  // which was very visible on mobile where there is nothing to actually scroll to.
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 12% 0%, rgba(0, 141, 168, 0.07), transparent 34rem),
     linear-gradient(180deg, #fbfcfc 0%, var(--color-bg-light) 100%);

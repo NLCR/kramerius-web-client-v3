@@ -1,6 +1,17 @@
 import {computed, inject, Injectable, NgZone, signal} from '@angular/core';
 import {Observable, Subject} from 'rxjs';
 import {AppTranslationService} from '../translation/app-translation.service';
+import {ToastService} from './toast.service';
+
+// SpeechRecognitionErrorEvent.error values that are worth telling the user about.
+// 'aborted' is excluded: it fires on our own stop()/abort() calls, not a real failure.
+const SPEECH_ERROR_MESSAGE_KEYS: Record<string, string> = {
+  'not-allowed': 'voice-input-error-not-allowed',
+  'service-not-allowed': 'voice-input-error-not-allowed',
+  'audio-capture': 'voice-input-error-no-mic',
+  'no-speech': 'voice-input-error-no-speech',
+  'network': 'voice-input-error-network',
+};
 
 const LANG_TO_SPEECH_LOCALE: Record<string, string> = {
   sk: 'sk-SK',
@@ -15,6 +26,7 @@ const LANG_TO_SPEECH_LOCALE: Record<string, string> = {
 export class SpeechRecognitionService {
 
   private translationService = inject(AppTranslationService);
+  private toastService = inject(ToastService);
   private zone = inject(NgZone);
   private recognition: any = null;
   private result$ = new Subject<string>();
@@ -76,7 +88,15 @@ export class SpeechRecognitionService {
     };
 
     recognition.onend = cleanup;
-    recognition.onerror = cleanup;
+    recognition.onerror = (event: any) => {
+      cleanup();
+      // Without this, a denied mic permission or transient failure looks
+      // identical to "nothing happened" — the mic just silently stops listening.
+      const messageKey = SPEECH_ERROR_MESSAGE_KEYS[event?.error];
+      if (messageKey) {
+        this.zone.run(() => this.toastService.show(messageKey, null, 5000));
+      }
+    };
 
     this.isListening.set(true);
     recognition.start();

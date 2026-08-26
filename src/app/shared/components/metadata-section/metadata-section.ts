@@ -1156,7 +1156,6 @@ export class MetadataSection implements OnInit, OnChanges {
 
   private readonly donatorUrlMap: Record<string, string> = {
     'norway': 'http://www.eeagrants.org',
-    'k3tok5': 'https://www.nkp.cz/digitalni-knihovna/digitalni-knihovny/k3tok5',
     'eodopen': 'https://eodopen.eu/',
     'ilnorway': 'https://eeagrants.org',
     'dkrvo19-23': 'https://kramerius.nm.cz/dkrvo',
