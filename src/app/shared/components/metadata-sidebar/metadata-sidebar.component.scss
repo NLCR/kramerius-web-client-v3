@@ -91,3 +91,53 @@
     display: none;
   }
 }
+
+// Metadata is a primary research surface, not a utility drawer. Give it enough
+// breathing room for bibliographic values and separate it gently from the viewer.
+.metadata-sidebar {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfc 100%);
+
+  &.docked {
+    border-left: 1px solid var(--color-border-light);
+    box-shadow: -10px 0 30px rgba(16, 23, 25, 0.045);
+  }
+
+  ::ng-deep .tabs-header {
+    padding: var(--spacing-x2);
+    gap: var(--spacing-x1);
+    background: rgba(255, 255, 255, 0.94);
+  }
+
+  ::ng-deep .tabs-header .tab-button {
+    min-height: 40px;
+    padding: var(--spacing-x2);
+    border-radius: 10px;
+  }
+
+  ::ng-deep .tabs-header .tab-button.active {
+    color: var(--color-primary);
+    background: var(--color-brand-nk-soft, var(--color-bg-light));
+  }
+
+  ::ng-deep .tabs-header .tab-button.active::after {
+    display: none;
+  }
+
+  ::ng-deep .tabs-content {
+    padding: var(--spacing-x5) var(--spacing-x5);
+  }
+}
+
+.metadata-sidebar--footer {
+  padding: var(--spacing-x3) var(--spacing-x5);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+:host-context(.dark) .metadata-sidebar {
+  background: var(--color-bg-base);
+
+  ::ng-deep .tabs-header,
+  .metadata-sidebar--footer {
+    background: var(--color-bg-base);
+  }
+}

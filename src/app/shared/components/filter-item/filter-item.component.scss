@@ -126,3 +126,47 @@
   }
 }
 
+
+// License facet: compact semantic glyphs without the old coloured square tiles.
+// The label is still the primary carrier of meaning, so this remains accessible
+// even when colour perception is limited.
+.icon.icon--license {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+
+  &.active {
+    border: 0;
+  }
+
+  i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: transparent !important;
+    font-size: 17px;
+    transition: transform 0.18s ease, color 0.18s ease;
+  }
+
+  i.license-icon--available {
+    color: #13795B !important;
+  }
+
+  i.license-icon--online {
+    color: #7C3AED !important;
+  }
+
+  i.license-icon--onsite {
+    color: #9A5B13 !important;
+  }
+}
+
+:host:hover .icon.icon--license i {
+  transform: scale(1.08);
+}

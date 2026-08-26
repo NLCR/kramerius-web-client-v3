@@ -1,7 +1,7 @@
 <section class="metadata-section--item">
 
   <div class="metadata-section--item-header">
-    <h3 class="metadata-section--item-label">{{ label | translate }}</h3>
+    <h3 class="metadata-section--item-label">{{ label | translate }}<span *ngIf="headerValue" class="metadata-section--item-header-value">: {{ headerValue }}</span></h3>
     <button *ngIf="headerActionLabel" class="button tertiary outlined xs with-icon header-action-btn"
       (click)="handleHeaderAction($event)">
       {{ headerActionLabel }} <i class="icon-arrow-right-1" aria-hidden="true"></i>

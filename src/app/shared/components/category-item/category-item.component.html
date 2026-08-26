@@ -1,4 +1,6 @@
 <a class="category-item"
+   [class.has-accent]="!!accentColor"
+   [style.--category-accent]="accentColor"
    [href]="url"
    (click)="recordHandler.onNavigate($event, url)">
 

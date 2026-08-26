@@ -1,4 +1,5 @@
 import { DocumentTypeEnum } from '../../../modules/constants/document-type';
+import { getOpenLicenses } from '../../../core/solr/solr-misc';
 
 /**
  * Simplified model for RecordItemComponent
@@ -96,7 +97,7 @@ export function searchDocumentToRecordItem(doc: any): RecordItem {
     subtitle: getDocumentSubtitle(doc),
     model: (doc.model as DocumentTypeEnum) || '',
     rootModel: doc.rootModel as DocumentTypeEnum | undefined,
-    licenses: doc.containsLicenses || doc.licenses || doc['licenses.facet'] || [],
+    licenses: Array.from(new Set([...(doc.licenses || doc['licenses.facet'] || []), ...(doc.containsLicenses || doc['contains_licenses'] || [])])),
     authors: doc.authors,
     date: doc.date,
     ownParentPid: doc.ownParentPid,
@@ -160,7 +161,16 @@ function getDocumentSubtitle(doc: any): string {
 }
 
 export function isDocumentPublic(licenses: string[], userLicenses: string[]) {
-  // if there is some license in userLicenses that is in licenses, return true
+  // A freely accessible license is sufficient on its own. Do not require it to
+  // be present in the user's runtime license list — records carrying both an
+  // open license (e.g. public) and DNNT/onsite must still render as accessible.
+  const openLicenses = getOpenLicenses();
+  if (openLicenses.some(openLicense => licenses.includes(openLicense))) {
+    return true;
+  }
+
+  // Restricted documents are accessible when the current user owns at least
+  // one of the record's licenses.
   return userLicenses.some(userLicense => licenses.includes(userLicense));
 }
 

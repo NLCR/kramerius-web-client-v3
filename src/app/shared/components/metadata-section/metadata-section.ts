@@ -60,6 +60,16 @@ import { SOLR_LANG_TO_APP_LANG, resolveLocalizedValue } from '../../utils/langua
   styleUrl: './metadata-section.scss'
 })
 export class MetadataSection implements OnInit, OnChanges {
+  /**
+   * Async MODS/Solr requests can finish after the user has already navigated to
+   * another record. Keep a monotonically increasing generation so a late
+   * response can never repopulate the sidebar with metadata from the previous
+   * document.
+   */
+  private metadataLoadGeneration = 0;
+  private articleLoadGeneration = 0;
+  private metadataContextUuid = '';
+
   // Use signal for data to enable reactive computed properties
   private _data = signal<Metadata | null>(null);
   get data() { return this._data(); }
@@ -75,6 +85,21 @@ export class MetadataSection implements OnInit, OnChanges {
 
   private _childData = signal<Metadata | null>(null);
   get childData() { return this._childData(); }
+
+  /** True when childData has at least one field visible in article-details. */
+  hasChildDetails(): boolean {
+    const c = this._childData();
+    if (!c) return false;
+    return !!(c.dateStr || c.authors?.length || c.locations?.length || c.notes?.length);
+  }
+
+  /** True when there is something to render in the child section (title or details). */
+  hasChildContent(): boolean {
+    const c = this._childData();
+    if (!c) return false;
+    const hasTitle = !!(c.titles?.length && c.titles[0]?.title);
+    return hasTitle || this.hasChildDetails();
+  }
 
   childExpanded = signal(true);
 
@@ -206,6 +231,26 @@ export class MetadataSection implements OnInit, OnChanges {
     return this.pickLocalized(infos, a => a.lang).map(a => a.text);
   }
 
+  /**
+   * Languages are shown once in the metadata sidebar. Periodical detail can
+   * carry the same value in root MODS, issue MODS and article MODS; rendering
+   * every source separately produced two or even three "Jazyk" sections.
+   */
+  readonly displayLanguages = computed<string[]>(() => {
+    const values = [
+      ...(this._data()?.languages ?? []),
+      ...(this._childData()?.languages ?? []),
+      ...(this._articleData()?.languages ?? []),
+    ];
+    const seen = new Set<string>();
+    return values.filter(value => {
+      const key = String(value ?? '').trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  });
+
   modsParser = inject(ModsParserService);
   searchService = inject(SearchService);
   solrService = inject(SolrService);
@@ -317,17 +362,47 @@ export class MetadataSection implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['uuid'] && !changes['uuid'].firstChange) {
+    // The store and the @Input metadata do not always update in the same change
+    // detection turn. Reload for either source, but only after the initial
+    // ngOnInit load, so the sidebar always converges on the current UUID.
+    const uuidChanged = changes['uuid'] && !changes['uuid'].firstChange;
+    const metadataChanged = changes['metadata'] && !changes['metadata'].firstChange;
+    if (uuidChanged || metadataChanged) {
       this.loadMetadata();
     }
   }
 
   async loadMetadata() {
-    // Get Solr data from store to supplement with model, accessibility, and license
-    const solrData = await firstValueFrom(this.store.select(selectDocumentDetail).pipe(take(1)));
-    if (solrData) {
-      this._solrData.set(solrData);
+    const generation = ++this.metadataLoadGeneration;
+    const uuid = this.uuid;
+    const inputMetadata = this.metadata;
+    const contextChanged = this.metadataContextUuid !== uuid;
+    this.metadataContextUuid = uuid;
+
+    // Never leave visible metadata from the previous record while a *different*
+    // UUID is being resolved. For an update of the same record (e.g. store data
+    // arriving a tick after MODS) keep the current panel in place to avoid a
+    // distracting blank flash.
+    if (contextChanged) {
+      this._data.set(null);
+      this._childData.set(null);
+      this._solrData.set(null);
+      this._rootUnitCount.set(0);
+      this.alternativeTitlesExpanded.set(false);
     }
+
+    // Get Solr data from store to supplement with model, accessibility, and
+    // license. The store may still contain the previous document for one tick;
+    // accept it only when its UUID matches the component's current UUID. The
+    // matching @Input is a safe fallback while the store catches up.
+    const storeData = await firstValueFrom(this.store.select(selectDocumentDetail).pipe(take(1)));
+    if (generation !== this.metadataLoadGeneration || uuid !== this.uuid) return;
+
+    const matchingInput = inputMetadata && (!inputMetadata.uuid || inputMetadata.uuid === uuid)
+      ? inputMetadata
+      : null;
+    const solrData = storeData?.uuid === uuid ? storeData : matchingInput;
+    this._solrData.set(solrData ?? null);
 
     // Seed the source selector. On CDK the URL (`?source=`) wins, then cdk.leader,
     // then first available. Off-CDK, ensure any stray `source` param is stripped
@@ -335,7 +410,7 @@ export class MetadataSection implements OnInit, OnChanges {
     if (this.isCdk()) {
       // In collections mode the cdk fields come from the collection's own metadata
       // (the `metadata` input), not the document-detail store.
-      const cdkSource = this.collectionsMode ? this.metadata : solrData;
+      const cdkSource = this.collectionsMode ? matchingInput : solrData;
       const collections = cdkSource?.cdkCollections ?? [];
       const urlSource = this.route.snapshot.queryParamMap.get('source');
       this.cdkCollections.set(collections);
@@ -363,11 +438,18 @@ export class MetadataSection implements OnInit, OnChanges {
       this.stripSourceParamIfPresent();
     }
 
-    const baseMods = await this.buildMergedMetadata(this.effectiveLibraryCode());
+    const baseMods = await this.buildMergedMetadata(
+      this.effectiveLibraryCode(),
+      uuid,
+      generation,
+      matchingInput,
+    );
+    if (!baseMods || generation !== this.metadataLoadGeneration || uuid !== this.uuid) return;
+
     this._data.set(baseMods);
     this.cdr.markForCheck();
-    this.loadCollectionNames();
-    this.loadRootUnitCount();
+    void this.loadCollectionNames(generation, uuid);
+    void this.loadRootUnitCount(generation, uuid);
   }
 
   /**
@@ -382,13 +464,14 @@ export class MetadataSection implements OnInit, OnChanges {
 
   // For a unit of a multivolume monograph, fetch the root document so the badge can
   // show the parent's unit count ("Knihy (n)"). The count lives only on the root.
-  private async loadRootUnitCount(): Promise<void> {
+  private async loadRootUnitCount(generation = this.metadataLoadGeneration, uuid = this.uuid): Promise<void> {
     this._rootUnitCount.set(0);
     if (!this.isMonographUnitDoc()) return;
     const rootPid = this._solrData()?.rootPid;
     if (!rootPid) return;
     try {
       const root = await firstValueFrom(this.solrService.getDetailItem(rootPid));
+      if (generation !== this.metadataLoadGeneration || uuid !== this.uuid) return;
       const count = root?.['count_monograph_unit'];
       this._rootUnitCount.set(count ? parseInt(count, 10) : 0);
       this.cdr.markForCheck();
@@ -403,8 +486,14 @@ export class MetadataSection implements OnInit, OnChanges {
    * from the Solr document. Solr is authoritative for model/access/licence/issue
    * fields; MODS wins everywhere else.
    */
-  private async buildMergedMetadata(libraryCode: string | undefined): Promise<any> {
-    const modsData = await this.modsParser.getMods(this.uuid, 'full', libraryCode);
+  private async buildMergedMetadata(
+    libraryCode: string | undefined,
+    expectedUuid = this.uuid,
+    generation = this.metadataLoadGeneration,
+    inputMetadata: Metadata | null = this.metadata,
+  ): Promise<any | null> {
+    const modsData = await this.modsParser.getMods(expectedUuid, 'full', libraryCode);
+    if (generation !== this.metadataLoadGeneration || expectedUuid !== this.uuid) return null;
     const solrData = this._solrData();
 
     let baseMods: any = { ...modsData };
@@ -412,9 +501,10 @@ export class MetadataSection implements OnInit, OnChanges {
     // If the document has a root.pid different from its own pid (e.g. periodicalvolume,
     // periodicalitem), show the root's MODS as primary and the child's own MODS in a subsection.
     const rootPid = solrData?.rootPid;
-    if (rootPid && rootPid !== this.uuid) {
+    if (rootPid && rootPid !== expectedUuid) {
       try {
         const rootMods = await this.modsParser.getMods(rootPid, 'full', libraryCode);
+        if (generation !== this.metadataLoadGeneration || expectedUuid !== this.uuid) return null;
         if (rootMods) {
           const child = modsData as any;
           const hasChildData = child && (
@@ -435,12 +525,12 @@ export class MetadataSection implements OnInit, OnChanges {
       this._childData.set(null);
     }
 
-    if (this.metadata) {
-      this.mergeMissing(baseMods, this.metadata);
+    if (inputMetadata) {
+      this.mergeMissing(baseMods, inputMetadata);
     }
 
     // Merge the full Solr document: MODS wins where present, Solr fills every gap.
-    if (solrData && solrData.uuid === this.uuid) {
+    if (solrData && solrData.uuid === expectedUuid) {
       this.mergeMissing(baseMods, solrData);
       // Solr-authoritative fields always override whatever MODS carries.
       baseMods.model = solrData.model;
@@ -459,8 +549,8 @@ export class MetadataSection implements OnInit, OnChanges {
 
     // The unit count is Solr-derived and the MODS default (0) blocks `mergeMissing`,
     // so force it from whichever source actually carries it (store doc or input).
-    const unitCount = (solrData?.uuid === this.uuid ? solrData?.monographUnitCount : undefined)
-      ?? this.metadata?.monographUnitCount
+    const unitCount = (solrData?.uuid === expectedUuid ? solrData?.monographUnitCount : undefined)
+      ?? inputMetadata?.monographUnitCount
       ?? 0;
     baseMods.monographUnitCount = unitCount;
 
@@ -477,7 +567,7 @@ export class MetadataSection implements OnInit, OnChanges {
     });
   }
 
-  async loadCollectionNames() {
+  async loadCollectionNames(generation = this.metadataLoadGeneration, uuid = this.uuid) {
     const data = this._data();
     if (!data || !data.inCollections || data.inCollections.length === 0) {
       return;
@@ -488,6 +578,7 @@ export class MetadataSection implements OnInit, OnChanges {
 
     try {
       const docs: any[] = await firstValueFrom(this.solrService.getDocumentsByPids(uuidsToLoad));
+      if (generation !== this.metadataLoadGeneration || uuid !== this.uuid) return;
       const collectionMap = new Map<string, string>(docs.map((doc: any) => [doc.pid, doc['title.search']]));
 
       const newInCollections = data.inCollections.map(c => {
@@ -533,24 +624,34 @@ export class MetadataSection implements OnInit, OnChanges {
     this.store.dispatch(reloadPagesForCdkCollection({ uuid: this.uuid, cdkCollection: collection }));
     // Re-fetch MODS from the newly-selected member library; solr data and the detected
     // CDK collection list stay as they are — only the MODS source changes.
-    const baseMods = await this.buildMergedMetadata(collection);
+    const generation = ++this.metadataLoadGeneration;
+    const uuid = this.uuid;
+    const matchingInput = this.metadata && (!this.metadata.uuid || this.metadata.uuid === uuid)
+      ? this.metadata
+      : null;
+    const baseMods = await this.buildMergedMetadata(collection, uuid, generation, matchingInput);
+    if (!baseMods || generation !== this.metadataLoadGeneration || uuid !== this.uuid) return;
     this._data.set(baseMods);
     this.cdr.markForCheck();
-    this.loadCollectionNames();
+    void this.loadCollectionNames(generation, uuid);
   }
 
   async loadArticle(articleUuid: string | undefined) {
+    const generation = ++this.articleLoadGeneration;
+    // Clear the previous article immediately. Otherwise a slow MODS request can
+    // make the old article (including its language) linger under the new issue.
+    this._articleData.set(null);
     if (articleUuid) {
       try {
         const articleMods = await this.modsParser.getMods(articleUuid);
-        if (articleMods) {
+        if (generation === this.articleLoadGeneration && articleMods) {
           this._articleData.set(articleMods);
         }
       } catch (error) {
-        console.error('Failed to load article MODS:', error);
+        if (generation === this.articleLoadGeneration) {
+          console.error('Failed to load article MODS:', error);
+        }
       }
-    } else {
-      this._articleData.set(null);
     }
   }
 
@@ -660,7 +761,6 @@ export class MetadataSection implements OnInit, OnChanges {
     // it directly from its own parsed volume fields — no parent lookup needed.
     if (d.volumeYear || d.volumeNumber) {
       if (d.volumeYear) items.push({ label: this.translate.instant('publication-year'), value: String(d.volumeYear) });
-      if (d.volumeNumber) items.push({ label: this.translate.instant('volume'), value: String(d.volumeNumber) });
       return items;
     }
 
@@ -672,8 +772,16 @@ export class MetadataSection implements OnInit, OnChanges {
     const year = vol['date.str'] ?? vol.year;
     const number = vol['part.number.str'];
     if (year) items.push({ label: this.translate.instant('publication-year'), value: String(year), clickable: true });
-    if (number) items.push({ label: this.translate.instant('volume'), value: String(number) });
     return items;
+  });
+
+  readonly volumeHeaderValue = computed<string>(() => {
+    const d = this._data();
+    if (!d) return '';
+    if (d.volumeNumber) return String(d.volumeNumber);
+    if (!d.ownParentPid) return '';
+    const vol: any = this.availableYears()?.find((y: any) => y.pid === d.ownParentPid);
+    return String(vol?.['part.number.str'] ?? '');
   });
 
   clickedVolumeYear(): void {
@@ -685,12 +793,17 @@ export class MetadataSection implements OnInit, OnChanges {
     }
   }
 
+  readonly issueHeaderValue = computed<string>(() => String(this._data()?.issueNumber ?? ''));
+
   getIssueItems(): string[] {
     const d = this.data;
     const items: string[] = [];
-    if (d?.issueDate) items.push(`${this.translate.instant('publication-date')} ${d.issueDate}`);
-    if (d?.issueNumber) items.push(`${this.translate.instant('issue')} ${d.issueNumber}`);
+    if (d?.issueDate) items.push(`${this.translate.instant('publication-date')}: ${d.issueDate}`);
     return items;
+  }
+
+  hasIssueMetadata(): boolean {
+    return !!this.issueHeaderValue() || this.getIssueItems().length > 0;
   }
 
   getNotes(notes: NoteInfo[]) {

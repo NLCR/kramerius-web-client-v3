@@ -32,6 +32,7 @@
     *ngIf="showCalendarPopup()"
     [year]="getYearFromValue()"
     [preselectedDate]="value"
+    [parentVolumeUuid]="volumeUuid"
     (dateSelected)="onCalendarDateSelected($event)"
     (closePopup)="closeCalendar()">
   </app-calendar-popup>

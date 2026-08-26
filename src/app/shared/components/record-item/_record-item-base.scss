@@ -360,3 +360,40 @@
     transform: scale(1);
   }
 }
+
+
+// 2026 modern record surface: subtle depth instead of heavy outlines.
+.record-item-card {
+  border-color: var(--color-border-light);
+  box-shadow: 0 3px 12px rgba(16, 23, 25, 0.035);
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: rgba(0, 117, 140, 0.34);
+    box-shadow: 0 14px 30px rgba(16, 23, 25, 0.11);
+  }
+
+  .record-item-card__image {
+    border-color: var(--color-border-light);
+    border-radius: 10px;
+    background-color: var(--color-bg-light);
+
+    .real-image,
+    .record-item-card__image-lock-overlay {
+      border-radius: 10px;
+    }
+  }
+}
+
+:host-context(.dark) .record-item-card {
+  box-shadow: none;
+
+  &:hover {
+    border-color: rgba(99, 197, 214, 0.42);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+  }
+}

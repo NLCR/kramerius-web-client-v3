@@ -1,33 +1,37 @@
 <div class="filter-group">
-  <div class="group-content">
+  <div class="group-header">
+    <div class="group-heading">
+      <span class="group-index">{{ groupIndex + 1 }}</span>
+      <span class="group-title">{{ 'group-label' | translate }} {{ groupIndex + 1 }}</span>
+    </div>
 
-    <!-- Mobile: Group header with name + AND/OR switch -->
-    @if (breakpointService.isMobile()) {
-      <div class="mobile-group-header">
-        <span class="mobile-group-title">{{ 'group-label' | translate }} {{ groupIndex + 1 }}</span>
-        <div class="operator-switch" *ngIf="filters.length > 1" role="group" [attr.aria-label]="'toggle-and-or-operator' | translate">
-          <button
-            class="operator-switch-option"
-            [class.active]="operator === SolrOperators.and"
-            [attr.aria-pressed]="operator === SolrOperators.and"
-            (click)="setOperator(SolrOperators.and)">
-            AND
-          </button>
-          <button
-            class="operator-switch-option"
-            [class.active]="operator === SolrOperators.or"
-            [attr.aria-pressed]="operator === SolrOperators.or"
-            (click)="setOperator(SolrOperators.or)">
-            OR
-          </button>
-        </div>
+    <div class="group-header-actions">
+      <div class="operator-switch" *ngIf="filters.length > 1" role="group" [attr.aria-label]="'toggle-and-or-operator' | translate">
+        <button
+          type="button"
+          class="operator-switch-option"
+          [class.active]="operator === SolrOperators.and"
+          [attr.aria-pressed]="operator === SolrOperators.and"
+          (click)="setOperator(SolrOperators.and)">AND</button>
+        <button
+          type="button"
+          class="operator-switch-option"
+          [class.active]="operator === SolrOperators.or"
+          [attr.aria-pressed]="operator === SolrOperators.or"
+          (click)="setOperator(SolrOperators.or)">OR</button>
       </div>
-    }
 
+      <button class="remove-group-icon" *ngIf="advancedSearchService.pendingGroups().length > 1"
+              (click)="removeGroup.emit()" [attr.aria-label]="'remove-group-button-label' | translate">
+        <i class="icon-trash" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="group-content">
     <div class="filter-items">
       <ng-container *ngFor="let filter of filters; let i = index; trackBy: trackByFn">
 
-        <!-- Mobile: Condition header with label + trash -->
         @if (breakpointService.isMobile()) {
           <div class="mobile-condition-section">
             <div class="mobile-condition-header">
@@ -46,13 +50,16 @@
             </advanced-search-filter-row>
           </div>
         } @else {
-          <advanced-search-filter-row
-            [filter]="filter"
-            [isMobile]="false"
-            (filterChange)="updateFilter(i, $event)"
-            (remove)="removeFilter(i)"
-            (addYearFilter)="addYearFilterRow()">
-          </advanced-search-filter-row>
+          <div class="desktop-condition-row">
+            <span class="condition-number" [attr.aria-hidden]="true">{{ i + 1 }}</span>
+            <advanced-search-filter-row
+              [filter]="filter"
+              [isMobile]="false"
+              (filterChange)="updateFilter(i, $event)"
+              (remove)="removeFilter(i)"
+              (addYearFilter)="addYearFilterRow()">
+            </advanced-search-filter-row>
+          </div>
         }
 
       </ng-container>
@@ -63,18 +70,6 @@
         <i class="icon-add-square" aria-hidden="true"></i>
         {{ 'next-condition-button-label' | translate }}
       </button>
-
-      <button class="button link primary with-icon" *ngIf="advancedSearchService.pendingGroups().length > 1" (click)="removeGroup.emit()">
-        <i class="icon-trash" aria-hidden="true"></i>
-        {{ 'remove-group-button-label' | translate }}
-      </button>
     </div>
-  </div>
-
-  <!-- Desktop only: side operator column -->
-  <div class="group-operator" *ngIf="!breakpointService.isMobile() && (advancedSearchService.filters().length > 1 || filters.length > 1)">
-    <button class="operator-toggle" (click)="toggleOperator()" [attr.aria-label]="'toggle-and-or-operator' | translate">
-      {{ operator }}
-    </button>
   </div>
 </div>

@@ -54,7 +54,7 @@
   "search-placeholder-public-documents": "Hľadať vo verejných dokumentoch digitálnej knižnice",
   "search-placeholder-with-filters": "Hľadať s filtrami {{filters}}",
   "search-in-collection-placeholder": "Hľadať v zbierkach",
-  "search-hero-section-title": "Česká digitálna knižnica",
+  "search-hero-section-title": "Národná digitálna knižnica",
   "search-hero-section-subtitle": "Hľadáte historické knihy, noviny, mapy alebo rukopisy? Digitálna knižnica vám otvára brány k bohatej zbierke digitalizovaných dokumentov - či už voľne dostupných alebo chránených autorskými právami.",
   "sort-newest-added": "Najnovšie pridané",
   "sort-relevance": "Relevancia",
@@ -506,6 +506,8 @@
   "settings-accessibility-font-title": "Písmo",
   "export-jpeg-title": "Export JPEG",
   "export-pdf-title": "Export PDF",
+  "direct-pdf-download": "Stiahnuť celý dokument ihneď vo formáte PDF",
+  "direct-pdf-download-started": "Sťahovanie sa začalo",
   "export-print-title": "Tlač",
   "export-epub-title": "Export EPUB",
   "export-text-title": "Export TEXT (.txt)",
@@ -514,7 +516,6 @@
   "current-right-page": "Aktuálna pravá strana",
   "crop-page": "Výrez strany",
   "whole-document": "Celý dokument",
-  "whole-document-legacy": "Celý dokument (legacy)",
   "whole-document-visk2026": "Celý dokument VISK2026",
   "select-pages": "Vybrať strany",
   "select-area-drag": "Vyberte oblasť ťahaním",
@@ -812,7 +813,7 @@
   "ai.login-required": "K dispozícii po prihlásení",
   "ai.login-register-link": "Ako sa môžem zaregistrovať a čo získam?",
   "ai.login-button": "Prihlásiť sa",
-
+  "ai.text-transcript-unavailable": "Tento dokument nemá dostupný textový prepis",
   "settings.tts.language": "Jazyk",
   "settings.tts.voice": "Hlas",
   "settings.tts.preview": "Prehrať",
@@ -838,5 +839,10 @@
   "shared-folder-banner--save-action": "Uložiť do mojej knižnice",
   "shared-folder-banner--remove-action": "Odobrať zo zdieľaných",
   "shared-folder-menu--aria-label": "Možnosti zdieľaného priečinka",
-  "shared-folder-banner--saved-success": "Zoznam „{{folderName}}\" bol uložený do vašej knižnice."
+  "shared-folder-banner--saved-success": "Zoznam „{{folderName}}\" bol uložený do vašej knižnice.",
+  "periodical-calendar-digitized": "Digitalizované číslo",
+  "periodical-calendar-not-digitized": "Bez dostupného digitalizovaného čísla",
+  "periodical-calendar-help": "Zvýraznené dni obsahujú digitalizované číslo a možno ich otvoriť. Prázdny deň neznamená, že periodikum muselo v ten deň vyjsť – pri týždenníkoch, mesačníkoch a nepravidelných tituloch iba nie je pre tento deň dostupné digitalizované číslo.",
+  "periodical-calendar-digitized-open": "Digitalizované – voľne dostupné",
+  "periodical-calendar-digitized-restricted": "Digitalizované – obmedzený prístup"
 }

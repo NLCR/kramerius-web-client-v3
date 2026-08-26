@@ -86,7 +86,8 @@ Když chybí překlad pro zvolený jazyk, použije se fallback — jazyky se zko
 "api": {
   "baseUrl": "https://api.kramerius.mzk.cz",
   "citationUrl": "https://citace.ceskadigitalniknihovna.cz/api/v1",
-  "georefUrl": "https://api.georeference.trinera.cloud/georefs/latest"
+  "georefUrl": "https://api.georeference.trinera.cloud/georefs/latest",
+  "pdfServer": "https://new.kramerius7.nkp.cz/pdf/"
 }
 ```
 
@@ -95,6 +96,7 @@ Když chybí překlad pro zvolený jazyk, použije se fallback — jazyky se zko
 | `baseUrl` | ano | Základní URL Kramerius API backendu — **jediný zdroj pravdy** pro to, na jakého Krameria je klient připojen. Klient odsud odvozuje všechny API požadavky (`{baseUrl}/search/api/client/v7.0/…`). Hodnota může být uvedena buď bez cesty (`https://api.kramerius.example.org`), nebo včetně `/search/api/client` (`https://api.kramerius.example.org/search/api/client`) — obojí se normalizuje na stejný výsledek. |
 | `citationUrl` | ne | URL citační služby. Používá se při generování citací dokumentů. Když chybí, použije se výchozí `https://citace.ceskadigitalniknihovna.cz/api/v1`. |
 | `georefUrl` | ne | Základní URL služby s georeferenčními anotacemi (Allmaps anotace). Aktivní jen když `features.georef: true`. Když chybí, georeferenční zobrazení se nikdy nenabídne. Výchozí `https://api.georeference.trinera.cloud/georefs/latest`. |
+| `pdfServer` | ne | URL služby s předgenerovanými PDF. Klient ověří dokument pomocí `?uuid=PID`; tlačítko pro okamžité stažení zobrazí pouze při odpovědi `pdf: true` a velikost převezme z pole `size` (MB). Stažení použije stejnou URL s `&pdf=true`. Když pole chybí, funkce je vypnutá. |
 
 ---
 

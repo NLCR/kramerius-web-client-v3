@@ -17,6 +17,7 @@ export class CategoryItemComponent {
   @Input() url!: string;
   @Input() active: boolean = false;
 
+  @Input() accentColor: string | null = null;
   @Output() clicked: EventEmitter<string> = new EventEmitter<string>();
 
   recordHandler = inject(RecordHandlerService);

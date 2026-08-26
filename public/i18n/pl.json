@@ -54,7 +54,7 @@
   "search-placeholder-public-documents": "Szukaj w publicznych dokumentach biblioteki cyfrowej",
   "search-placeholder-with-filters": "Szukaj z filtrami {{filters}}",
   "search-in-collection-placeholder": "Szukaj w zbiorach",
-  "search-hero-section-title": "Czeską biblioteka cyfrową",
+  "search-hero-section-title": "Narodowa biblioteka cyfrowa",
   "search-hero-section-subtitle": "Szukasz historycznych książek, gazet, map lub rękopisów? Biblioteka cyfrowa otwiera drzwi do bogatej kolekcji zdigitalizowanych dokumentów – zarówno ogólnodostępnych, jak i chronionych prawem autorskim.",
   "sort-newest-added": "Najnowsze dodane",
   "sort-relevance": "Trafność",
@@ -505,6 +505,8 @@
   "settings-accessibility-font-title": "Czcionka",
   "export-jpeg-title": "Eksport JPEG",
   "export-pdf-title": "Eksport PDF",
+  "direct-pdf-download": "Pobierz natychmiast cały dokument w formacie PDF",
+  "direct-pdf-download-started": "Rozpoczęto pobieranie",
   "export-print-title": "Drukuj",
   "export-epub-title": "Export EPUB",
   "export-text-title": "Export TEXT (.txt)",
@@ -513,7 +515,6 @@
   "current-right-page": "Bieżąca prawa strona",
   "crop-page": "Wycinek strony",
   "whole-document": "Cały dokument",
-  "whole-document-legacy": "Cały dokument (legacy)",
   "whole-document-visk2026": "Cały dokument VISK2026",
   "select-pages": "Wybierz strony",
   "select-area-drag": "Wybierz obszar przeciągając",
@@ -811,7 +812,7 @@
   "ai.login-required": "Dostępne po zalogowaniu",
   "ai.login-register-link": "Jak mogę się zarejestrować i co zyskam?",
   "ai.login-button": "Zaloguj się",
-
+  "ai.text-transcript-unavailable": "Ten dokument nie ma dostępnej transkrypcji tekstowej",
   "settings.tts.language": "Język",
   "settings.tts.voice": "Głos",
   "settings.tts.preview": "Odtwórz",
@@ -837,5 +838,10 @@
   "shared-folder-banner--save-action": "Zapisz w mojej bibliotece",
   "shared-folder-banner--remove-action": "Usuń z udostępnionych",
   "shared-folder-menu--aria-label": "Opcje udostępnionego folderu",
-  "shared-folder-banner--saved-success": "Lista \"{{folderName}}\" została zapisana w Twojej bibliotece."
+  "shared-folder-banner--saved-success": "Lista \"{{folderName}}\" została zapisana w Twojej bibliotece.",
+  "periodical-calendar-digitized": "Numer zdigitalizowany",
+  "periodical-calendar-not-digitized": "Brak dostępnego numeru cyfrowego",
+  "periodical-calendar-help": "Wyróżnione dni zawierają zdigitalizowany numer i można je otworzyć. Pusty dzień nie oznacza, że czasopismo musiało się wtedy ukazać; w przypadku tygodników, miesięczników i tytułów nieregularnych oznacza jedynie brak dostępnego numeru cyfrowego dla tej daty.",
+  "periodical-calendar-digitized-open": "Zdigitalizowane – dostęp swobodny",
+  "periodical-calendar-digitized-restricted": "Zdigitalizowane – dostęp ograniczony"
 }

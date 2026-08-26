@@ -3,13 +3,15 @@ import {
   loadPeriodical, loadPeriodicalFailure,
   loadPeriodicalSuccess, setPeriodicalSearchParams,
   loadPeriodicalItems, loadPeriodicalItemsSuccess, loadPeriodicalItemsFailure, loadMonthIssues, loadMonthIssuesSuccess,
-  loadMonthIssuesFailure,
+  loadMonthIssuesFailure, resetPeriodicalDetail,
 } from './periodical-detail.actions';
 import {PeriodicalItem, PeriodicalItemChild, PeriodicalItemYear} from '../../../models/periodical-item';
 import {Metadata} from '../../../../shared/models/metadata.model';
 import {SolrOperators, SolrSortDirections, SolrSortFields} from '../../../../core/solr/solr-helpers';
 
 export interface PeriodicalDetailState {
+  activeUuid: string | null;
+  activeItemsParentUuid: string | null;
   document: PeriodicalItem | null;
   metadata: Metadata | null;
   years: PeriodicalItemYear[];
@@ -31,6 +33,8 @@ export interface PeriodicalDetailState {
 }
 
 export const initialState: PeriodicalDetailState = {
+  activeUuid: null,
+  activeItemsParentUuid: null,
   document: null,
   metadata: null,
   years: [],
@@ -53,14 +57,28 @@ export const initialState: PeriodicalDetailState = {
 
 export const periodicalDetailReducer = createReducer(
   initialState,
-  on(loadPeriodical, state => ({
-    ...state,
-    loading: true,
-    // Clear stale document/metadata so the header and metadata sidebar don't
-    // keep rendering the previously opened periodical while the new one loads.
-    document: null,
-    metadata: null
-  })),
+  on(loadPeriodical, (state, { uuid }) => {
+    const contextChanged = state.activeUuid !== uuid;
+    return {
+      ...state,
+      activeUuid: uuid,
+      loading: true,
+      error: null,
+      // A different periodical/volume must never inherit navigation or calendar
+      // state from the previously opened title. This was the source of stale
+      // dates appearing in the date popup.
+      document: null,
+      metadata: null,
+      ...(contextChanged ? {
+        years: [],
+        availableYears: [],
+        children: [],
+        activeItemsParentUuid: null,
+        monthIssues: {},
+        monthLoading: {},
+      } : {}),
+    };
+  }),
   on(setPeriodicalSearchParams, (state, { filters, advancedQuery, page, pageCount, sortBy, sortDirection, cdkCollection }) => {
     console.log('setPeriodicalSearchParams reducer - filters:', {
       filters,
@@ -83,45 +101,82 @@ export const periodicalDetailReducer = createReducer(
       }
     };
   }),
-  on(loadPeriodicalSuccess, (state, { document, metadata, years, availableYears, children, facets }) => ({
-    ...state,
-    loading: false,
-    facets: facets ?? {},
-    document,
-    metadata,
-    years,
-    availableYears: availableYears ?? state.availableYears,
-    children: children || []
-  })),
+  on(loadPeriodicalSuccess, (state, { document, metadata, years, availableYears, children, facets }) => {
+    // Ignore a late response belonging to a title that is no longer active.
+    if (state.activeUuid && metadata?.uuid && metadata.uuid !== state.activeUuid) {
+      return state;
+    }
+    return {
+      ...state,
+      loading: false,
+      facets: facets ?? {},
+      document,
+      metadata,
+      years,
+      availableYears: availableYears ?? state.availableYears,
+      children: children || []
+    };
+  }),
   on(loadPeriodicalFailure, (state, { error }) => ({ ...state, loading: false, error })),
-  on(loadPeriodicalItems, state => ({ ...state, loading: true })),
-  on(loadPeriodicalItemsSuccess, (state, { children, availableYears }) => ({
-    ...state,
-    loading: false,
-    children: children || [],
-    availableYears: availableYears ?? state.availableYears,
-  })),
-  on(loadPeriodicalItemsFailure, (state, { error }) => ({ ...state, loading: false, error })),
-  on(loadMonthIssues, (state, { year, month }) => {
-    const key = `${year}-${String(month).padStart(2, '0')}`;
+  on(loadPeriodicalItems, (state, { parentVolumeUuid }) => {
+    const volumeChanged = state.activeItemsParentUuid !== parentVolumeUuid;
+    return {
+      ...state,
+      loading: true,
+      error: null,
+      activeItemsParentUuid: parentVolumeUuid,
+      // Clear the old volume immediately so detail navigation cannot briefly use
+      // issues from the previously opened volume.
+      children: [],
+      // availableYears belongs to the *root periodical*, not globally to the
+      // application. When the parent volume changes we cannot prove it is the
+      // same title, so invalidate the hierarchy and month cache. The effect will
+      // reload the proper root volumes from the new child's root.pid.
+      ...(volumeChanged ? {
+        years: [],
+        availableYears: [],
+        monthIssues: {},
+        monthLoading: {},
+      } : {}),
+    };
+  }),
+  on(loadPeriodicalItemsSuccess, (state, { parentVolumeUuid, children, availableYears }) => {
+    if (state.activeItemsParentUuid && state.activeItemsParentUuid !== parentVolumeUuid) {
+      return state;
+    }
+    return {
+      ...state,
+      loading: false,
+      children: children || [],
+      availableYears: availableYears ?? state.availableYears,
+    };
+  }),
+  on(loadPeriodicalItemsFailure, (state, { parentVolumeUuid, error }) =>
+    state.activeItemsParentUuid && state.activeItemsParentUuid !== parentVolumeUuid
+      ? state
+      : ({ ...state, loading: false, error })
+  ),
+  on(loadMonthIssues, (state, { parentVolumeUuid, year, month }) => {
+    const key = `${parentVolumeUuid}|${year}-${String(month).padStart(2, '0')}`;
     return {
       ...state,
       monthLoading: { ...state.monthLoading, [key]: true }
     };
   }),
-  on(loadMonthIssuesSuccess, (state, { year, month, issues }) => {
-    const key = `${year}-${String(month).padStart(2, '0')}`;
+  on(loadMonthIssuesSuccess, (state, { parentVolumeUuid, year, month, issues }) => {
+    const key = `${parentVolumeUuid}|${year}-${String(month).padStart(2, '0')}`;
     return {
       ...state,
       monthIssues: { ...state.monthIssues, [key]: issues },
       monthLoading: { ...state.monthLoading, [key]: false }
     };
   }),
-  on(loadMonthIssuesFailure, (state, { year, month }) => {
-    const key = `${year}-${String(month).padStart(2, '0')}`;
+  on(loadMonthIssuesFailure, (state, { parentVolumeUuid, year, month }) => {
+    const key = `${parentVolumeUuid}|${year}-${String(month).padStart(2, '0')}`;
     return {
       ...state,
       monthLoading: { ...state.monthLoading, [key]: false }
     };
   }),
+  on(resetPeriodicalDetail, () => ({ ...initialState })),
 );

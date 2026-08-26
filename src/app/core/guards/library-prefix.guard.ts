@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, ActivatedRouteSnapshot, Router } from '@angular/router';
+import { CanActivateFn, CanMatchFn, ActivatedRouteSnapshot, Router, UrlSegment } from '@angular/router';
 import { ConfigService } from '../config/config.service';
 import { EnvironmentService } from '../../shared/services/environment.service';
 
@@ -55,6 +55,36 @@ export const libraryPrefixGuard: CanActivateFn = async (route: ActivatedRouteSna
   }
 
   // If library changed, set localStorage and reload so env/config pick up new API URLs
+  if (currentCode !== libCode) {
+    localStorage.setItem('CDK_DEV_BASE_URL', library.url);
+    localStorage.setItem('CDK_DEV_KRAMERIUS_ID', library.code);
+    window.location.reload();
+    return false;
+  }
+
+  return true;
+};
+
+
+/**
+ * Prevent the dynamic /:libCode route from swallowing arbitrary bad URLs.
+ * Unknown prefixes return false so Angular continues to the ** wildcard and
+ * renders the real 404 page instead of an empty routed outlet.
+ */
+export const libraryPrefixMatchGuard: CanMatchFn = async (_route, segments: UrlSegment[]) => {
+  const envService = inject(EnvironmentService);
+  if (!envService.isLibrarySwitchEnabled()) return false;
+
+  const libCode = segments[0]?.path;
+  if (!libCode) return false;
+
+  const currentCode = localStorage.getItem('CDK_DEV_KRAMERIUS_ID');
+  const currentUrl = localStorage.getItem('CDK_DEV_BASE_URL');
+  if (currentCode === libCode && currentUrl) return true;
+
+  const library = await loadLibraryByCode(libCode);
+  if (!library) return false;
+
   if (currentCode !== libCode) {
     localStorage.setItem('CDK_DEV_BASE_URL', library.url);
     localStorage.setItem('CDK_DEV_KRAMERIUS_ID', library.code);

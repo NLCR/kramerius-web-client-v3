@@ -56,9 +56,9 @@ a {
 
 
 .accessibility-in_library {
-  background-color: #FDE5E4 !important;
-  color: #3C0200 !important;
-  --accessibility-bg: #FDE5E4;
+  background-color: var(--accessibility-in_library-bg) !important;
+  color: var(--accessibility-in_library-text-color) !important;
+  --accessibility-bg: var(--accessibility-in_library-bg);
 }
 
 .accessibility-available {

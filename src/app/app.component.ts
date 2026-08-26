@@ -63,6 +63,12 @@ export class AppComponent implements OnInit {
           }
         }
       });
+    } else {
+      // A production single-library build must be deterministic. Remove stale
+      // developer overrides left by an earlier multi-library session so both
+      // the API context and the library UI start at config-main.json (`nkp`).
+      localStorage.removeItem('CDK_DEV_BASE_URL');
+      localStorage.removeItem('CDK_DEV_KRAMERIUS_ID');
     }
 
     // Recover from stale lazy-chunk loads after a new deploy. A failed lazy

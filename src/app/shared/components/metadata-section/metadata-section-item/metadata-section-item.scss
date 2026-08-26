@@ -36,6 +36,14 @@
   }
 }
 
+.metadata-section--item-header-value {
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 app-collapsible-content {
   // CTE-3: hodnoty v pravem panelu 14px + kompaktnejsi radkovani (labely zustavaji 16px/600)
   font-size: var(--font-size-small);
@@ -74,25 +82,33 @@ app-collapsible-content {
 .items-more-inline {
   display: inline-block;
   text-decoration: none;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-link, var(--color-primary));
   cursor: pointer;
   margin-left: var(--spacing-x1);
 
   &:hover {
-    color: var(--color-primary);
+    color: var(--color-text-link, var(--color-primary));
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 }
 
-// Clickable list items
+// Clickable metadata values use one affordance everywhere: link color at rest,
+// underline on hover/focus. This avoids mixing black-underlined values with
+// blue non-underlined values in the same sidebar.
 .clickable-list {
   li.clickable {
     cursor: pointer;
-    text-decoration: underline;
-    color: var(--color-text-primary);
+    color: var(--color-text-link, var(--color-primary));
+    text-decoration: none;
     transition: color 0.2s ease;
 
-    &:hover {
-      color: var(--color-primary);
+    &:hover,
+    &:focus-within {
+      color: var(--color-text-link, var(--color-primary));
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
     }
 
     .item-content {
@@ -105,15 +121,12 @@ app-collapsible-content {
       }
     }
 
-    // Item rendered as a real link (openable in a new tab). Inherit the list
-    // item's color/underline so it looks identical to the button variant.
     a.item-link {
       color: inherit;
-      text-decoration: inherit;
+      text-decoration: none;
 
       &:focus-visible {
         outline: none;
-        color: var(--color-primary);
       }
     }
   }
@@ -145,3 +158,23 @@ app-collapsible-content {
     font-size: var(--font-size-small);
   }
 }
+
+.metadata-section--item {
+  gap: var(--spacing-x1);
+}
+
+.metadata-section--item-label {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xxsmall);
+  line-height: var(--line-height-xs);
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+app-collapsible-content {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-2);
+}
+

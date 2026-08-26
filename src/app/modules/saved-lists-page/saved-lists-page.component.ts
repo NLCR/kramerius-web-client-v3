@@ -336,6 +336,7 @@ export class SavedListsPageComponent implements OnInit, OnDestroy {
   }
 
   openExportPanel(record: SearchDocument): void {
+    if (!this.exportService.canExportRecord(record)) return;
     this.exportRecord.set(record);
     this.exportService.writeExportPidToUrl(this.route, record.pid);
   }

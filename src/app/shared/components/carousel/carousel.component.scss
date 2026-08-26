@@ -20,7 +20,6 @@
     scroll-behavior: smooth;
     padding-bottom: 10px;
 
-    // Scrollbar hidden
     scrollbar-width: none;
     -ms-overflow-style: none;
 
@@ -28,7 +27,6 @@
       display: none;
     }
   }
-
 
   .carousel-actions {
     display: flex;

@@ -598,9 +598,18 @@ export class RecordHandlerService {
   }
 
   isRecordLocked(licenses: string[]): boolean {
-    // Check if user has any license that grants access to this content
-    // Returns true (locked) if user doesn't have access, false (unlocked) if user has access
+    // Open/public wins over every restrictive secondary license. A record may
+    // legitimately carry both `public` and e.g. `dnntt`; it must never show a
+    // closed lock when the content is freely readable.
+    if (this.isRecordPublic(licenses)) {
+      return false;
+    }
     return !this.userService.hasAnyLicense(licenses);
+  }
+
+  /** Merge own + descendant/contains licenses without losing the most open one. */
+  getEffectiveRecordLicenses(...licenseSets: Array<string[] | null | undefined>): string[] {
+    return Array.from(new Set(licenseSets.flatMap(set => set || [])));
   }
 
   goBackClicked(document: any | null): void {
@@ -655,7 +664,7 @@ export class RecordHandlerService {
       title: getItemTitle(item),
       subtitle: item['part.number.str'] ? `${subtitlePrefix} ${item['part.number.str']}` : '',
       model: item.model as DocumentTypeEnum,
-      licenses: item['licenses.facet'] || [],
+      licenses: this.getEffectiveRecordLicenses(item.licenses, item['licenses.facet']),
       className: 'card--fluid',
       showFavoriteButton: true,
       showAccessibilityBadge: true
@@ -699,7 +708,7 @@ export class RecordHandlerService {
    */
   private shouldAnySearchDocumentShowBadge(docs: SearchDocument[]): boolean {
     return docs.some(doc => {
-      const licenses = doc.containsLicenses || doc.licenses || [];
+      const licenses = this.getEffectiveRecordLicenses(doc.licenses, doc.containsLicenses);
       return this.isRecordLocked(licenses);
     });
   }
@@ -709,7 +718,7 @@ export class RecordHandlerService {
    */
   private shouldAnyPeriodicalChildShowBadge(items: PeriodicalItemChild[]): boolean {
     return items.some(item => {
-      const licenses = item['licenses.facet'] || [];
+      const licenses = this.getEffectiveRecordLicenses(item.licenses, item['licenses.facet']);
       return this.isRecordLocked(licenses);
     });
   }

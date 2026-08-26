@@ -58,11 +58,19 @@ export interface PeriodicalItemYear {
   [key: string]: any;
 }
 
-/** Returns true when at least one child has day+month data suitable for calendar display */
+/** Returns true when at least one child has a real day+month suitable for calendar display. */
 export function hasCalendarDisplayableChildren(children: PeriodicalItemChild[]): boolean {
-  return children?.length > 0 && children.some(
-    child => !!child['date_range_end.day'] && !!child['date_range_end.month']
-  );
+  if (!children?.length) return false;
+
+  return children.some(child => {
+    if (child['date_range_end.day'] && child['date_range_end.month']) return true;
+
+    // Some Kramerius records expose a full issue date only through date.str.
+    // Accept both Czech D.M.YYYY and ISO YYYY-MM-DD representations.
+    const date = (child['date.str'] || '').trim();
+    return /^\d{1,2}\.\s*\d{1,2}\.\s*\d{4}$/.test(date) ||
+      /^\d{4}-\d{1,2}-\d{1,2}(?:T.*)?$/.test(date);
+  });
 }
 
 export function parsePeriodicalItemFromMetadata(metadata: Metadata): PeriodicalItem {

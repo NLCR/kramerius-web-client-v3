@@ -33,10 +33,10 @@
           fallbackIcon="gallery">
         </app-thumbnail-image>
 
-        <ng-container *ngIf="recordHandler.isRecordLocked(record.containsLicenses || record.licenses || [])">
+        <ng-container *ngIf="recordHandler.isRecordLocked(recordHandler.getEffectiveRecordLicenses(record.licenses, record.containsLicenses))">
           <div class="record-item-card__image-lock-overlay">
             <button class="button secondary rounded icon-button" [attr.aria-label]="'document-locked--button'">
-              <i class="icon-lock-1"></i>
+              <i class="icon-key"></i>
             </button>
           </div>
         </ng-container>
@@ -64,7 +64,7 @@
 
   <td *ngIf="column.id === 'license'">
     <app-accessibility-badge [showIcon]="false" [showText]="true"
-      [isLocked]="recordHandler.isRecordLocked(record.containsLicenses || record.licenses || [])"
+      [isLocked]="recordHandler.isRecordLocked(recordHandler.getEffectiveRecordLicenses(record.licenses, record.containsLicenses))"
       [licenses]="record.licenses || []">
     </app-accessibility-badge>
   </td>
@@ -103,7 +103,7 @@
 
 <td class="actions-cell">
 
-  @if (exportEnabled && record.count_page && record.count_page >= 1) {
+  @if (canExportRecord() && record.count_page && record.count_page >= 1) {
     <button class="button primary icon-button" (click)="$event.stopPropagation(); downloadClicked.emit(record)" [attr.aria-label]="'download' | translate">
       <i class="icon icon-download"></i>
     </button>

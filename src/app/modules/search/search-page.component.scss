@@ -5,12 +5,15 @@
   padding: 0 var(--search-page-padding);
   height: calc(100vh - var(--header-height) - var(--playback-bar-height, 0px));
   overflow-y: auto;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(0, 141, 168, 0.07), transparent 34rem),
+    linear-gradient(180deg, #fbfcfc 0%, var(--color-bg-light) 100%);
 
   app-search-hero {
     display: block;
     margin-left: calc(var(--search-page-padding) * -1);
     margin-right: calc(var(--search-page-padding) * -1);
-    margin-bottom: var(--spacing-x10);
+    margin-bottom: var(--spacing-x14);
   }
 
   app-periodicals-section,
@@ -18,9 +21,17 @@
   app-genres-section,
   app-document-types-section,
   app-featured-documents-section,
-  app-link-tiles-section {
+  app-link-tiles-section,
+  app-map-section,
+  app-images-section,
+  app-authors-section,
+  app-institutions-section {
     display: block;
-    margin-bottom: var(--spacing-x24);
+    width: 100%;
+    max-width: 1180px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: var(--spacing-x16);
   }
 
   app-footer {
@@ -29,15 +40,14 @@
   }
 }
 
-// Responsive styles
 @include m.respond(md) {
-
   :host {
     padding: 0 var(--spacing-x3);
 
     app-search-hero {
       margin-left: calc(var(--spacing-x3) * -1);
       margin-right: calc(var(--spacing-x3) * -1);
+      margin-bottom: var(--spacing-x10);
     }
 
     app-periodicals-section,
@@ -45,8 +55,12 @@
     app-genres-section,
     app-document-types-section,
     app-featured-documents-section,
-    app-link-tiles-section {
-      margin-bottom: var(--spacing-x16);
+    app-link-tiles-section,
+    app-map-section,
+    app-images-section,
+    app-authors-section,
+    app-institutions-section {
+      margin-bottom: var(--spacing-x12);
     }
 
     app-footer {
@@ -54,5 +68,8 @@
       margin-right: calc(var(--spacing-x3) * -1);
     }
   }
+}
 
+:host-context(.dark) {
+  background: var(--color-bg-base);
 }

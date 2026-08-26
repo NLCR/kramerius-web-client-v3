@@ -32,8 +32,12 @@
   // styling and let the inner h2.clickable-title own the hover treatment.
   .title-link {
     display: inline-block;
-    color: inherit;
+    color: var(--color-text-link, var(--color-primary));
     text-decoration: none;
+
+    h2.clickable-title {
+      color: inherit;
+    }
 
     &:hover,
     &:focus-visible {
@@ -230,11 +234,14 @@
       a {
         font-size: var(--font-size-large);
         font-weight: 600;
-        color: var(--color-primary);
+        color: var(--color-text-link, var(--color-primary));
         text-decoration: none;
 
-        &:hover {
+        &:hover,
+        &:focus-visible {
           text-decoration: underline;
+          text-underline-offset: 3px;
+          outline: none;
         }
       }
     }
@@ -265,11 +272,18 @@
           min-width: 0;
 
           a {
-            color: #333;
-            text-decoration: underline;
+            color: var(--color-text-link, var(--color-primary));
+            text-decoration: none;
             overflow-wrap: anywhere;
             word-break: break-word;
             min-width: 0;
+
+            &:hover,
+            &:focus-visible {
+              text-decoration: underline;
+              text-underline-offset: 3px;
+              outline: none;
+            }
           }
 
           i.icon-copy {
@@ -304,13 +318,21 @@
     }
 
     &__link {
-      color: var(--color-text-primary);
-      text-decoration: underline;
+      color: var(--color-text-link, var(--color-primary));
+      text-decoration: none;
       font-size: var(--font-size-base);
 
-      &:hover {
-        text-decoration: none;
+      &:hover,
+      &:focus-visible {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        outline: none;
       }
+    }
+
+    &__text {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-base);
     }
 
     &__info {
@@ -323,7 +345,6 @@
 
       &:focus-visible {
         outline: none;
-        text-decoration: none;
       }
     }
 
@@ -370,12 +391,16 @@
 
 .volume-year-link {
   cursor: pointer;
-  text-decoration: underline;
-  color: var(--color-text-primary);
+  color: var(--color-text-link, var(--color-primary));
+  text-decoration: none;
   transition: color 0.2s ease;
 
-  &:hover {
-    color: var(--color-primary);
+  &:hover,
+  &:focus-visible {
+    color: var(--color-text-link, var(--color-primary));
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    outline: none;
   }
 }
 
@@ -402,3 +427,47 @@
   object-fit: contain;
   flex-shrink: 0;
 }
+
+// Research-oriented metadata rhythm: prominent title, compact labels, readable values.
+:host {
+  .data {
+    gap: var(--spacing-x5);
+  }
+
+  h2 {
+    font-size: var(--font-size-xxlarge);
+    line-height: var(--line-height-4);
+    letter-spacing: -0.02em;
+  }
+
+  app-metadata-section-item {
+    display: block;
+    padding-bottom: var(--spacing-x3);
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  .provided-licenses,
+  .donators,
+  .cartographic-data,
+  .article-card-wrapper {
+    padding-bottom: var(--spacing-x3);
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  .go-to-parent {
+    padding: var(--spacing-x2) var(--spacing-x3);
+    border-radius: 999px;
+    background: var(--color-brand-nk-soft, var(--color-bg-light));
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .provided-licenses__logo,
+  .donators .donator-logo {
+    max-width: 100%;
+    object-fit: contain;
+  }
+}
+
+

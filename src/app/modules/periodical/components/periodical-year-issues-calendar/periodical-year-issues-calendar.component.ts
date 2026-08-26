@@ -127,7 +127,7 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
       const issueData: CalendarIssue = {
         pid: item.pid,
         accessibility: item.accessibility || 'private',
-        licenses: item['licenses.facet'] || item.licenses || [],
+        licenses: this.recordHandler.getEffectiveRecordLicenses(item.licenses, item['licenses.facet']),
         model: item.model,
         partNumber: item['part.number.str'],
         issueTypeCode: normalizeIssueTypeCode(item['issue.type.code']),
@@ -152,15 +152,42 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
     }, 0);
   }
 
-  // Utility: parse date from DD.MM.YYYY
   parseDate(str: string): Date | null {
-    const [day, month, year] = str.split('.').map(Number);
-    return day && month && year ? new Date(year, month - 1, day) : null;
+    const value = String(str ?? '').trim();
+    let day: number;
+    let month: number;
+    let year: number;
+
+    let match = value.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+    if (match) {
+      day = Number(match[1]);
+      month = Number(match[2]);
+      year = Number(match[3]);
+    } else {
+      match = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:T.*)?$/);
+      if (!match) return null;
+      year = Number(match[1]);
+      month = Number(match[2]);
+      day = Number(match[3]);
+    }
+
+    const result = new Date(year, month - 1, day);
+    return result.getFullYear() === year && result.getMonth() === month - 1 && result.getDate() === day
+      ? result
+      : null;
   }
 
   formatDateKey(date: Date): string {
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
+
+  dateFilter = (date: Date | null): boolean => {
+    if (!date) return false;
+    return this.issueMap().has(this.formatDateKey(date));
+  };
 
   getMonthDate(monthIndex: number): Date {
     return new Date(this.yearNum, monthIndex, 1);
@@ -178,8 +205,10 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
     const issues = this.issueMap().get(this.formatDateKey(date));
     if (!issues || issues.length === 0) return '';
 
-    const hasLockedIssue = issues.some(issue =>
-      !this.recordHandler.isRecordPublic(issue.licenses || [])
+    // A restrictive secondary variant must not make a date look locked if
+    // another digitized issue on the same day is publicly readable.
+    const allIssuesLocked = issues.every(issue =>
+      this.recordHandler.isRecordLocked(issue.licenses || [])
     );
 
     let classes = 'has-issue';
@@ -191,7 +220,7 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
         classes += ' issue-count-3plus';
       }
     }
-    classes += ` accessibility-${hasLockedIssue ? 'private' : 'public'}`;
+    classes += ` accessibility-${allIssuesLocked ? 'private' : 'public'}`;
 
     return classes;
   };
@@ -247,8 +276,11 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
   toRecordItem(issue: CalendarIssue): RecordItem {
     const subtitlePrefix = this.translate.instant('periodicalvolume-part-subtitle');
     let title = '';
-    let subtitle = issue.partNumber ? `${subtitlePrefix} ${issue.partNumber}` : '';
-    subtitle = issue.dateStr ?? '';
+    const subtitleParts = [
+      issue.dateStr || '',
+      issue.partNumber ? `${subtitlePrefix} ${issue.partNumber}` : '',
+    ].filter(Boolean);
+    const subtitle = subtitleParts.join(' · ');
     if (issue.issueTypeCode) {
       title = this.translate.instant(`${issue.issueTypeCode}-issue`);
     } else if (issue.dateRangeEndDay && issue.dateRangeEndMonth) {
@@ -291,7 +323,7 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
       const issueData: CalendarIssue = {
         pid: item.pid,
         accessibility: item.accessibility || 'private',
-        licenses: item['licenses.facet'] || item.licenses || [],
+        licenses: this.recordHandler.getEffectiveRecordLicenses(item.licenses, item['licenses.facet']),
         model: item.model,
         partNumber: item['part.number.str'],
         issueTypeCode: normalizeIssueTypeCode(item['issue.type.code']),

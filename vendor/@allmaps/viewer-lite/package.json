@@ -1,6 +1,6 @@
 {
   "name": "@allmaps/viewer-lite",
-  "version": "0.1.0-vendored",
+  "version": "0.1.0-vendored.1",
   "description": "Plain JS embeddable viewer for georeferenced maps (vendored prebuilt copy)",
   "type": "module",
   "exports": {

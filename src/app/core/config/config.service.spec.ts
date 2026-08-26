@@ -174,6 +174,45 @@ describe('ConfigService source-scoped license resolution', () => {
   });
 });
 
+describe('ConfigService license action permissions', () => {
+  let service: ConfigService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [ConfigService, CdkSourceService, { provide: EnvironmentService, useValue: {} }],
+    });
+    service = TestBed.inject(ConfigService);
+    (service as any).config$.next({
+      ...service.getConfig(),
+      licenses: [
+        { id: 'login-only', accessType: 'login', actions: { pdf: false, print: false, jpeg: false, text: false } },
+        { id: 'public', accessType: 'open', actions: { pdf: true, print: true, jpeg: true, text: true } },
+      ],
+    });
+  });
+
+  it('denies PDF export when the primary license disables it', () => {
+    expect(service.isLicenseActionAllowed(['login-only'], 'pdf')).toBeFalse();
+    expect(service.isAnyExportAllowedForLicenses(['login-only'])).toBeFalse();
+  });
+
+  it('always denies PDF for a login-only license even if config enables it', () => {
+    const loginLicense = service.getLicenseConfig('login-only')!;
+    loginLicense.actions.pdf = true;
+    expect(service.isLicenseActionAllowed(['login-only'], 'pdf')).toBeFalse();
+  });
+
+  it('allows an action when a public license is also present, regardless of config order', () => {
+    expect(service.isLicenseActionAllowed(['login-only', 'public'], 'pdf')).toBeTrue();
+    expect(service.isAnyExportAllowedForLicenses(['login-only', 'public'])).toBeTrue();
+  });
+
+  it('denies missing and unknown license configuration', () => {
+    expect(service.isLicenseActionAllowed([], 'pdf')).toBeFalse();
+    expect(service.isLicenseActionAllowed(['unknown'], 'pdf')).toBeFalse();
+  });
+});
+
 /**
  * Guards the loader-side half of the "variants layer their actions" contract.
  *

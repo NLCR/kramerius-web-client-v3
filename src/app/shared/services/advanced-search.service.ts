@@ -44,6 +44,12 @@ export class AdvancedSearchService {
   operators = computed(() => this.pendingOperatorsSignal());
   pendingGroups = computed(() => this.filterGroupsSignal());
   mainOperator = computed(() => this.mainOperatorSignal());
+  hasPendingCriteria = computed(() =>
+    this.pendingFiltersSignal().length > 0 ||
+    this.filterGroupsSignal().some(group =>
+      group.filters.some(filter => this.getFilterValues(filter).length > 0),
+    ),
+  );
 
   private dialog = inject(MatDialog);
   private queryParamsService = inject(QueryParamsService);
@@ -83,11 +89,26 @@ export class AdvancedSearchService {
     );
   }
 
+  /**
+   * Reset only the values currently edited in the dialog. This deliberately
+   * leaves the applied state and URL untouched so closing the dialog behaves
+   * like a real cancel operation.
+   */
+  clearPending() {
+    this.pendingFiltersSignal.set([]);
+    this.pendingOperatorsSignal.set({});
+    this.filterGroupsSignal.set([{ filters: [], operator: SolrOperators.and }]);
+    this.mainOperatorSignal.set(SolrOperators.and);
+  }
+
+  /** Clear an already applied advanced search and update the URL. */
   clear() {
     this.pendingFiltersSignal.set([]);
     this.pendingOperatorsSignal.set({});
     this.filterGroupsSignal.set([]);
+    this.mainOperatorSignal.set(SolrOperators.and);
     this.appliedGroupsSignal.set([]);
+    this.appliedMainOperatorSignal.set(SolrOperators.and);
     this.queryParamsService.removeAdvancedSearch(this.route);
   }
 
@@ -308,6 +329,9 @@ export class AdvancedSearchService {
   }
 
   openDialog(): void {
+    const originalPendingFilters = structuredClone(this.pendingFiltersSignal());
+    const originalPendingOperators = structuredClone(this.pendingOperatorsSignal());
+
     this.filterGroupsSignal.set(structuredClone(this.appliedGroupsSignal()));
     this.mainOperatorSignal.set(this.appliedMainOperatorSignal());
 
@@ -328,7 +352,9 @@ export class AdvancedSearchService {
         this.setAppliedGroups(this.filterGroupsSignal());
         this.setAppliedMainOperator(this.mainOperatorSignal());
       } else {
-        this.filterGroupsSignal.set(this.appliedGroupsSignal());
+        this.pendingFiltersSignal.set(originalPendingFilters);
+        this.pendingOperatorsSignal.set(originalPendingOperators);
+        this.filterGroupsSignal.set(structuredClone(this.appliedGroupsSignal()));
         this.mainOperatorSignal.set(this.appliedMainOperatorSignal());
       }
     });
@@ -373,11 +399,8 @@ export class AdvancedSearchService {
   }
 
   getAdvancedSearchPreviewGroups = computed(() => {
-    const mainOp = this.appliedMainOperatorSignal();
-
     return this.appliedGroupsSignal().map(group => {
       const filters = group.filters
-        .filter(f => !!f.elementValue?.trim())
         .flatMap(f => {
           const values = this.getFilterValues(f);
           return values.map(v => ({
@@ -659,7 +682,7 @@ export class AdvancedSearchService {
     return computed(() => {
       return this.appliedGroupsSignal().some(group =>
         group.filters.some(f =>
-          !!f.elementValue?.trim() &&
+          this.getFilterValues(f).length > 0 &&
           (f.key === SolrFacetKey.Date || f.key === SolrFacetKey.Year)
         )
       );
@@ -697,7 +720,7 @@ export class AdvancedSearchService {
 
   hasFulltextFilter(): boolean {
     return this.appliedGroupsSignal().some(group =>
-      group.filters.some(f => f.key.includes(SolrFacetKey.Fulltext) && !!f.elementValue?.trim())
+      group.filters.some(f => f.key.includes(SolrFacetKey.Fulltext) && this.getFilterValues(f).length > 0)
     );
   }
 

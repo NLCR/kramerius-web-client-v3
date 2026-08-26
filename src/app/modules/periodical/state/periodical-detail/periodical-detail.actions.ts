@@ -7,6 +7,7 @@ import {FacetItem} from '../../../models/facet-item';
 export const loadPeriodical = createAction('[Periodical] Load', props<{ uuid: string; filters: string[], advancedQuery?: string, page: number, pageCount: number, sortBy: SolrSortFields, sortDirection: SolrSortDirections, cdkCollection?: string | null }>());
 export const loadPeriodicalSuccess = createAction('[Periodical] Load Success', props<{ document: PeriodicalItem; metadata: Metadata; years: PeriodicalItemYear[]; availableYears: PeriodicalItemYear[]; children?: any[]; facets?: { [key: string]: FacetItem[] } }>());
 export const loadPeriodicalFailure = createAction('[Periodical] Load Failure', props<{ error: any }>());
+export const resetPeriodicalDetail = createAction('[Periodical] Reset Detail');
 
 export const setPeriodicalSearchParams = createAction('[Periodical] Set Search Params', props<{
   filters: string[];
@@ -19,8 +20,8 @@ export const setPeriodicalSearchParams = createAction('[Periodical] Set Search P
 }>());
 
 export const loadPeriodicalItems = createAction('[Periodical] Load Items', props<{ parentVolumeUuid: string }>());
-export const loadPeriodicalItemsSuccess = createAction('[Periodical] Load Items Success', props<{ children: any[]; availableYears?: PeriodicalItemYear[] }>());
-export const loadPeriodicalItemsFailure = createAction('[Periodical] Load Items Failure', props<{ error: any }>());
+export const loadPeriodicalItemsSuccess = createAction('[Periodical] Load Items Success', props<{ parentVolumeUuid: string; children: any[]; availableYears?: PeriodicalItemYear[] }>());
+export const loadPeriodicalItemsFailure = createAction('[Periodical] Load Items Failure', props<{ parentVolumeUuid: string; error: any }>());
 
 export const loadMonthIssues = createAction(
   '[Periodical] Load Month Issues',
@@ -29,10 +30,10 @@ export const loadMonthIssues = createAction(
 
 export const loadMonthIssuesSuccess = createAction(
   '[Periodical] Load Month Issues Success',
-  props<{ year: number; month: number; issues: any[] }>()
+  props<{ parentVolumeUuid: string; year: number; month: number; issues: any[] }>()
 );
 
 export const loadMonthIssuesFailure = createAction(
   '[Periodical] Load Month Issues Failure',
-  props<{ year: number; month: number; error: any }>()
+  props<{ parentVolumeUuid: string; year: number; month: number; error: any }>()
 );

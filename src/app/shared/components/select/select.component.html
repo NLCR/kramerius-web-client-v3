@@ -10,7 +10,7 @@
   <i class="icon-arrow-down arrow-icon" [class.open]="open()" aria-hidden="true"></i>
 </div>
 
-<div *ngIf="open()" class="options-container" [class.above]="showAbove" [style.z-index]="zIndex" role="listbox">
+<div *ngIf="open()" class="options-container" [class.above]="showAbove" [style]="dropdownStyle" role="listbox">
   <!-- Filter Input -->
   <div *ngIf="filterable" class="filter-container">
     <app-input #filterInput [type]="'text'" class="filter-input" [placeholder]="filterPlaceholder | translate" [showMicButton]="showMicButton"

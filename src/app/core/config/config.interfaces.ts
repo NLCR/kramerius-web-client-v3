@@ -12,6 +12,31 @@ export interface ApiConfig {
   baseUrl: string;          // API base URL
   citationUrl?: string;     // Citation service API URL
   georefUrl?: string;       // Georeference annotations API base URL (Allmaps annotations)
+  /** Optional service that reports and serves pre-generated whole-document PDFs. */
+  pdfServer?: string;
+}
+
+// AI integrations. TTS and translations continue to use apiBaseUrl, while the
+// LLM endpoint can be switched independently to a self-hosted Qwen server.
+export type AiLlmProvider = 'trinera' | 'qwen';
+export type AiLlmAuthMode = 'kramerius' | 'none';
+
+export interface AiLlmConfig {
+  provider: AiLlmProvider;
+  /** OpenAI-compatible API root, for example https://ai.example.org/v1. */
+  baseUrl?: string;
+  model?: string;
+  /**
+   * `kramerius` forwards the signed-in user's bearer token. `none` is intended
+   * only for an API protected by a trusted reverse proxy or an isolated network.
+   */
+  auth?: AiLlmAuthMode;
+}
+
+export interface AiConfig {
+  /** Existing Trinera API used by TTS, translation and built-in LLM providers. */
+  apiBaseUrl?: string;
+  llm?: AiLlmConfig;
 }
 
 // Internationalization configuration
@@ -273,6 +298,7 @@ export type FooterConfig = LocalizedContent;
 export interface AppConfiguration {
   app: AppConfig;
   api: ApiConfig;
+  ai?: AiConfig;
   i18n: I18nConfig;
   integrations?: IntegrationsConfig;
   features: FeaturesConfig;

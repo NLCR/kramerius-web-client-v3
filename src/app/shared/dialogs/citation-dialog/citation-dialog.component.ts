@@ -97,7 +97,8 @@ export class CitationDialogComponent {
       url: apiUrl,
       uuid: this.selectedPid,
       exp: 'all',
-      format: 'txt',
+      // Do not force format=txt: with exp=all the citation API can return both
+      // iso690 and iso690html only when the format filter is omitted.
       lang: lang,
       ref: refUrl
     }).subscribe({

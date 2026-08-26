@@ -2,6 +2,11 @@
 
 :host {
   display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  contain: layout inline-size;
 }
 
 h3 {
@@ -14,15 +19,89 @@ h3 {
   color: var(--color-text-btn-secondary-default);
 }
 
+
+.periodical-calendar-explanation {
+  display: block;
+  padding: var(--spacing-x3) var(--spacing-x4);
+  margin-bottom: var(--spacing-x4);
+  border: 1px solid var(--color-border-bright);
+  border-radius: 10px;
+  background: var(--color-bg-light);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+
+  .calendar-legend {
+    margin-bottom: var(--spacing-x3);
+  }
+
+  p {
+    margin: 0;
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-xxsmall);
+    line-height: 1.45;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: normal;
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+}
+
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-x2) var(--spacing-x4);
+}
+
+.calendar-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xxsmall);
+  white-space: nowrap;
+}
+
+.calendar-legend__swatch {
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+
+.calendar-legend__swatch--open {
+  background: var(--accessibility-public-bg);
+  border: 1px solid color-mix(in srgb, var(--accessibility-public-text-color) 24%, transparent);
+}
+
+.calendar-legend__swatch--restricted {
+  background: var(--accessibility-private-bg);
+  border: 1px solid color-mix(in srgb, var(--accessibility-private-text-color) 24%, transparent);
+}
+
+.calendar-legend__swatch--missing {
+  background: transparent;
+  border: 1px solid var(--color-border-bright);
+}
+
+
 .months-calendar-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr));
   gap: var(--spacing-x4);
+  min-width: 0;
+  overflow: hidden;
 
   .month-calendar {
     padding: 0 var(--spacing-x2) var(--spacing-x2);
     background-color: var(--color-bg-base);
     border-radius: 8px;
+    min-width: 0;
+    overflow: hidden;
 
     // Calendar header (month name)
     .month-header {
@@ -38,8 +117,14 @@ h3 {
     }
 
     ::ng-deep .mat-calendar {
-      width: 100%;
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
       height: auto;
+    }
+
+    ::ng-deep .mat-calendar-body {
+      min-width: 0 !important;
     }
 
     ::ng-deep .mat-calendar-content {
@@ -95,6 +180,12 @@ h3 {
       width: 85% !important;
       height: 85% !important;
       line-height: 1 !important;
+    }
+
+    ::ng-deep .mat-calendar-body-disabled .mat-calendar-body-cell-content {
+      color: var(--color-text-tertiary) !important;
+      opacity: .38;
+      cursor: default;
     }
 
     // Cells with issues — green background

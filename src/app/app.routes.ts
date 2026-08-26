@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { AuthGuard } from './core/auth/auth.guard';
 import { authCallbackGuard } from './core/auth/auth-callback.guard';
 import { legacyRouteGuard } from './core/guards/legacy-route.guard';
-import { libraryPrefixGuard } from './core/guards/library-prefix.guard';
+import { libraryPrefixGuard, libraryPrefixMatchGuard } from './core/guards/library-prefix.guard';
 
 export enum APP_ROUTES_ENUM {
   SEARCH = '',
@@ -124,6 +124,7 @@ export const routes: Routes = [
   // Library-prefixed routes (/:libCode/*)
   {
     path: ':libCode',
+    canMatch: [libraryPrefixMatchGuard],
     canActivate: [libraryPrefixGuard],
     children: defineMainRoutes()
   },

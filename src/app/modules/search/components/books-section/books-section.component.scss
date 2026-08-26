@@ -1,0 +1,39 @@
+:host {
+  display: block;
+}
+
+section {
+  padding: var(--spacing-x6);
+  border: 1px solid var(--color-border-light);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 14px 40px rgba(16, 23, 25, 0.045);
+}
+
+:host ::ng-deep app-record-item .record-item-card {
+  border: 1px solid var(--color-border-light);
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(16, 23, 25, 0.045);
+}
+
+:host ::ng-deep app-record-item .record-item-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 117, 140, 0.35);
+  box-shadow: 0 14px 30px rgba(16, 23, 25, 0.12);
+}
+
+:host ::ng-deep app-record-item .record-item-card__image {
+  border-radius: 10px;
+}
+
+@media (max-width: 603px) {
+  section {
+    padding: var(--spacing-x4);
+    border-radius: 16px;
+  }
+}
+
+:host-context(.dark) section {
+  background: rgba(14, 18, 22, 0.72);
+  box-shadow: none;
+}

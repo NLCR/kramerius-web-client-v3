@@ -18,7 +18,7 @@ import {
   clearDocumentDetail,
   loadDocumentDetail,
 } from '../../../shared/state/document-detail/document-detail.actions';
-import { filter, map, Observable, skip, Subject, take, takeUntil } from 'rxjs';
+import { distinctUntilChanged, filter, map, Observable, skip, Subject, take, takeUntil } from 'rxjs';
 import { SolrService } from '../../../core/solr/solr.service';
 import {
   selectAvailableYears,
@@ -30,7 +30,7 @@ import { Metadata } from '../../../shared/models/metadata.model';
 import { SoundRecordGridControl } from '../../../shared/components/toolbar-controls/toolbar-controls.component';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { DocumentTypeEnum } from '../../constants/document-type';
-import { loadPeriodical, loadPeriodicalItems } from '../../periodical/state/periodical-detail/periodical-detail.actions';
+import { loadPeriodical, loadPeriodicalItems, resetPeriodicalDetail } from '../../periodical/state/periodical-detail/periodical-detail.actions';
 import { SolrSortDirections, SolrSortFields } from '../../../core/solr/solr-helpers';
 import { IIIFViewerService } from '../../../shared/services/iiif-viewer.service';
 import { DocumentInfoService } from '../../../shared/services/document-info.service';
@@ -131,7 +131,10 @@ export class DetailViewService {
     }
 
     // Listen to pages changes and update the signal automatically
-    this.pages$.pipe(takeUntil(this.destroy$)).subscribe(pages => {
+    this.pages$.pipe(
+      distinctUntilChanged((previous, current) => this.haveSamePageSequence(previous, current)),
+      takeUntil(this.destroy$)
+    ).subscribe(pages => {
       if (!this.isOnDetailViewPage()) {
         return;
       }
@@ -179,6 +182,13 @@ export class DetailViewService {
 
   }
 
+
+  private haveSamePageSequence(previous: Page[] | null | undefined, current: Page[] | null | undefined): boolean {
+    if (previous === current) return true;
+    if (!previous || !current || previous.length !== current.length) return false;
+    return previous.every((page, index) => page.pid === current[index]?.pid);
+  }
+
   resetState(): void {
     this._pages.set([]);
     this._articles.set([]);
@@ -189,6 +199,7 @@ export class DetailViewService {
     this._isDocumentAccessDenied.set(false);
     this.pdfService.clearPdfData();
     this.store.dispatch(clearDocumentDetail());
+    this.store.dispatch(resetPeriodicalDetail());
     // Clear the CDK member-library source so the next document can't inherit the
     // previous one's code (e.g. an `svkhk` doc leaking `svkhk` into an `nkp` doc's
     // `items/…/info` and image calls before its own source is resolved).

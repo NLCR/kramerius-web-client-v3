@@ -78,6 +78,13 @@ export class MonthYearSelectorComponent implements OnInit, OnChanges {
    * (sorted descending) instead of the generic env-driven range.
    */
   @Input() availableYears: number[] | null = null;
+  /**
+   * When true, never fall back to the application's generic year range. This
+   * is used by periodicals: before their hierarchy finishes loading it is less
+   * confusing to offer only the current year than hundreds of years for which
+   * the title has no digital content.
+   */
+  @Input() restrictToAvailableYears: boolean = false;
   @Output() monthYearChange = new EventEmitter<MonthYearChange>();
 
   monthOptions: { value: number, label: string }[] = [];
@@ -138,6 +145,11 @@ export class MonthYearSelectorComponent implements OnInit, OnChanges {
       const unique = Array.from(new Set(this.availableYears));
       unique.sort((a, b) => b - a);
       this.yearOptions = unique.map(year => ({ value: year, label: year.toString() }));
+      return;
+    }
+
+    if (this.restrictToAvailableYears) {
+      this.yearOptions = [{ value: this.year, label: this.year.toString() }];
       return;
     }
 

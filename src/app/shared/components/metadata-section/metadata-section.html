@@ -183,7 +183,7 @@
               {{ license | translate }}
             </a>
           } @else {
-            <span class="provided-licenses__link">{{ license | translate }}</span>
+            <span class="provided-licenses__text">{{ license | translate }}</span>
           }
           @if (getProvidedByLicenseImage(license); as imgSrc) {
             @if (getProvidedByLicenseUrl(license); as url) {
@@ -262,12 +262,6 @@
         </div>
       </div>
 
-      <!-- Language -->
-      <app-metadata-section-item *ngIf="articleData.languages.length" [label]="'languages' | translate"
-        type="clickable-list" [items]="articleData.languages" translateNamespace="language" [onItemClick]="clickedLanguage"
-        [itemHref]="languageHref">
-      </app-metadata-section-item>
-
       <app-metadata-section-item *ngIf="articleData.extent" [label]="'range--label' | translate" type="text"
         [value]="articleData.extent">
       </app-metadata-section-item>
@@ -287,23 +281,23 @@
       {{ item.label }}: {{ item.value }}
     }
   </ng-template>
-  <app-metadata-section-item *ngIf="volumeItems().length"
-    [label]="'volume' | translate" type="list"
+  <app-metadata-section-item *ngIf="volumeItems().length || volumeHeaderValue()"
+    [label]="'volume' | translate" [headerValue]="volumeHeaderValue()" type="list"
     [items]="volumeItems()" [itemTpl]="volumeItemTpl">
   </app-metadata-section-item>
 
   <!-- Issue (Číslo) — sits directly under the volume it belongs to. The issue's
        own number/date and its MODS detail (childData) are rendered together
        here rather than in two separate places. -->
-  <app-metadata-section-item *ngIf="getIssueItems().length"
-    [label]="'issue' | translate" type="list"
+  <app-metadata-section-item *ngIf="hasIssueMetadata()"
+    [label]="'issue' | translate" [headerValue]="issueHeaderValue()" type="list"
     [items]="getIssueItems()" [disableTranslate]="true">
   </app-metadata-section-item>
 
-  @if (childData) {
+  @if (childData && hasChildContent()) {
   @let hasChildTitle = !!(childData.titles && childData.titles.length > 0 && childData.titles[0].title);
   <div class="article-card-wrapper">
-    @if (!hasChildTitle) {
+    @if (!hasChildTitle && hasChildDetails()) {
       <button class="toggle-btn toggle-btn--standalone" (click)="toggleChild()"
               [attr.aria-expanded]="childExpanded()"
               [attr.aria-label]="(childExpanded() ? 'collapse--arialabel' : 'expand--arialabel') | translate">
@@ -314,11 +308,13 @@
       @if (hasChildTitle) {
         <div class="article-header">
           <span class="label">{{ childData.titles[0].title }}</span>
-          <button class="toggle-btn" (click)="toggleChild()"
-                  [attr.aria-expanded]="childExpanded()"
-                  [attr.aria-label]="(childExpanded() ? 'collapse--arialabel' : 'expand--arialabel') | translate">
-            <i [class]="childExpanded() ? 'icon-minus-square' : 'icon-add-square'" aria-hidden="true"></i>
-          </button>
+          @if (hasChildDetails()) {
+            <button class="toggle-btn" (click)="toggleChild()"
+                    [attr.aria-expanded]="childExpanded()"
+                    [attr.aria-label]="(childExpanded() ? 'collapse--arialabel' : 'expand--arialabel') | translate">
+              <i [class]="childExpanded() ? 'icon-minus-square' : 'icon-add-square'" aria-hidden="true"></i>
+            </button>
+          }
         </div>
       }
 
@@ -333,12 +329,6 @@
       <app-metadata-section-item *ngIf="childData.authors.length" [label]="'author' | translate" type="clickable-list"
         [items]="childData.authors" [displayFn]="getAuthorName" [onItemClick]="clickedAuthor" [itemHref]="authorHref"
         [itemSuffixTpl]="authorIdentifiersTpl">
-      </app-metadata-section-item>
-
-      <!-- Languages -->
-      <app-metadata-section-item *ngIf="childData.languages.length" [label]="'languages' | translate"
-        type="clickable-list" [items]="childData.languages" translateNamespace="language" [onItemClick]="clickedLanguage"
-        [itemHref]="languageHref">
       </app-metadata-section-item>
 
       <!-- Locations -->
@@ -379,8 +369,8 @@
   </app-metadata-section-item>
 
   <!-- Languages -->
-  <app-metadata-section-item *ngIf="data.languages.length" [label]="'languages' | translate" type="clickable-list"
-    [items]="data.languages" translateNamespace="language" [onItemClick]="clickedLanguage" [itemHref]="languageHref">
+  <app-metadata-section-item *ngIf="displayLanguages().length" [label]="'languages' | translate" type="clickable-list"
+    [items]="displayLanguages()" translateNamespace="language" [onItemClick]="clickedLanguage" [itemHref]="languageHref">
   </app-metadata-section-item>
 
   <!-- Locations -->

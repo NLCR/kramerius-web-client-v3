@@ -1,3 +1,12 @@
+<div class="periodical-calendar-explanation" *ngIf="shouldShowCalendars()">
+  <div class="calendar-legend">
+    <span class="calendar-legend__item"><i class="calendar-legend__swatch calendar-legend__swatch--open"></i>{{ 'periodical-calendar-digitized-open' | translate }}</span>
+    <span class="calendar-legend__item"><i class="calendar-legend__swatch calendar-legend__swatch--restricted"></i>{{ 'periodical-calendar-digitized-restricted' | translate }}</span>
+    <span class="calendar-legend__item"><i class="calendar-legend__swatch calendar-legend__swatch--missing"></i>{{ 'periodical-calendar-not-digitized' | translate }}</span>
+  </div>
+  <p>{{ 'periodical-calendar-help' | translate }}</p>
+</div>
+
 <div class="months-calendar-container" *ngIf="shouldShowCalendars()" (mousedown)="onCalendarClick($event)">
   <div class="month-calendar" *ngFor="let month of months; let i = index"
     [class.month-placeholder]="!isMonthVisible(i)">
@@ -7,7 +16,7 @@
 
     <!-- Show calendar if month is visible -->
     <mat-calendar *ngIf="isMonthVisible(i)" class="custom-label" [dateClass]="dateClass" [startAt]="getMonthDate(i)"
-      [startView]="'month'" [minDate]="getMonthMinDate(i)" [maxDate]="getMonthMaxDate(i)"
+      [startView]="'month'" [minDate]="getMonthMinDate(i)" [maxDate]="getMonthMaxDate(i)" [dateFilter]="dateFilter"
       (selectedChange)="onDateSelected($event)">
     </mat-calendar>
 

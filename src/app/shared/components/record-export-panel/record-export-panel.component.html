@@ -8,7 +8,7 @@
   </div>
 
   <div class="record-export-panel__sections" *ngIf="!loading()">
-    @if (printEnabled) {
+    @if (printEnabled && printAllowed()) {
     <app-export-document-section-item-component
       [title]="'export-print-title'"
       [icon]="'icon-printer'"
@@ -22,7 +22,7 @@
     </app-export-document-section-item-component>
     }
 
-    @if (pdfEnabled) {
+    @if (pdfEnabled && pdfAllowed()) {
     <app-export-document-section-item-component
       [title]="'export-pdf-title'"
       [icon]="'icon-document-download'"
@@ -32,12 +32,13 @@
       [expanded]="expandedSection() === 'pdf'"
       [loading]="pdfLoading()"
       [loginRequired]="!isLoggedIn()"
+      [directPdfPid]="record.pid"
       (toggle)="onSectionToggle('pdf')"
       (submit)="onPdfSubmit($event)">
     </app-export-document-section-item-component>
     }
 
-    @if (epubEnabled) {
+    @if (epubEnabled && textAllowed()) {
     <app-export-document-section-item-component
       [title]="'export-epub-title'"
       [icon]="'icon-book-export'"
@@ -51,7 +52,7 @@
     </app-export-document-section-item-component>
     }
 
-    @if (txtEnabled) {
+    @if (txtEnabled && textAllowed()) {
     <app-export-document-section-item-component
       [title]="'export-text-title'"
       [icon]="'icon-document-text'"

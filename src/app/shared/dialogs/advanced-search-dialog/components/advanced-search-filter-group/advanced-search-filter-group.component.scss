@@ -1,160 +1,173 @@
 @use "mixins" as *;
 
 .filter-group {
-  display: flex;
-  position: relative;
-  border: 1px solid var(--color-border-bright);
-  border-radius: 12px;
-  background-color: var(--color-bg-subtle);
-
-  @include respond(sm) {
-    flex-direction: column;
-    background-color: var(--color-bg-base);
-  }
-
-  .group-content {
-    flex: 1 1 auto;
-    padding: 12px 24px 8px 12px;
-
-    @include respond(sm) {
-      padding: 0;
-    }
-  }
-
-  .filter-items {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    @include respond(sm) {
-      gap: 0;
-    }
-  }
-
-  .group-actions {
-    display: flex;
-    align-items: center;
-    margin-top: 8px;
-    gap: 16px;
-    flex-wrap: wrap;
-
-    @include respond(sm) {
-      flex-direction: column;
-      align-items: flex-start;
-      margin-top: 0;
-      gap: 0;
-
-      > button {
-        width: 100%;
-        padding: 12px;
-        border-top: 1px solid var(--color-border-bright);
-        justify-content: start;
-        border-radius: 0;
-
-        &:last-child {
-          border-bottom: none;
-        }
-      }
-    }
-  }
-
-  .group-operator {
-    flex: 0 0 50px;
-    width: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    .operator-toggle {
-      height: 100%;
-      width: 100%;
-      font-size: var(--font-size-small);
-      color: var(--color-text-on-color);
-      background-color: var(--color-primary);
-      border: none;
-      border-top-right-radius: 8px;
-      border-bottom-right-radius: 8px;
-      cursor: pointer;
-
-      &:hover {
-        background-color: var(--color-primary-hover);
-      }
-
-      &:active {
-        background-color: var(--color-primary-pressed);
-      }
-    }
-  }
+  overflow: hidden;
+  border: 1px solid var(--color-border-light);
+  border-radius: 16px;
+  background: var(--color-bg-base);
 }
 
-// Mobile group header
-.mobile-group-header {
+.group-header {
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px;
-  gap: 8px;
-
-  .mobile-group-title {
-    font-size: 18px;
-    font-weight: 500;
-    line-height: 28px;
-    color: var(--color-text-base);
-  }
+  gap: var(--spacing-x3);
+  padding: var(--spacing-x2) var(--spacing-x3);
+  border-bottom: 1px solid var(--color-border-light);
+  background: color-mix(in srgb, var(--color-bg-light) 75%, var(--color-bg-base));
 }
 
-// AND/OR pill switch (Figma: tab toggle)
-.operator-switch {
+.group-heading,
+.group-header-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  background-color: var(--color-bg-light);
-  border-radius: var(--spacing-x2);
-  padding: 2px;
-  height: 44px;
+  gap: var(--spacing-x2);
+}
+
+.group-index {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--color-brand-nk-soft, var(--color-bg-light));
+  color: var(--color-primary);
+  font-size: var(--font-size-small);
+  font-weight: 750;
+}
+
+.group-title {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  font-weight: 700;
+}
+
+.operator-switch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 10px;
+  background: var(--color-bg-base);
 
   .operator-switch-option {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 8px;
-    height: 100%;
-    border: none;
-    border-radius: 6px;
+    min-width: 48px;
+    height: 28px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 7px;
     background: transparent;
-    font-size: var(--font-size-small);
-    font-weight: 500;
-    line-height: 20px;
     color: var(--color-text-tertiary);
     cursor: pointer;
+    font-size: var(--font-size-small);
+    font-weight: 700;
 
     &.active {
-      background-color: var(--color-bg-base);
+      background: var(--color-brand-nk-soft, var(--color-bg-light));
+      color: var(--color-primary);
     }
   }
 }
 
-// Mobile condition sections
+.remove-group-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-icon-tertiary-default);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-bg-light);
+    color: var(--color-danger);
+    outline: none;
+  }
+}
+
+.group-content {
+  padding: var(--spacing-x3);
+}
+
+.filter-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-x3);
+}
+
+.desktop-condition-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--spacing-x2);
+
+  + .desktop-condition-row {
+    padding-top: var(--spacing-x3);
+    border-top: 1px solid var(--color-border-light);
+  }
+}
+
+.condition-number {
+  width: 24px;
+  height: 24px;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-bg-light);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xxsmall);
+  font-weight: 700;
+}
+
+.group-actions {
+  display: flex;
+  align-items: center;
+  margin-top: var(--spacing-x3);
+  padding-top: var(--spacing-x2);
+  border-top: 1px solid var(--color-border-light);
+}
+
 .mobile-condition-section {
-  border-top: 1px solid var(--color-border-bright);
-  padding: 12px;
+  + .mobile-condition-section {
+    padding-top: var(--spacing-x3);
+    border-top: 1px solid var(--color-border-light);
+  }
 
   .mobile-condition-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
-
-    .mobile-condition-label {
-      font-size: var(--font-size-base);
-      font-weight: 500;
-      line-height: var(--line-height-2);
-      color: var(--color-text-tertiary);
-    }
-
-    .mobile-condition-remove {
-      font-size: var(--font-size-base);
-      padding: var(--spacing-x3);
-    }
+    margin-bottom: var(--spacing-x2);
   }
+
+  .mobile-condition-label {
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-small);
+    font-weight: 650;
+  }
+
+  .mobile-condition-remove {
+    padding: var(--spacing-x2);
+  }
+}
+
+@include respond(sm) {
+  .group-header {
+    align-items: flex-start;
+    padding: var(--spacing-x3);
+  }
+
+  .group-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .group-content { padding: var(--spacing-x3); }
 }

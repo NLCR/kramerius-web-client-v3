@@ -23,6 +23,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { Observable, map } from 'rxjs';
 import { WhereToSearchToggleComponent } from '../where-to-search-toggle/where-to-search-toggle.component';
 import { customDefinedFacetsEnum } from '../../const/facets';
+import { ExportService } from '../../../../shared/services/export.service';
 
 @Component({
   selector: 'app-search-results-view',
@@ -63,6 +64,7 @@ export class SearchResultsViewComponent {
   advancedSearchService = inject(AdvancedSearchService);
   adminModeService = inject(AdminModeService);
   breakpointService = inject(BreakpointService);
+  private exportService = inject(ExportService);
 
   protected readonly ViewOptions = AppResultsViewType;
 
@@ -78,6 +80,7 @@ export class SearchResultsViewComponent {
   }
 
   openExportPanel(record: SearchDocument): void {
+    if (!this.exportService.canExportRecord(record)) return;
     this.exportRecordChange.emit(record);
   }
 

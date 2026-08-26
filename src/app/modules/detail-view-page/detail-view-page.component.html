@@ -131,6 +131,7 @@
                                   [issueTypeCode]="getIssueTypeCode(periodicalChildren, document.uuid)"
                                   [enableCalendarPopup]="detailViewService.canShowDateNavigator()"
                                   [periodicalChildren]="periodicalChildren"
+                                  [volumeUuid]="document.ownParentPid || ''"
                                   [previousTooltip]="'previous-issue--tooltip' | translate"
                                   [nextTooltip]="'next-issue--tooltip' | translate"
                                   (goToPrevious)="detailViewService.goToPreviousPeriodicalIssue()"

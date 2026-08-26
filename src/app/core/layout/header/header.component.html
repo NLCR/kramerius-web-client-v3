@@ -80,11 +80,7 @@
 
       <button class="icon-button saved-lists-btn" [class.hide-on-search-active]="isMobileSearchOpen"
         [appCdkTooltip]="'user-info--saved-lists' | translate" [tooltipPosition]="'bottom'" (click)="openSavedLists()">
-        <i class="icon-heart" aria-hidden="true">
-          @if (!isLoggedIn()) {
-            <span class="saved-lists-btn__dot"></span>
-          }
-        </i>
+        <i class="icon-archive-book" aria-hidden="true"></i>
       </button>
 
       @if (!isLoggedIn() || isMobileSearchOpen) {

@@ -135,28 +135,7 @@
       }
     }
 
-    .saved-lists-btn {
-      i {
-        position: relative;
-        display: inline-block;
-      }
 
-      .saved-lists-btn__dot {
-        position: absolute;
-        top: 0px;
-        right: -2px;
-        width: var(--spacing-x1);
-        height: var(--spacing-x1);
-        border-radius: 50%;
-        background-color: var(--icon-error);
-        border: 1px solid var(--color-bg-base);
-        box-sizing: content-box;
-      }
-    }
-
-    .saved-lists-btn:hover .saved-lists-btn__dot {
-      border-color: var(--color-bg-light);
-    }
   }
 
   // Desktop/Mobile visibility
@@ -272,4 +251,36 @@
       pointer-events: none;
     }
   }
+}
+
+// Modern institutional shell: quiet, high-contrast, and visually tied to NK CR.
+.app-header {
+  border-bottom: 1px solid var(--color-border-light);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 0 rgba(16, 23, 25, 0.02);
+  backdrop-filter: blur(14px);
+
+  &.transparent {
+    background: rgba(255, 255, 255, 0.88);
+  }
+
+  &__left .logo img {
+    filter: none;
+  }
+
+  .advanced-search-btn,
+  .header-actions-group > .icon-button {
+    border-color: var(--color-border-light);
+    box-shadow: 0 1px 3px rgba(16, 23, 25, 0.035);
+  }
+
+  .header-actions-group > .icon-button:hover {
+    border-color: rgba(0, 117, 140, 0.24);
+    background: var(--color-brand-nk-soft, var(--color-bg-light));
+  }
+}
+
+:host-context(.dark) .app-header,
+:host-context(.dark) .app-header.transparent {
+  background: rgba(14, 18, 22, 0.92);
 }

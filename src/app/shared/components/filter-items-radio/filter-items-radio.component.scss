@@ -72,18 +72,16 @@
   display: inline-flex;
   align-items: center;
   margin-left: auto;
+  gap: var(--spacing-x1);
 
   .icon {
-    margin-left: -6px;
-    border: 1px solid var(--color-bg-base);
+    margin-left: 0;
+    border: none;
+    background: transparent;
 
-    &:first-child {
-      margin-left: 0;
+    i {
+      background: transparent !important;
     }
-  }
-
-  &.active .icon {
-    border-color: var(--color-primary);
   }
 }
 
@@ -93,17 +91,12 @@
   align-items: center;
   width: 20px;
   height: 20px;
-  padding: 1px;
-  border-radius: var(--spacing-x1);
-  background: var(--color-bg-light);
-  border: 1px solid transparent;
   margin-left: auto;
-
-  &.active {
-    border-color: var(--color-primary);
-  }
+  background: transparent;
+  border: none;
 
   i {
     font-size: var(--font-size-base);
+    background: transparent !important;
   }
 }

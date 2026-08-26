@@ -34,14 +34,16 @@
       </div>
     </div>
 
-    <div class="advanced-search-indicator--image">
-      <img src="/img/folder-image.png" [alt]="'advanced-search.folder' | translate" />
+    <div class="advanced-search-indicator--visual" aria-hidden="true">
+      <div class="advanced-search-indicator--visual-icon">
+        <i class="icon-document-filter"></i>
+      </div>
     </div>
   </div>
 
   @if (((totalCount$ | async) ?? 0) === 0 && ((loading$ | async) === false)){
   <div class="advanced-search-indicator--no-results">
-    <img src="/img/warning-image.png" alt="warning">
+    <i class="icon-warning-circle advanced-search-indicator--warning-icon" aria-hidden="true"></i>
     <div>
       <strong>{{ 'advanced-search-indicator.no-results.message' | translate }}</strong>
       {{ 'advanced-search-indicator.no-results.contact-prefix' | translate }}

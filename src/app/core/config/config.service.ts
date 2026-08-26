@@ -12,6 +12,7 @@ import {
   LicenseAccessType,
   LicenseBarConfig,
   LicenseWatermarkConfig,
+  LicenseActionsConfig,
   I18nConfig,
   UiConfig,
   ExportConfig,
@@ -19,6 +20,7 @@ import {
   ViewerMode,
   AppConfig,
   ApiConfig,
+  AiConfig,
   IntegrationsConfig,
   HomepageSectionConfig,
   PageConfig,
@@ -364,6 +366,14 @@ export class ConfigService {
     return {
       app: loaded.app ?? DEFAULT_CONFIG.app,
       api: loaded.api ?? DEFAULT_CONFIG.api,
+      ai: {
+        ...DEFAULT_CONFIG.ai,
+        ...loaded.ai,
+        llm: {
+          ...DEFAULT_CONFIG.ai?.llm,
+          ...loaded.ai?.llm
+        }
+      } as AiConfig,
       i18n: loaded.i18n ?? DEFAULT_CONFIG.i18n,
       integrations: loaded.integrations,
       features: loaded.features ?? DEFAULT_CONFIG.features,
@@ -406,6 +416,11 @@ export class ConfigService {
     return this.getConfig().api;
   }
 
+  // AI integration accessors
+  get ai(): AiConfig {
+    return this.getConfig().ai ?? DEFAULT_CONFIG.ai!;
+  }
+
   // Integrations config accessors
   get integrations(): IntegrationsConfig | undefined {
     return this.getConfig().integrations;
@@ -444,6 +459,53 @@ export class ConfigService {
   isAnyExportFormatEnabled(): boolean {
     const formats: ExportFormat[] = ['print', 'jpeg', 'pdf', 'epub', 'txt'];
     return formats.some(f => this.export[f]);
+  }
+
+  /**
+   * Checks a concrete operation against the primary effective license.
+   *
+   * The configured license order is also the access priority: an open/public
+   * license wins over a secondary restrictive license. Unknown or missing
+   * licenses are denied, so an incomplete Solr response cannot accidentally
+   * enable a protected export.
+   */
+  isLicenseActionAllowed(
+    licenseIds: string[] | null | undefined,
+    action: keyof LicenseActionsConfig,
+  ): boolean {
+    const uniqueIds = Array.from(new Set((licenseIds ?? []).filter(Boolean)));
+    if (uniqueIds.length === 0) return false;
+
+    const order = this.getLicenseOrder();
+    const openIds = uniqueIds.filter(id => this.getLicenseConfig(id)?.accessType === 'open');
+    const candidates = openIds.length > 0 ? openIds : uniqueIds;
+    const primaryId = [...candidates].sort((a, b) => {
+      const aIndex = order.indexOf(a);
+      const bIndex = order.indexOf(b);
+      if (aIndex === -1 && bIndex === -1) return 0;
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    })[0];
+
+    const license = this.getLicenseConfig(primaryId);
+
+    // A login-only document may be read by an authenticated user, but PDF
+    // generation is categorically forbidden even if a future config is wrong.
+    if (action === 'pdf' && license?.accessType === 'login') return false;
+
+    return license?.actions?.[action] === true;
+  }
+
+  /** True when at least one globally enabled export format is also licensed. */
+  isAnyExportAllowedForLicenses(licenseIds: string[] | null | undefined): boolean {
+    return (
+      (this.isExportFormatEnabled('pdf') && this.isLicenseActionAllowed(licenseIds, 'pdf')) ||
+      (this.isExportFormatEnabled('print') && this.isLicenseActionAllowed(licenseIds, 'print')) ||
+      (this.isExportFormatEnabled('jpeg') && this.isLicenseActionAllowed(licenseIds, 'jpeg')) ||
+      (this.isExportFormatEnabled('epub') && this.isLicenseActionAllowed(licenseIds, 'text')) ||
+      (this.isExportFormatEnabled('txt') && this.isLicenseActionAllowed(licenseIds, 'text'))
+    );
   }
 
   /**

@@ -15,6 +15,7 @@ export type MetadataItemType = 'text' | 'list' | 'clickable-list' | 'badge' | 'k
 export class MetadataSectionItem {
 
   @Input() label: string = '';
+  @Input() headerValue?: string;
   @Input() type: MetadataItemType = 'text';
   @Input() value?: string;
   @Input() items?: any[];

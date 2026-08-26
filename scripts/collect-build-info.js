@@ -54,7 +54,7 @@ const info = {
     git_commit_hash: commitHash,
     git_tag: commitTag,
     git_dirty: isDirty,
-    client_version: clientVersion,
+    client_version: clientVersion ? clientVersion + '-NK' : undefined,
     build_date: new Date().toISOString()
 };
 const versionInfoJson = JSON.stringify(info, null, 2);

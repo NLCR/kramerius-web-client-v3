@@ -11,6 +11,8 @@ import { TranslateService } from '@ngx-translate/core';
 import { EnvironmentService } from './environment.service';
 import { Page } from '../models/page.model';
 import { ToastService } from './toast.service';
+import { ConfigService } from '../../core/config/config.service';
+import { LicenseActionsConfig } from '../../core/config/config.interfaces';
 
 export enum ExportFormat {
   JSON = 'json',
@@ -32,8 +34,6 @@ export interface ExportOptions {
 })
 export class ExportService {
 
-  private readonly allowedLicenses = ['public', 'onsite'];
-
   private solrService = inject(SolrService);
   private adminModeService = inject(AdminModeService);
   private translateService = inject(TranslateService);
@@ -41,6 +41,7 @@ export class ExportService {
   private http = inject(HttpClient);
   private toastService = inject(ToastService);
   private router = inject(Router);
+  private configService = inject(ConfigService);
 
   private readonly EXPORT_PID_PARAM = 'exportPid';
 
@@ -57,6 +58,16 @@ export class ExportService {
     });
   }
 
+  /** Central guard used before an export panel can be opened or restored. */
+  canExportRecord(record: SearchDocument | null | undefined): boolean {
+    if (!record) return false;
+    const licenses = Array.from(new Set([
+      ...(record.licenses ?? []),
+      ...(record.containsLicenses ?? []),
+    ]));
+    return this.configService.isAnyExportAllowedForLicenses(licenses);
+  }
+
   rehydrateExportPanel(
     route: ActivatedRoute,
     results$: Observable<SearchDocument[]>,
@@ -70,7 +81,7 @@ export class ExportService {
       take(1),
     ).subscribe(results => {
       const match = results.find(doc => doc.pid === pid);
-      if (match) {
+      if (match && this.canExportRecord(match)) {
         onMatch(match);
       } else {
         this.writeExportPidToUrl(route, null);
@@ -479,15 +490,13 @@ export class ExportService {
     ];
   }
 
-  /**
-   * Helper method to check if a page has exportable license
-   * A page is exportable if it has at least one of allowed license
-   */
-  hasExportableLicense(page: Page | undefined): boolean {
-
+  /** Check a page operation against its own and inherited license config. */
+  hasExportableLicense(page: Page | undefined, action: keyof LicenseActionsConfig = 'pdf'): boolean {
     if (!page) return false;
-    const pageLicenses = page.licences || page.licenses_of_ancestors || [];
-    // Check if there's any overlap between user licenses and page licenses
-    return pageLicenses.some(license => this.allowedLicenses.includes(license));
+    const pageLicenses = Array.from(new Set([
+      ...(page.licences ?? []),
+      ...(page.licenses_of_ancestors ?? []),
+    ]));
+    return this.configService.isLicenseActionAllowed(pageLicenses, action);
   }
 }

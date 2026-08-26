@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { AltoService } from './alto.service';
-import { AiApiService, AI_MODELS, AiModel, TranslateProvider } from './ai-api.service';
+import { AiApiService, AiModel, TranslateProvider } from './ai-api.service';
 import { LocalStorageService } from './local-storage.service';
 import { Subscription } from 'rxjs';
 import { take } from 'rxjs/operators';
@@ -42,7 +42,7 @@ export class AiPanelService {
   readonly currentPagePid = signal<string | null>(null);
 
   // Settings
-  readonly selectedModel = signal<AiModel>(AI_MODELS[1]); // gpt-4o-mini
+  readonly selectedModel = signal<AiModel>(this.aiApiService.getDefaultModel());
   readonly translateProvider = signal<TranslateProvider>('google');
   readonly targetLanguage = signal<string>('cs');
 
@@ -72,7 +72,7 @@ export class AiPanelService {
         const text = this.altoService.getFullText(altoXml);
         if (!text) {
           this.isLoading.set(false);
-          this.error.set('No text found on this page');
+          this.error.set('ai.text-transcript-unavailable');
           return;
         }
 
@@ -100,7 +100,7 @@ export class AiPanelService {
       },
       error: () => {
         this.isLoading.set(false);
-        this.error.set('Failed to load page text');
+        this.error.set('ai.text-transcript-unavailable');
       }
     });
   }
@@ -123,12 +123,12 @@ export class AiPanelService {
         const text = this.altoService.getFullText(altoXml);
         if (!text) {
           this.isLoading.set(false);
-          this.error.set('No text found on this page');
+          this.error.set('ai.text-transcript-unavailable');
           return;
         }
 
         const instructions = 'You are a helpful assistant. Summarize the following text concisely. Keep the summary in the same language as the original text.';
-        this.activeSubscription = this.aiApiService.askLLM(text, instructions, this.selectedModel(), 2000).pipe(take(1)).subscribe({
+        this.activeSubscription = this.aiApiService.askLLM(text, instructions, this.selectedModel(), 768).pipe(take(1)).subscribe({
           next: (summary) => {
             this.styledHtml.set('');
             this.content.set(summary);
@@ -142,7 +142,7 @@ export class AiPanelService {
       },
       error: () => {
         this.isLoading.set(false);
-        this.error.set('Failed to load page text');
+        this.error.set('ai.text-transcript-unavailable');
       }
     });
   }
@@ -177,7 +177,7 @@ export class AiPanelService {
         const text = this.altoService.getFullText(altoXml);
         this.isLoading.set(false);
         if (!text) {
-          this.error.set('No text found on this page');
+          this.error.set('ai.text-transcript-unavailable');
           return;
         }
         const html = this.altoService.getStyledHtml(altoXml);
@@ -189,7 +189,7 @@ export class AiPanelService {
       },
       error: () => {
         this.isLoading.set(false);
-        this.error.set('Failed to load page text');
+        this.error.set('ai.text-transcript-unavailable');
       }
     });
   }

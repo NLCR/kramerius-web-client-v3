@@ -18,9 +18,9 @@ export enum FacetAccessibilityTypes {
 }
 
 export const FacetIcons = {
-  locked:   { icon: 'icon-locked',    iconClass: 'accessibility-private'    },
-  unlocked:   { icon: 'icon-locked',    iconClass: 'accessibility-public'    },
-  public:   { icon: 'icon-eye-public', iconClass: 'accessibility-public'    },
+  locked:   { icon: 'icon-key',       iconClass: 'accessibility-private'    },
+  unlocked: { icon: 'icon-unlock',    iconClass: 'accessibility-public'     },
+  public:   { icon: 'icon-eye-public',iconClass: 'accessibility-public'     },
   onsite:   { icon: 'icon-in-house',  iconClass: 'accessibility-in_library' },
 } as const;
 

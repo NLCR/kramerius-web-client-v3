@@ -69,27 +69,35 @@ export class RecordExportPanelComponent implements OnInit {
 
   isLoggedIn = computed(() => !!this.userService.userSession$()?.authenticated);
 
+  private getRecordLicenses(): string[] {
+    return Array.from(new Set([
+      ...(this.record?.licenses ?? []),
+      ...(this.record?.containsLicenses ?? []),
+    ]));
+  }
+
+  pdfAllowed = computed(() => this.configService.isLicenseActionAllowed(this.getRecordLicenses(), 'pdf'));
+  printAllowed = computed(() => this.configService.isLicenseActionAllowed(this.getRecordLicenses(), 'print'));
+  textAllowed = computed(() => this.configService.isLicenseActionAllowed(this.getRecordLicenses(), 'text'));
+
   pdfOptions = computed(() => {
     const pages = this.pages();
     const loaded = this.pagesLoaded();
-    const exportable = pages.filter(p => this.exportService.hasExportableLicense(p));
-    const max = this.maxRange();
+    const exportable = pages.filter(p => this.exportService.hasExportableLicense(p, 'pdf'));
     const hasExportable = exportable.length > 0;
 
-    const disableLegacy = !loaded || !hasExportable || pages.length > max || exportable.length > max;
     const disableSelect = !loaded || !hasExportable;
 
     return [
-      { label: 'whole-document-legacy', value: 'whole-document-legacy', disabled: disableLegacy },
       { label: 'select-pages', value: 'select-pages', disabled: disableSelect },
-      { label: 'whole-document', value: 'whole-document', disabled: !loaded },
+      { label: 'whole-document', value: 'whole-document', disabled: !loaded || !this.pdfAllowed() },
     ];
   });
 
   printOptions = computed(() => {
     const pages = this.pages();
     const loaded = this.pagesLoaded();
-    const exportable = pages.filter(p => this.exportService.hasExportableLicense(p));
+    const exportable = pages.filter(p => this.exportService.hasExportableLicense(p, 'print'));
     const max = this.maxRange();
     const hasExportable = exportable.length > 0;
 
@@ -142,18 +150,12 @@ export class RecordExportPanelComponent implements OnInit {
   }
 
   onPdfSubmit(value: string): void {
+    if (!this.pdfAllowed()) return;
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();
       return;
     }
-    if (value === 'whole-document-legacy') {
-      const exportable = this.pages().filter(p => this.exportService.hasExportableLicense(p));
-      this.pdfLoading.set(true);
-      this.exportService.exportPdfSelection(exportable.map(p => p.pid), this.record.title).subscribe({
-        next: () => this.pdfLoading.set(false),
-        error: () => this.pdfLoading.set(false),
-      });
-    } else if (value === 'select-pages') {
+    if (value === 'select-pages') {
       this.openPageSelectionDialog('page-selection-dialog--header-pdf', 'pdf');
     } else if (value === 'whole-document') {
       this.openEmailExportDialog('pdf');
@@ -161,12 +163,13 @@ export class RecordExportPanelComponent implements OnInit {
   }
 
   onPrintSubmit(value: string): void {
+    if (!this.printAllowed()) return;
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();
       return;
     }
     if (value === 'whole-document') {
-      const exportable = this.pages().filter(p => this.exportService.hasExportableLicense(p));
+      const exportable = this.pages().filter(p => this.exportService.hasExportableLicense(p, 'print'));
       this.exportService.printPdfSelection(exportable.map(p => p.pid));
     } else if (value === 'select-pages') {
       this.openPageSelectionDialog('page-selection-dialog--header-print', 'print');
@@ -178,6 +181,7 @@ export class RecordExportPanelComponent implements OnInit {
   }
 
   onEpubSubmit(value: string): void {
+    if (!this.textAllowed()) return;
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();
       return;
@@ -188,6 +192,7 @@ export class RecordExportPanelComponent implements OnInit {
   }
 
   onTextSubmit(value: string): void {
+    if (!this.textAllowed()) return;
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();
       return;
@@ -236,7 +241,7 @@ export class RecordExportPanelComponent implements OnInit {
   }
 
   private openPageSelectionDialog(titleKey: string, exportType: 'pdf' | 'print'): void {
-    const exportable = this.pages().filter(p => this.exportService.hasExportableLicense(p));
+    const exportable = this.pages().filter(p => this.exportService.hasExportableLicense(p, exportType));
     if (exportable.length === 0) return;
 
     const dialogRef = this.dialog.open(PageSelectionDialogComponent, {

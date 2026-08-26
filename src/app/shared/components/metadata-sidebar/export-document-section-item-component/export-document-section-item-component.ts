@@ -1,9 +1,12 @@
-import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
+import { Component, EventEmitter, inject, Input, OnChanges, OnDestroy, Output, signal, SimpleChanges } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { MatRadioModule } from '@angular/material/radio';
 import { FormsModule } from '@angular/forms';
 import { NgFor } from '@angular/common';
 import { trigger, state, style, animate, transition } from '@angular/animations';
+import { Subscription } from 'rxjs';
+import { DirectPdfAvailability, DirectPdfService } from '../../../services/direct-pdf.service';
+import { ToastService } from '../../../services/toast.service';
 
 export interface ExportOption {
   label: string;
@@ -29,7 +32,7 @@ export interface ExportOption {
     ]),
   ],
 })
-export class ExportDocumentSectionItemComponent {
+export class ExportDocumentSectionItemComponent implements OnChanges, OnDestroy {
 
   @Input() title = '';
   @Input() icon = '';
@@ -43,6 +46,7 @@ export class ExportDocumentSectionItemComponent {
   @Input() collapsible = false;
   @Input() loading = false;
   @Input() loginRequired = false;
+  @Input() directPdfPid: string | null = null;
   @Input() set expanded(value: boolean) { this._expanded.set(value); }
 
   @Output() submit = new EventEmitter<string>();
@@ -52,6 +56,26 @@ export class ExportDocumentSectionItemComponent {
   @Input() selectedOption: string | null = null;
 
   _expanded = signal(true);
+  directPdf = signal<DirectPdfAvailability | null>(null);
+
+  private directPdfService = inject(DirectPdfService);
+  private toastService = inject(ToastService);
+  private directPdfRequest?: Subscription;
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['directPdfPid']) return;
+
+    this.directPdfRequest?.unsubscribe();
+    this.directPdf.set(null);
+    if (!this.directPdfPid) return;
+
+    this.directPdfRequest = this.directPdfService.checkAvailability(this.directPdfPid)
+      .subscribe(info => this.directPdf.set(info));
+  }
+
+  ngOnDestroy(): void {
+    this.directPdfRequest?.unsubscribe();
+  }
 
   toggleExpanded(): void {
     this._expanded.update(v => !v);
@@ -64,13 +88,17 @@ export class ExportDocumentSectionItemComponent {
     }
   }
 
+  onDirectPdfDownload(): void {
+    this.toastService.show('direct-pdf-download-started');
+  }
+
   onOptionChange(event: any) {
     this.optionChange.emit(event.value);
   }
 
   /**
    * Pre-select a default option once enabled options are available.
-   * Prefers "whole-document", falling back to the first enabled option.
+   * Prefers "current-page" first, then "whole-document", then the first enabled option.
    * Keeps an existing, still-enabled selection untouched.
    */
   private ensureSelection(): void {
@@ -79,7 +107,10 @@ export class ExportDocumentSectionItemComponent {
     if (current) {
       return;
     }
-    const preferred = enabled.find(o => o.value === 'whole-document') ?? enabled[0];
+    const preferred =
+      enabled.find(o => o.value === 'current-page') ??
+      enabled.find(o => o.value === 'whole-document') ??
+      enabled[0];
     this.selectedOption = preferred ? preferred.value : null;
   }
 

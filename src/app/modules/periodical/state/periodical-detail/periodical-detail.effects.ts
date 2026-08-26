@@ -32,6 +32,7 @@ import { Router } from '@angular/router';
 import { APP_ROUTES_ENUM } from '../../../../app.routes';
 import {DEFAULT_PERIODICAL_FACET_FIELDS} from '../../../search-results-page/const/facet-fields';
 import { CustomSearchService } from '../../../../shared/services/custom-search.service';
+import { getOpenLicenses } from '../../../../core/solr/solr-misc';
 
 @Injectable()
 export class PeriodicalDetailEffects {
@@ -319,6 +320,15 @@ export class PeriodicalDetailEffects {
       return children;
     }
 
+    // Real issue/supplement records take precedence. Direct page children are
+    // implementation detail and must not appear as an extra fake "issue" in a
+    // volume that already has proper issues. The old code always appended a
+    // virtual issue whenever *any* page existed, despite the method's own
+    // "only pages" contract.
+    if (nonPages.length > 0) {
+      return nonPages;
+    }
+
     // Create a virtual issue for the pages, pointing to the volume
     const firstPage = pages[0];
     const virtualIssue = {
@@ -339,11 +349,17 @@ export class PeriodicalDetailEffects {
     return volumes
       .filter(v => !!v['date.str'] && !!v['pid'])
       .map(v => {
-        const volumeLicenses = v['licenses.facet'] || v['licenses'] || [];
+        const volumeLicenses = Array.from(new Set<string>([
+          ...(v['licenses'] || []),
+          ...(v['licenses.facet'] || []),
+        ]));
         const userLicenses = this.userService.licenses || [];
+        const openLicenses = getOpenLicenses();
 
-        // Determine accessibility: if volume has no licenses OR user has matching license, it's public
+        // Determine accessibility. An open/public license wins even when the
+        // volume simultaneously carries a restrictive DNNT/onsite license.
         const hasAccess = volumeLicenses.length === 0 ||
+          volumeLicenses.some((license: string) => openLicenses.includes(license)) ||
           volumeLicenses.some((license: string) => userLicenses.includes(license));
 
         return {
@@ -369,8 +385,8 @@ export class PeriodicalDetailEffects {
       return {
         year,
         pid: found?.pid ?? '',
-        licenses: found?.['licenses.facet'] ?? [],
-        exists: true,
+        licenses: found?.licenses ?? [],
+        exists: !!found,
         model: found?.model ?? '',
         accessibility: found?.accessibility ?? DocumentAccessibilityEnum.PRIVATE
       };
@@ -394,11 +410,14 @@ export class PeriodicalDetailEffects {
         ).pipe(
           withLatestFrom(this.store.select(selectAvailableYears)),
           switchMap(([children, previousAvailableYears]) => {
-            // Fix licenses field if needed
-            children.map(i => {
-              if (!i['licenses'] || i['licenses'].length === 0 && i['licenses.facet']) {
-                i['licenses'] = i['licenses.facet'];
-              }
+            // Keep every access signal. Some indexes expose `public` in
+            // `licenses` and DNNT/onsite in `licenses.facet` (or vice versa);
+            // preferring either field can therefore render the wrong lock.
+            children.forEach(i => {
+              i['licenses'] = Array.from(new Set([
+                ...(i['licenses'] || []),
+                ...(i['licenses.facet'] || []),
+              ]));
             });
 
             // If all children are pages (no issues), create a virtual issue
@@ -409,6 +428,7 @@ export class PeriodicalDetailEffects {
             // If we already have availableYears, use them
             if (previousAvailableYears?.length > 0) {
               return of(loadPeriodicalItemsSuccess({
+                parentVolumeUuid,
                 children: processedChildren,
                 availableYears: previousAvailableYears
               }));
@@ -418,9 +438,10 @@ export class PeriodicalDetailEffects {
             // We'll need to get the rootPid from one of the children
             const firstChild = children[0];
             console.log('First child:', firstChild);
-            if (!firstChild['root.pid']) {
+            if (!firstChild?.['root.pid']) {
               console.warn('No rootPid found in children, cannot load availableYears');
               return of(loadPeriodicalItemsSuccess({
+                parentVolumeUuid,
                 children: processedChildren,
                 availableYears: []
               }));
@@ -431,6 +452,7 @@ export class PeriodicalDetailEffects {
               map(volumes => {
                 const availableYears = this.mapAvailableYears(volumes);
                 return loadPeriodicalItemsSuccess({
+                  parentVolumeUuid,
                   children: processedChildren,
                   availableYears
                 });
@@ -439,6 +461,7 @@ export class PeriodicalDetailEffects {
                 console.error('Failed to load periodical volumes:', error);
                 // Still return success with children, just without availableYears
                 return of(loadPeriodicalItemsSuccess({
+                  parentVolumeUuid,
                   children: processedChildren,
                   availableYears: []
                 }));
@@ -447,7 +470,7 @@ export class PeriodicalDetailEffects {
           }),
           catchError(error => {
             console.error('loadPeriodicalItems$ effect error:', error);
-            return of(loadPeriodicalItemsFailure({ error }));
+            return of(loadPeriodicalItemsFailure({ parentVolumeUuid, error }));
           })
         );
       })
@@ -457,7 +480,7 @@ export class PeriodicalDetailEffects {
   loadMonthIssues$ = createEffect(() =>
     this.actions$.pipe(
       ofType(PeriodicalDetailActions.loadMonthIssues),
-      switchMap(({ parentVolumeUuid, year, month }) => {
+      mergeMap(({ parentVolumeUuid, year, month }) => {
         // build date range: [YYYY-MM-01 TO YYYY-MM-lastDay]
         const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
         const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
@@ -469,16 +492,22 @@ export class PeriodicalDetailEffects {
           fq
         ).pipe(
           map(issues => {
-            // Fix licenses field if needed
-            issues.map(i => {
-              if (!i['licenses'] || i['licenses'].length === 0 && i['licenses.facet']) {
-                i['licenses'] = i['licenses.facet'];
-              }
+            // A calendar represents issue publication dates, not individual
+            // scanned pages. Some Solr hierarchies expose direct page children
+            // with inherited dates; including them produced duplicate dots and
+            // could navigate to a page PID instead of the issue.
+            issues = issues.filter(issue => issue.model !== DocumentTypeEnum.page);
+
+            issues.forEach(i => {
+              i['licenses'] = Array.from(new Set([
+                ...(i['licenses'] || []),
+                ...(i['licenses.facet'] || []),
+              ]));
             });
 
-            return PeriodicalDetailActions.loadMonthIssuesSuccess({ year, month, issues })
+            return PeriodicalDetailActions.loadMonthIssuesSuccess({ parentVolumeUuid, year, month, issues })
           }),
-          catchError(error => of(PeriodicalDetailActions.loadMonthIssuesFailure({ year, month, error })))
+          catchError(error => of(PeriodicalDetailActions.loadMonthIssuesFailure({ parentVolumeUuid, year, month, error })))
         );
       })
     )

@@ -20,6 +20,7 @@ import { PdfService } from '../../../services/pdf.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { UserService } from '../../../services/user.service';
 import { Page } from '../../../models/page.model';
+import { LicenseActionsConfig } from '../../../../core/config/config.interfaces';
 
 @Component({
   selector: 'app-export-document-section-component',
@@ -78,11 +79,29 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   /**
    * Get filtered pages that have exportable licenses
    */
-  private getExportablePages(): Page[] {
+  private getExportablePages(action: keyof LicenseActionsConfig): Page[] {
     const pages = this.detailViewService.pages;
     if (!pages) return [];
-    return pages.filter(page => this.exportService.hasExportableLicense(page));
+    return pages.filter(page => this.exportService.hasExportableLicense(page, action));
   }
+
+  private getEffectiveDocumentLicenses(): string[] {
+    return Array.from(new Set([
+      ...(this.detailViewService.document?.licences ?? []),
+      ...this.documentInfoService.getRuntimeLicenses(),
+    ]));
+  }
+
+  private isActionAllowed(action: keyof LicenseActionsConfig): boolean {
+    return this.configService.isLicenseActionAllowed(this.getEffectiveDocumentLicenses(), action);
+  }
+
+  pdfAllowed = computed(() => this.isActionAllowed('pdf'));
+  printAllowed = computed(() => this.isActionAllowed('print'));
+  jpegAllowed = computed(() => this.isActionAllowed('jpeg'));
+  cropAllowed = computed(() =>
+    this.jpegAllowed() && this.isActionAllowed('selection') && this.isActionAllowed('crop'));
+  textAllowed = computed(() => this.isActionAllowed('text'));
 
   // Computed signal that updates jpegOptions based on license access
   jpegOptions = computed(() => {
@@ -104,28 +123,31 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
       const options = [];
 
       if (leftPage) {
-        const hasLicense = this.exportService.hasExportableLicense(leftPage);
+        const hasLicense = this.exportService.hasExportableLicense(leftPage, 'jpeg');
         options.push({ label: 'current-left-page', value: 'current-left-page', disabled: !canAccess || !hasLicense });
       }
 
       if (rightPage) {
-        const hasLicense = this.exportService.hasExportableLicense(rightPage);
+        const hasLicense = this.exportService.hasExportableLicense(rightPage, 'jpeg');
         options.push({ label: 'current-right-page', value: 'current-right-page', disabled: !canAccess || !hasLicense });
       }
 
       // For crop, use left page license
-      const hasLicense = leftPage ? this.exportService.hasExportableLicense(leftPage) : false;
-      options.push({ label: 'crop-page', value: 'crop-page', disabled: !canAccess || !hasLicense });
+      const hasLicense = leftPage
+        ? this.exportService.hasExportableLicense(leftPage, 'jpeg') && this.exportService.hasExportableLicense(leftPage, 'crop')
+        : false;
+      options.push({ label: 'crop-page', value: 'crop-page', disabled: !canAccess || !hasLicense || !this.cropAllowed() });
 
       return options;
     } else {
       // Find current page by pagePid
       const currentPage = this.detailViewService.pages?.find(p => p.pid === this.pagePid);
-      const hasLicense = this.exportService.hasExportableLicense(currentPage);
+      const hasLicense = this.exportService.hasExportableLicense(currentPage, 'jpeg');
+      const hasCropLicense = this.exportService.hasExportableLicense(currentPage, 'crop');
 
       return [
         { label: 'current-page', value: 'current-page', disabled: !canAccess || !hasLicense },
-        { label: 'crop-page', value: 'crop-page', disabled: !canAccess || !hasLicense }
+        { label: 'crop-page', value: 'crop-page', disabled: !canAccess || !hasLicense || !hasCropLicense }
       ];
     }
   });
@@ -160,23 +182,13 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
     // whole-document option ("Celý dokument").
     if (this.detailViewService.isPdf) {
       return [
-        { label: 'whole-document', value: 'whole-document', disabled: false },
+        { label: 'whole-document', value: 'whole-document', disabled: !this.pdfAllowed() },
       ];
     }
 
     const pages = this.detailViewService.pages;
-    const maxRange = this.appConfig.pdfMaxRange();
-    const exportablePages = this.getExportablePages();
+    const exportablePages = this.getExportablePages('pdf');
     const hasExportablePages = exportablePages.length > 0;
-
-    // Disable whole document if:
-    // 1. Total pages exceed maxRange OR
-    // 2. No exportable pages OR
-    // 3. Exportable pages exceed maxRange
-    const disableWholeDocument =
-      !hasExportablePages ||
-      (pages && pages.length > maxRange) ||
-      exportablePages.length > maxRange;
 
     // Disable select pages if no exportable pages
     const disableSelectPages = !hasExportablePages;
@@ -184,17 +196,20 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
     const pagesLoaded = !!pages;
 
     return [
-      { label: 'whole-document-legacy', value: 'whole-document-legacy', disabled: disableWholeDocument },
       { label: 'select-pages', value: 'select-pages', disabled: disableSelectPages },
-      { label: 'whole-document', value: 'whole-document', disabled: !pagesLoaded },
+      { label: 'whole-document', value: 'whole-document', disabled: !pagesLoaded || !this.pdfAllowed() },
     ];
   });
 
   printOptions = computed(() => {
     const pages = this.detailViewService.pages;
     const maxRange = this.appConfig.pdfMaxRange();
-    const exportablePages = this.getExportablePages();
+    const exportablePages = this.getExportablePages('print');
     const hasExportablePages = exportablePages.length > 0;
+
+    const currentPagePid = this.detailViewService.currentPagePid;
+    const currentPage = pages?.find(p => p.pid === currentPagePid);
+    const currentPageHasLicense = this.exportService.hasExportableLicense(currentPage, 'print');
 
     // Disable whole document if:
     // 1. Total pages exceed maxRange OR
@@ -209,6 +224,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
     const disableSelectPages = !hasExportablePages;
 
     return [
+      { label: 'current-page', value: 'current-page', disabled: !currentPageHasLicense },
       { label: 'whole-document', value: 'whole-document', disabled: disableWholeDocument },
       { label: 'select-pages', value: 'select-pages', disabled: disableSelectPages }
     ];
@@ -226,6 +242,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onJpegSubmit(value: string) {
+    if (!this.jpegAllowed() || (value === 'crop-page' && !this.cropAllowed())) return;
     if (value === 'current-page' && this.pagePid) {
       this.exportService.exportJpeg(this.pagePid);
     } else if (value === 'current-left-page') {
@@ -260,6 +277,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onPdfSubmit(value: string) {
+    if (!this.pdfAllowed()) return;
     // When the current document is itself a PDF, it is already loaded in the
     // viewer — just download that file directly instead of opening any dialog
     // or triggering a server-side export. No login required in this case.
@@ -280,23 +298,101 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
     }
     if (value === 'select-pages') {
       this.openPageSelectionDialog('page-selection-dialog--header-pdf', 'pdf');
-    } else if (value === 'whole-document-legacy') {
-      const exportablePages = this.getExportablePages();
-      const pageUuids = exportablePages.map(page => page.pid);
-      if (pageUuids.length > 0) {
-        this.pdfLoading.set(true);
-        this.exportService.exportPdfSelection(pageUuids, this.detailViewService.title).subscribe({
-          next: () => this.pdfLoading.set(false),
-          error: () => this.pdfLoading.set(false),
-        });
-      }
-    } else if (value === 'whole-document') {
+        } else if (value === 'whole-document') {
       const pid = this.detailViewService.document?.uuid;
       if (pid) this.openEmailExportDialog(pid, 'pdf');
     }
   }
 
   onPrintSubmit(value: string) {
+    if (!this.printAllowed()) return;
+    if (value === 'current-page') {
+      const isBookMode = this.iiifBookMode() || !!this.pdfProperties()?.bookMode;
+      const pages = this.detailViewService.pages;
+      const currentIndex = this.detailViewService.currentPageIndex;
+
+      const pids: string[] = [];
+      if (isBookMode) {
+        const left = pages?.[currentIndex];
+        const right = pages?.[currentIndex + 1];
+        if (left) pids.push(left.pid);
+        if (right) pids.push(right.pid);
+      } else {
+        const pid = this.detailViewService.currentPagePid;
+        if (pid) pids.push(pid);
+      }
+      if (!pids.length) return;
+
+      const printPages = pids
+        .map(pid => {
+          const url = this.iiifViewerService.getDirectImageUrl(pid);
+          return `<section class="print-page"><img src="${url}" alt="" /></section>`;
+        })
+        .join('\n  ');
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+      printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Tisk</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100%; }
+    body { background: #fff; }
+    .print-page {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 100vh;
+    }
+    img {
+      display: block;
+      max-width: 100%;
+      max-height: 100vh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+    @media print {
+      @page { size: A4 portrait; margin: 8mm; }
+      html, body { width: auto; min-height: 0; }
+      .print-page {
+        width: 194mm;
+        height: 281mm;
+        min-height: 0;
+        overflow: hidden;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        break-after: page;
+        page-break-after: always;
+      }
+      .print-page:last-child {
+        break-after: auto;
+        page-break-after: auto;
+      }
+      img { max-width: 100%; max-height: 100%; }
+    }
+  </style>
+</head>
+<body>
+  ${printPages}
+  <script>
+    window.onload = async function() {
+      var images = Array.from(document.images);
+      await Promise.all(images.map(function(image) {
+        return image.decode ? image.decode().catch(function() {}) : Promise.resolve();
+      }));
+      window.print();
+    };
+  <\/script>
+</body>
+</html>`);
+      printWindow.document.close();
+      return;
+    }
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();
       return;
@@ -304,7 +400,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
     if (value === 'select-pages') {
       this.openPageSelectionDialog('page-selection-dialog--header-print', 'print');
     } else if (value === 'whole-document') {
-      const exportablePages = this.getExportablePages();
+      const exportablePages = this.getExportablePages('print');
       const pageUuids = exportablePages.map(page => page.pid);
       if (pageUuids.length > 0) {
         this.exportService.printPdfSelection(pageUuids);
@@ -318,7 +414,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
    */
   private openPageSelectionDialog(titleKey: string, exportType: 'pdf' | 'print'): void {
     // Get only pages with exportable licenses
-    const exportablePages = this.getExportablePages();
+    const exportablePages = this.getExportablePages(exportType);
 
     if (!exportablePages || exportablePages.length === 0) {
       console.warn('No pages with exportable licenses available for selection');
@@ -368,6 +464,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onEpubSubmit(value: string): void {
+    if (!this.textAllowed()) return;
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();
       return;
@@ -379,6 +476,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onTextSubmit(value: string): void {
+    if (!this.textAllowed()) return;
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();
       return;

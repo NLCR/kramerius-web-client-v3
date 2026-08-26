@@ -17,6 +17,8 @@ export class DateNavigatorComponent {
   @Input() issueTypeCode?: string;
   @Input() enableCalendarPopup: boolean = false;
   @Input() periodicalChildren: any[] = [];
+  /** Exact volume containing the currently opened issue. */
+  @Input() volumeUuid: string = '';
   @Input() previousTooltip?: string;
   @Input() nextTooltip?: string;
 

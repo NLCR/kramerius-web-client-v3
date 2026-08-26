@@ -3,10 +3,12 @@ import { HttpClient, HttpHeaders, HttpContext } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
+import { ConfigService } from '../../core/config/config.service';
+import { AiLlmAuthMode } from '../../core/config/config.interfaces';
 import { SKIP_ERROR_INTERCEPTOR } from '../../core/services/http-context-tokens';
 
 export interface AiModel {
-  provider: 'openai' | 'anthropic' | 'google';
+  provider: 'openai' | 'anthropic' | 'google' | 'qwen';
   name: string;
   code: string;
 }
@@ -26,11 +28,26 @@ export const AI_MODELS: AiModel[] = [
 @Injectable({ providedIn: 'root' })
 export class AiApiService {
 
-  private readonly baseUrl = 'https://api.trinera.cloud/api';
   private readonly temperature = 0;
 
   private http = inject(HttpClient);
   private authService = inject(AuthService);
+  private configService = inject(ConfigService);
+
+  private get apiBaseUrl(): string {
+    return (this.configService.ai.apiBaseUrl || 'https://api.trinera.cloud/api').replace(/\/+$/, '');
+  }
+
+  getDefaultModel(): AiModel {
+    const config = this.configService.ai.llm;
+    if (config?.provider === 'qwen') {
+      const code = config.model || 'Qwen/Qwen3.5-9B';
+      return { provider: 'qwen', name: code, code };
+    }
+
+    const configuredCode = config?.model;
+    return AI_MODELS.find(model => model.code === configuredCode) ?? AI_MODELS[1];
+  }
 
   // --- TTS ---
 
@@ -115,7 +132,14 @@ export class AiApiService {
   // --- LLM ---
 
   askLLM(input: string, instructions: string, model?: AiModel, maxTokens: number = 1000): Observable<string> {
-    const m = model || AI_MODELS[1]; // default: gpt-4o-mini
+    const llmConfig = this.configService.ai.llm;
+    if (llmConfig?.provider === 'qwen') {
+      const configuredModel = llmConfig.model || 'Qwen/Qwen3.5-9B';
+      const modelCode = model?.provider === 'qwen' ? model.code : configuredModel;
+      return this.askQwen(input, instructions, modelCode, maxTokens);
+    }
+
+    const m = model || this.getDefaultModel();
     switch (m.provider) {
       case 'openai':
         return this.askGPT(input, instructions, m.code, maxTokens);
@@ -123,6 +147,8 @@ export class AiApiService {
         return this.askClaude(input, instructions, m.code, maxTokens);
       case 'google':
         return this.askGemini(input, instructions, m.code, maxTokens);
+      case 'qwen':
+        return this.askQwen(input, instructions, m.code, maxTokens);
       default:
         return this.askGPT(input, instructions, m.code, maxTokens);
     }
@@ -169,6 +195,35 @@ export class AiApiService {
     );
   }
 
+  private askQwen(input: string, instructions: string, model: string, maxTokens: number): Observable<string> {
+    const config = this.configService.ai.llm;
+    const baseUrl = (config?.baseUrl || 'http://localhost:8010/v1').replace(/\/+$/, '');
+    const url = baseUrl.endsWith('/chat/completions')
+      ? baseUrl
+      : `${baseUrl}/chat/completions`;
+    const body = {
+      model,
+      messages: [
+        { role: 'system', content: instructions },
+        { role: 'user', content: input }
+      ],
+      temperature: this.temperature,
+      max_tokens: maxTokens,
+      stream: false,
+      chat_template_kwargs: { enable_thinking: false }
+    };
+
+    return this.postAbsolute<any>(url, body, config?.auth ?? 'kramerius').pipe(
+      map(response => {
+        const content = response?.choices?.[0]?.message?.content;
+        if (typeof content !== 'string') {
+          throw new Error('invalid_ai_response');
+        }
+        return content;
+      })
+    );
+  }
+
   // --- Locale Helper ---
 
   private static readonly LOCALE_MAP: Record<string, string> = {
@@ -188,17 +243,22 @@ export class AiApiService {
   // --- HTTP Helper ---
 
   private post<T>(path: string, body: any): Observable<T> {
+    return this.postAbsolute<T>(`${this.apiBaseUrl}${path}`, body, 'kramerius');
+  }
+
+  private postAbsolute<T>(url: string, body: any, authMode: AiLlmAuthMode): Observable<T> {
     const token = this.authService.getAccessToken();
-    if (!token) {
+    if (authMode === 'kramerius' && !token) {
       return throwError(() => new Error('unauthorized'));
     }
 
-    const url = `${this.baseUrl}${path}`;
-    const headers = new HttpHeaders()
+    let headers = new HttpHeaders()
       .set('X-Tai-Source', location.href)
       .set('X-Tai-Project', 'Kramerius')
-      .set('Authorization', `Bearer ${token}`)
       .set('Content-Type', 'application/json');
+    if (authMode === 'kramerius' && token) {
+      headers = headers.set('Authorization', `Bearer ${token}`);
+    }
 
     return this.http.post<T>(url, body, {
       headers,
@@ -208,6 +268,10 @@ export class AiApiService {
         let errorCode = 'unknown_error';
         if (error.error?.errorCode) {
           errorCode = error.error.errorCode;
+        } else if (typeof error.error?.detail === 'string') {
+          errorCode = error.error.detail;
+        } else if (typeof error.error?.error?.message === 'string') {
+          errorCode = error.error.error.message;
         } else if (error.status === 403 || error.status === 401) {
           errorCode = 'unauthorized';
         }

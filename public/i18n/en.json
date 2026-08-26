@@ -62,7 +62,7 @@
   "search-placeholder-public-documents": "Search public documents of the digital library",
   "search-placeholder-with-filters": "Search with filters {{filters}}",
   "search-in-collection-placeholder": "Search in collections",
-  "search-hero-section-title": "Czech digital library",
+  "search-hero-section-title": "National digital library",
   "search-hero-section-subtitle": "Looking for historical books, newspapers, maps or manuscripts? The digital library opens the gates to a rich collection of digitized documents – both freely available and copyright-protected.",
   "sort-newest-added": "Newest added",
   "sort-relevance": "Relevance",
@@ -514,6 +514,8 @@
   "settings-accessibility-font-title": "Font",
   "export-jpeg-title": "Export JPEG",
   "export-pdf-title": "Export PDF",
+  "direct-pdf-download": "Download the whole document immediately as PDF",
+  "direct-pdf-download-started": "Download started",
   "export-print-title": "Print",
   "export-epub-title": "Export EPUB",
   "export-text-title": "Export TEXT (.txt)",
@@ -522,7 +524,6 @@
   "current-right-page": "Current right page",
   "crop-page": "Crop page",
   "whole-document": "Whole document",
-  "whole-document-legacy": "Whole document (legacy)",
   "whole-document-visk2026": "Whole document VISK2026",
   "select-pages": "Select pages",
   "select-area-drag": "Select area by dragging",
@@ -821,7 +822,7 @@
   "ai.login-required": "Available after login",
   "ai.login-register-link": "How can I register and what do I get?",
   "ai.login-button": "Log in",
-
+  "ai.text-transcript-unavailable": "This document does not have a text transcript available",
   "settings.tts.language": "Language",
   "settings.tts.voice": "Voice",
   "settings.tts.preview": "Preview",
@@ -847,5 +848,10 @@
   "shared-folder-banner--save-action": "Save to my library",
   "shared-folder-banner--remove-action": "Remove from shared",
   "shared-folder-menu--aria-label": "Shared folder options",
-  "shared-folder-banner--saved-success": "List \"{{folderName}}\" was saved to your library."
+  "shared-folder-banner--saved-success": "List \"{{folderName}}\" was saved to your library.",
+  "periodical-calendar-digitized": "Digitized issue",
+  "periodical-calendar-not-digitized": "No digitized issue available",
+  "periodical-calendar-help": "Highlighted days contain a digitized issue and can be opened. An empty day does not mean the periodical necessarily appeared that day; for weekly, monthly and irregular titles it only means that no digitized issue is available for that date.",
+  "periodical-calendar-digitized-open": "Digitized – freely accessible",
+  "periodical-calendar-digitized-restricted": "Digitized – restricted access"
 }

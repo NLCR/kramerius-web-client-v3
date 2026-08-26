@@ -29,14 +29,14 @@ export const selectPeriodicalFacetOperators = createSelector(
   }
 );
 
-export const selectMonthIssues = (year: number, month: number) => createSelector(
+export const selectMonthIssues = (parentVolumeUuid: string, year: number, month: number) => createSelector(
   selectPeriodicalState,
-  s => s.monthIssues[`${year}-${String(month).padStart(2, '0')}`] ?? []
+  s => s.monthIssues[`${parentVolumeUuid}|${year}-${String(month).padStart(2, '0')}`] ?? []
 );
 
-export const selectMonthLoading = (year: number, month: number) => createSelector(
+export const selectMonthLoading = (parentVolumeUuid: string, year: number, month: number) => createSelector(
   selectPeriodicalState,
-  s => !!s.monthLoading[`${year}-${String(month).padStart(2, '0')}`]
+  s => !!s.monthLoading[`${parentVolumeUuid}|${year}-${String(month).padStart(2, '0')}`]
 );
 
 export const selectPidFromAvailableYears = (year: string) => createSelector(

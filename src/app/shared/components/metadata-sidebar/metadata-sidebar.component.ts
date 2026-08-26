@@ -1,4 +1,4 @@
-import { Component, inject, Input, Output, EventEmitter, Optional } from '@angular/core';
+import { Component, computed, inject, Input, Output, EventEmitter } from '@angular/core';
 import { NgIf, NgTemplateOutlet } from '@angular/common';
 
 import { Metadata } from '../../models/metadata.model';
@@ -16,6 +16,7 @@ import { UiStateService } from "../../services/ui-state.service";
 import { ConfigService } from '../../../core/config';
 import { AiActionsComponent } from './ai-actions/ai-actions.component';
 import { AiPanelService } from '../../services/ai-panel.service';
+import { DocumentInfoService } from '../../services/document-info.service';
 
 @Component({
   selector: 'app-metadata-sidebar',
@@ -37,6 +38,16 @@ export class MetadataSidebarComponent {
   uiStateService = inject(UiStateService);
   configService = inject(ConfigService);
   aiPanelService = inject(AiPanelService);
+  documentInfoService = inject(DocumentInfoService);
+
+  exportAllowed = computed(() => {
+    const licenses = Array.from(new Set([
+      ...(this.detailService?.document?.licences ?? []),
+      ...(this.metadata?.licences ?? []),
+      ...this.documentInfoService.getRuntimeLicenses(),
+    ]));
+    return this.configService.isAnyExportAllowedForLicenses(licenses);
+  });
 
   exportAsPdf(): void {
 

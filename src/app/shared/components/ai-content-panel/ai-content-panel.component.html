@@ -10,7 +10,7 @@
       <app-ai-loading [text]="getLoadingKey() | translate"></app-ai-loading>
     } @else if (aiPanelService.error()) {
       <div class="ai-content-panel__error">
-        {{ aiPanelService.error() }}
+        {{ aiPanelService.error() | translate }}
       </div>
     } @else if (aiPanelService.styledHtml()) {
       <div class="ai-content-panel__content" [style.font-size.px]="aiPanelService.fontSize()"

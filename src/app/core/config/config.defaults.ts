@@ -4,11 +4,19 @@ export const DEFAULT_CONFIG: AppConfiguration = {
   app: {
     code: 'cdk',
     name: 'Czech Digital Library',
-    contactEmail: 'info@ceskadigitalniknihovna.cz'
+    contactEmail: 'info@ndk.cz'
   },
   api: {
     baseUrl: '',
     georefUrl: 'https://api.georeference.trinera.cloud/georefs/latest'
+  },
+  ai: {
+    apiBaseUrl: 'https://api.trinera.cloud/api',
+    llm: {
+      provider: 'trinera',
+      model: 'gpt-4o-mini',
+      auth: 'kramerius'
+    }
   },
   i18n: {
     defaultLanguage: 'cs',
@@ -65,7 +73,7 @@ export const DEFAULT_CONFIG: AppConfiguration = {
       isOnline: true,
       label: { cs: 'Volná díla', en: 'Public domain', sk: 'Voľné diela', pl: 'Domena publiczna' },
       messagePages: [
-        { key: 'unauthenticated', page: { cs: 'local-config/html/licenses/public.cs.html', en: 'local-config/html/licenses/public.en.html' } }
+        { key: 'unauthenticated', page: { cs: 'local-config/nkp/html/licenses/public.cs.html', en: 'local-config/nkp/html/licenses/public.en.html' } }
       ],
       actions: {
         pdf: true, print: true, jpeg: true, text: true, textMode: true,
@@ -88,11 +96,11 @@ export const DEFAULT_CONFIG: AppConfiguration = {
       },
       label: { cs: 'Díla nedostupná na trhu - online', en: 'Out of Commerce Works - online', sk: 'Diela nedostupná na trhu - online', pl: 'Utwory niedostępne w handlu – online' },
       messagePages: [
-        { key: 'unauthenticated', page: { cs: 'local-config/html/licenses/dnnto.cs.html', en: 'local-config/html/licenses/dnnto.en.html' } },
-        { key: 'unauthorized', page: { cs: 'local-config/html/licenses/dnnto2.cs.html', en: 'local-config/html/licenses/dnnto2.en.html' } },
-        { key: 'available', page: { cs: 'local-config/html/licenses/dnnto3.cs.html', en: 'local-config/html/licenses/dnnto3.en.html' } }
+        { key: 'unauthenticated', page: { cs: 'local-config/nkp/html/licenses/dnnto.cs.html', en: 'local-config/nkp/html/licenses/dnnto.en.html' } },
+        { key: 'unauthorized', page: { cs: 'local-config/nkp/html/licenses/dnnto2.cs.html', en: 'local-config/nkp/html/licenses/dnnto2.en.html' } },
+        { key: 'available', page: { cs: 'local-config/nkp/html/licenses/dnnto3.cs.html', en: 'local-config/nkp/html/licenses/dnnto3.en.html' } }
       ],
-      instructionPage: { cs: 'local-config/html/licenses/dnnto.instruction.cs.html', en: 'local-config/html/licenses/dnnto.instruction.en.html' },
+      instructionPage: { cs: 'local-config/nkp/html/licenses/dnnto.instruction.cs.html', en: 'local-config/nkp/html/licenses/dnnto.instruction.en.html' },
       actions: {
         pdf: false, print: false, jpeg: false, text: false, textMode: true,
         citation: true, metadata: true, share: true, selection: false, crop: false
@@ -109,9 +117,9 @@ export const DEFAULT_CONFIG: AppConfiguration = {
       isOnline: false,
       label: { cs: 'Díla nedostupná na trhu - studovna', en: 'Out of Commerce Works - library terminal', sk: 'Diela nedostupná na trhu - študovňa', pl: 'Utwory niedostępne w handlu – terminal biblioteczny' },
       messagePages: [
-        { key: 'unauthenticated', page: { cs: 'local-config/html/licenses/dnntt.cs.html', en: 'local-config/html/licenses/dnntt.en.html' } }
+        { key: 'unauthenticated', page: { cs: 'local-config/nkp/html/licenses/dnntt.cs.html', en: 'local-config/nkp/html/licenses/dnntt.en.html' } }
       ],
-      instructionPage: { cs: 'local-config/html/licenses/dnntt.instruction.cs.html', en: 'local-config/html/licenses/dnntt.instruction.en.html' },
+      instructionPage: { cs: 'local-config/nkp/html/licenses/dnntt.instruction.cs.html', en: 'local-config/nkp/html/licenses/dnntt.instruction.en.html' },
       actions: {
         pdf: false, print: true, jpeg: false, text: true, textMode: true,
         citation: true, metadata: true, share: true, selection: false, crop: false
@@ -123,9 +131,9 @@ export const DEFAULT_CONFIG: AppConfiguration = {
       isOnline: false,
       label: { cs: 'Studovna', en: 'Studovna', sk: 'Študovňa', pl: 'Czytelnia' },
       messagePages: [
-        { key: 'unauthenticated', page: { cs: 'local-config/html/licenses/onsite.cs.html', en: 'local-config/html/licenses/onsite.en.html' } }
+        { key: 'unauthenticated', page: { cs: 'local-config/nkp/html/licenses/onsite.cs.html', en: 'local-config/nkp/html/licenses/onsite.en.html' } }
       ],
-      instructionPage: { cs: 'local-config/html/licenses/onsite.instruction.cs.html', en: 'local-config/html/licenses/onsite.instruction.en.html' },
+      instructionPage: { cs: 'local-config/nkp/html/licenses/onsite.instruction.cs.html', en: 'local-config/nkp/html/licenses/onsite.instruction.en.html' },
       actions: {
         pdf: false, print: true, jpeg: false, text: true, textMode: true,
         citation: true, metadata: true, share: true, selection: false, crop: false
@@ -136,19 +144,19 @@ export const DEFAULT_CONFIG: AppConfiguration = {
     {
       id: 'about',
       label: { cs: 'O projektu', en: 'About', sk: 'O projekte', pl: 'O projekcie' },
-      content: { cs: 'local-config/html/about/about.cs.html', en: 'local-config/html/about/about.en.html' },
+      content: { cs: 'local-config/nkp/html/about/about.cs.html', en: 'local-config/nkp/html/about/about.en.html' },
       showInHeader: true
     },
     {
       id: 'terms',
       content: {
-        cs: ['local-config/html/terms/terms.cs.html', 'local-config/html/terms/terms2.cs.html'],
-        en: ['local-config/html/terms/terms.en.html', 'local-config/html/terms/terms2.en.html']
+        cs: ['local-config/nkp/html/terms/terms.cs.html', 'local-config/nkp/html/terms/terms2.cs.html'],
+        en: ['local-config/nkp/html/terms/terms.en.html', 'local-config/nkp/html/terms/terms2.en.html']
       }
     },
     {
       id: 'copyright',
-      content: { cs: 'local-config/html/copyright/copyright.cs.html', en: 'local-config/html/copyright/copyright.en.html' }
+      content: { cs: 'local-config/nkp/html/copyright/copyright.cs.html', en: 'local-config/nkp/html/copyright/copyright.en.html' }
     }
   ]
 };

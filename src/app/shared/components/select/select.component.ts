@@ -69,6 +69,7 @@ export class SelectComponent<T = any> implements AfterViewInit, OnDestroy, OnCha
   filteredOptions: T[] = [];
   focusedIndex = -1;
   showAbove = false;
+  dropdownStyle: {[key: string]: string} = {};
 
   @ViewChild('wrapper') wrapperRef?: ElementRef;
   @ViewChild('filterInput') filterInputRef?: InputComponent;
@@ -110,11 +111,13 @@ export class SelectComponent<T = any> implements AfterViewInit, OnDestroy, OnCha
   ngAfterViewInit() {
     new ResizeObserver(() => this.checkPosition()).observe(document.body);
     document.addEventListener('click', this.onClickOutside);
+    document.addEventListener('scroll', this.onScrollClose, true);
     this.updateFilteredOptions();
   }
 
   ngOnDestroy() {
     document.removeEventListener('click', this.onClickOutside);
+    document.removeEventListener('scroll', this.onScrollClose, true);
   }
 
   focus(): void {
@@ -133,14 +136,18 @@ export class SelectComponent<T = any> implements AfterViewInit, OnDestroy, OnCha
         if (this.focusedIndex >= 0) {
           this.scrollFocusedIntoView();
         }
+        // Hide until properly positioned to prevent flash during CSS transitions
+        this.dropdownStyle = { visibility: 'hidden', 'pointer-events': 'none' };
       }
       return !v;
     });
 
     requestAnimationFrame(() => {
-      this.checkPosition();
-      if (this.open() && this.filterable) {
-        this.filterInputRef?.focus();
+      if (this.open()) {
+        this.checkPosition();
+        if (this.filterable) {
+          this.filterInputRef?.focus();
+        }
       }
     });
   }
@@ -307,11 +314,31 @@ export class SelectComponent<T = any> implements AfterViewInit, OnDestroy, OnCha
     if (!wrapperEl) return;
 
     const rect = wrapperEl.getBoundingClientRect();
-    const dropdownHeight = (this.filterable ? 50 : 0) + this.filteredOptions.length * 40; // Include filter input height if present
+    const optionCount = Math.min(this.filteredOptions.length || this.options.length, 8);
+    const dropdownHeight = (this.filterable ? 50 : 0) + optionCount * 36 + 2;
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
 
     this.showAbove = spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
+
+    const style: {[key: string]: string} = {
+      position: 'fixed',
+      width: rect.width + 'px',
+      left: rect.left + 'px',
+      'z-index': String(Math.max(this.zIndex, 1001)),
+      'margin-top': '0',
+      'margin-bottom': '0',
+      visibility: 'visible',
+      'pointer-events': 'auto',
+    };
+    if (this.showAbove) {
+      style['top'] = 'auto';
+      style['bottom'] = (window.innerHeight - rect.top + 6) + 'px';
+    } else {
+      style['top'] = (rect.bottom + 6) + 'px';
+      style['bottom'] = 'auto';
+    }
+    this.dropdownStyle = style;
   }
 
   trackByFn = (_: number, option: T) => option;
@@ -322,5 +349,15 @@ export class SelectComponent<T = any> implements AfterViewInit, OnDestroy, OnCha
       this.filterText = '';
       this.updateFilteredOptions();
     }
+  };
+
+  private onScrollClose = (event: Event) => {
+    if (!this.open()) return;
+    const target = event.target as Node;
+    // Don't close when scrolling within the dropdown options list
+    if (this.hostRef.nativeElement.contains(target)) return;
+    this.open.set(false);
+    this.filterText = '';
+    this.updateFilteredOptions();
   };
 }

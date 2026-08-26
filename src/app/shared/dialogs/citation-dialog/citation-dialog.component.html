@@ -33,19 +33,19 @@
         </div>
 
         <app-tab-item id="text" label="text">
-          <div class="tab-item--content" [innerHTML]="citationResponse?.iso690"></div>
+          <div class="tab-item--content citation-plain">{{ citationResponse?.iso690 }}</div>
         </app-tab-item>
 
         <app-tab-item id="html" [label]="'html' | translate">
-          <div class="tab-item--content" [innerHTML]="citationResponse?.iso690html"></div>
+          <pre class="tab-item--content citation-code"><code>{{ citationResponse?.iso690html }}</code></pre>
         </app-tab-item>
 
         <app-tab-item id="bibtex" [label]="'bibtex' | translate">
-          <div class="tab-item--content" [innerHTML]="citationResponse?.bibtex"></div>
+          <pre class="tab-item--content citation-code"><code>{{ citationResponse?.bibtex }}</code></pre>
         </app-tab-item>
 
         <app-tab-item id="wiki" [label]="'wiki' | translate">
-          <div class="tab-item--content" [innerHTML]="citationResponse?.wiki"></div>
+          <pre class="tab-item--content citation-code"><code>{{ citationResponse?.wiki }}</code></pre>
         </app-tab-item>
 
         <div tab-common-down>

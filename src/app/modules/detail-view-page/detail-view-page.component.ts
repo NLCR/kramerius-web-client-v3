@@ -290,7 +290,12 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   get mobileNavItems(): MobileNavItem[] {
-    const items = [...this.mobileNavItemsBase];
+    const licenses = Array.from(new Set([
+      ...(this.detailViewService.document?.licences ?? []),
+      ...this.documentInfoService.getRuntimeLicenses(),
+    ]));
+    const canExport = this.configService.isAnyExportAllowedForLicenses(licenses);
+    const items = this.mobileNavItemsBase.filter(item => item.id !== 'export' || canExport);
     if (this.configService.isFeatureEnabled('ai')) {
       items.push(this.mobileAiNavItem);
     }

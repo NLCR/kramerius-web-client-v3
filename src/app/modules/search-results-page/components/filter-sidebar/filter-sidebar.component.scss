@@ -186,3 +186,17 @@
 .padding-lg {
   padding: var(--spacing-x3) var(--spacing-x3) var(--spacing-x3) var(--spacing-x3);
 }
+
+// Desktop filters behave like a quiet navigation rail rather than a boxed form.
+.filter-sidebar:not(.overlay) {
+  background: linear-gradient(180deg, #fbfcfc 0%, #f7f9f9 100%);
+  border-right-color: var(--color-border-light);
+}
+
+.filter-content.scrollable {
+  scrollbar-gutter: stable;
+}
+
+:host-context(.dark) .filter-sidebar:not(.overlay) {
+  background: var(--color-bg-base);
+}

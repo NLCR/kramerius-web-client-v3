@@ -10,3 +10,25 @@
   display: flex;
   gap: var(--spacing-x2);
 }
+
+
+/* Citation formats are source formats, not trusted UI markup. HTML must be
+   displayed literally so users can copy valid citation markup. */
+.citation-plain {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.citation-code {
+  margin: 0;
+  padding: var(--spacing-x4);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--color-border-light);
+  border-radius: 12px;
+  background: var(--color-bg-light);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--font-size-small);
+  line-height: 1.55;
+}

@@ -2,57 +2,61 @@
 
 .section-header {
   display: flex;
-  gap: var(--spacing-x2);
+  gap: var(--spacing-x3);
   align-items: center;
-  margin-bottom: 12px;
+  justify-content: flex-start;
+  margin-bottom: var(--spacing-x5);
 
   h2 {
     font-family: var(--font-family-body);
-    font-size: var(--font-size-xlarge);
+    font-size: var(--font-size-xxlarge);
     font-weight: var(--font-weight-semi-bold);
     line-height: var(--line-height-4);
+    letter-spacing: -0.015em;
     margin: 0;
+    color: var(--color-text-base);
   }
 
   .show-all {
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: var(--spacing-x2) var(--spacing-x3);
+    border-radius: 999px;
     font-size: var(--font-size-small);
     color: var(--color-primary);
     text-decoration: none;
-    font-weight: 500;
-    gap: 0;
+    font-weight: 600;
+    gap: var(--spacing-x2);
+    transition: background-color 0.2s ease, color 0.2s ease;
 
     .text {
-      max-width: 0;
-      opacity: 0;
-      overflow: hidden;
+      max-width: none;
+      opacity: 1;
+      overflow: visible;
       white-space: nowrap;
-      transition: all 0.3s ease-in-out;
     }
 
     &:hover {
-      gap: 12px;
-
-      .text {
-        max-width: 400px;
-        opacity: 1;
-      }
+      gap: var(--spacing-x2);
+      background: var(--color-brand-nk-soft, rgba(0, 141, 168, 0.08));
+      text-decoration: none;
     }
   }
 }
 
 .facet-grid-section {
   h3 {
-    margin-bottom: 12px;
+    margin-bottom: var(--spacing-x3);
     font-size: var(--font-size-xlarge);
   }
 
   .facet-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--spacing-x4);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--spacing-x3);
 
     @include m.respond(lg) {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     @include m.respond(md) {

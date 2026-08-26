@@ -2,11 +2,11 @@
   --base-padding: 20px;
   --base-margin: 20px;
   --base-gap: 20px;
-  --base-border-radius: 8px;
+  --base-border-radius: 12px;
 
-  --search-page-padding: 16px;
+  --search-page-padding: clamp(16px, 4vw, 56px);
 
-  --item-card-shadow: 0 6px 15.9px 0 rgba(0, 0, 0, 0.12);
+  --item-card-shadow: 0 10px 28px rgba(16, 23, 25, 0.10);
 
   --font-size-xs: calc(11px * var(--accessibility-text-scale));
   --font-size-xxsmall: calc(12px * var(--accessibility-text-scale));
@@ -27,7 +27,7 @@
   --license-bar-height: 38px;
   --playback-bar-height-value: 68px; // AUD-1: Soundbar-pinned dle navrhu
   --info-banner-height: 55px;
-  --metadata-sidebar-width: 285px;
+  --metadata-sidebar-width: 360px;
 
   --spacing-x05: 2px;
   --spacing-x1: 4px;
@@ -66,7 +66,7 @@
 
   // Grid
   --card-min-width: 144px;
-  --card-gap: 12px;
+  --card-gap: 16px;
 
   @media (max-width: 603px) {
     --card-gap: var(--spacing-x2);
@@ -99,7 +99,7 @@
   --card-image-aspect-ratio: 129 / 160;
 
   // Carousel Card (homepage) - 200x364
-  --carousel-card-width: 185px;
+  --carousel-card-width: 176px;
   --carousel-card-height: 388px;
   --carousel-image-aspect-ratio: 160 / 220;
 

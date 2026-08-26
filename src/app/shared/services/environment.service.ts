@@ -101,30 +101,40 @@ export class EnvironmentService {
 
   getKrameriusUrl(withParam = true): string {
     // Internal-only library switch: when enabled, a selected dev library's
-    // base URL is kept in localStorage. Ignored entirely in the default
-    // (single-Kramerius) deployment.
+    // backend URL is kept in localStorage. Production NKP has this switch off,
+    // so an old/stale frontend URL from localStorage can never hijack API calls.
     if (this.librarySwitchEnabled) {
       const devOverride = localStorage.getItem('CDK_DEV_BASE_URL');
       if (devOverride) {
-        return ensureTrailingSlash(devOverride) + (withParam ? 'search/api/client/v7.0/' : '');
+        return this.normalizeClientApiUrl(devOverride, withParam);
       }
     }
 
-    // Primary source of truth: api.baseUrl from config-main.json. The whole
-    // backend connection lives in config — the client points at a single
-    // Kramerius and nothing is read from the central registry.
-    const configBaseUrl = this.configApiBaseUrl;
-    if (configBaseUrl) {
-      // config-main.json's api.baseUrl already includes '/search/api/client';
-      // append only the version segment when params are requested.
-      const trimmed = configBaseUrl.replace(/\/+$/, '');
-      const normalized = trimmed.replace(/\/search\/api\/client$/, '');
-      return normalized + (withParam ? '/search/api/client/v7.0/' : '');
+    // Primary source of truth: api.baseUrl from config-main.json. Accept all
+    // common forms (host root, /search/api/client, or an already versioned URL)
+    // and always return one canonical client-v7 endpoint. This prevents a
+    // frontend route such as https://new.kramerius7.nkp.cz/search from being
+    // accidentally used as the Solr JSON endpoint.
+    if (this.configApiBaseUrl) {
+      return this.normalizeClientApiUrl(this.configApiBaseUrl, withParam);
     }
 
-    // No api.baseUrl means an invalid config; ConfigService.load() already
-    // throws before we get here. Return empty rather than a hardcoded guess.
     return '';
+  }
+
+  private normalizeClientApiUrl(rawUrl: string, withParam: boolean): string {
+    const trimmed = (rawUrl || '').trim().replace(/\/+$/, '');
+    if (!trimmed) return '';
+
+    // Strip a client API suffix if the configured URL already contains one.
+    // The unversioned host is also what getPureApiUrl()/getBaseApiUrl() need.
+    const root = trimmed
+      .replace(/\/search\/api\/client\/v7(?:\.0)?$/i, '')
+      .replace(/\/search\/api\/client$/i, '');
+
+    return withParam
+      ? `${root}/search/api/client/v7.0/`
+      : root;
   }
 
   getKrameriusId(): string {

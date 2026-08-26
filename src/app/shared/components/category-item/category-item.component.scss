@@ -1,32 +1,83 @@
 .category-item {
+  --category-accent: var(--color-primary);
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--spacing-x2);
-  padding: var(--spacing-x2);
-  background-color: var(--color-bg-base);
-  border-radius: var(--base-border-radius);
+  gap: var(--spacing-x3);
+  min-height: 58px;
+  padding: var(--spacing-x3) var(--spacing-x4);
+  overflow: hidden;
+  background-color: rgba(255, 255, 255, 0.84);
+  border-radius: 14px;
   font-size: var(--font-size-base);
   font-weight: 500;
   line-height: var(--line-height-2);
   cursor: pointer;
-  transition: 0.2s;
-  border: 1px solid transparent;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  border: 1px solid var(--color-border-light);
+  box-shadow: 0 2px 8px rgba(16, 23, 25, 0.025);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--category-accent);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+  }
+
+  &.has-accent::before {
+    opacity: 1;
+  }
 
   &:hover {
-    color: var(--color-primary-hover);
-    text-decoration: auto;
-    font-weight: 500;
-    border: 1px solid var(--color-border-contrast);
-    box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.10);
+    color: var(--color-text-base);
+    text-decoration: none;
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--category-accent) 35%, var(--color-border-light));
+    box-shadow: 0 10px 24px rgba(16, 23, 25, 0.09);
+  }
+
+  i,
+  img {
+    flex-shrink: 0;
   }
 
   i {
-    font-size: var(--font-size-xxlarge);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: var(--font-size-xlarge);
+    color: var(--category-accent);
+    background: color-mix(in srgb, var(--category-accent) 9%, transparent);
   }
 
   img {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
   }
 
+  .label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .count {
+    margin-left: auto;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--color-bg-light);
+    color: var(--color-text-tertiary);
+  }
+}
+
+:host-context(.dark) .category-item {
+  background: rgba(14, 18, 22, 0.82);
+  box-shadow: none;
 }

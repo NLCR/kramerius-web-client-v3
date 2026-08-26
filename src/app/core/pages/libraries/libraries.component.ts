@@ -249,17 +249,25 @@ export class LibrariesComponent implements OnInit {
   filteredLibraries = computed(() => {
     const rawQuery = String(this.searchQuery()).toLowerCase().trim();
     const libs = this.libraries();
-    if (!rawQuery) return libs;
     const query = removeDiacritics(rawQuery);
-    return libs.filter(lib =>
-      removeDiacritics(lib.name.toLowerCase()).includes(query) ||
-      (lib.name_en && removeDiacritics(lib.name_en.toLowerCase()).includes(query)) ||
-      lib.code.toLowerCase().includes(query)
-    );
+    const filtered = !rawQuery ? [...libs] : libs.filter(lib =>
+        removeDiacritics(lib.name.toLowerCase()).includes(query) ||
+        (lib.name_en && removeDiacritics(lib.name_en.toLowerCase()).includes(query)) ||
+        lib.code.toLowerCase().includes(query)
+      );
+
+    // Keep the configured/active library at the top. For the production NKP
+    // build this makes the default context immediately obvious instead of
+    // burying it among dozens of registry entries.
+    const active = this.activeCode();
+    return filtered.sort((a, b) => Number(b.code === active) - Number(a.code === active));
   });
 
   ngOnInit() {
-    this.activeCode.set(localStorage.getItem(this.STORAGE_KEY_ID) || '');
+    // No override means the configured base library is active. For the NKP
+    // production build this is `nkp`, so the library picker never looks as if
+    // no library were selected.
+    this.activeCode.set(localStorage.getItem(this.STORAGE_KEY_ID) || this.configService.app?.code || 'nkp');
     this.loadLibraries();
   }
 

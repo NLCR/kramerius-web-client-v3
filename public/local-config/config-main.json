@@ -1,24 +1,41 @@
 {
   "app": {
-    "code": "cdk",
-    "name": { "cs": "Česká digitální knihovna", "en": "Czech Digital Library", "sk": "Česká digitálna knižnica", "pl": "Czeska Biblioteka Cyfrowa" },
-    "contactEmail": "info@ceskadigitalniknihovna.cz",
-    "logo": "/favicon.svg",
+    "code": "nkp",
+    "name": {
+      "cs": "Národní knihovna České republiky",
+      "en": "National Library of the Czech Republic",
+      "sk": "Národná knižnica Českej republiky",
+      "pl": "Biblioteka Narodowa Republiki Czeskiej"
+    },
+    "contactEmail": "info@ndk.cz",
+    "logo": "/img/logo/nk-logo.png",
     "adminClientUrl": "https://admin.kramerius.ceskadigitalniknihovna.cz"
   },
-
   "api": {
-    "baseUrl": "https://cdk-api.dev.ceskadigitalniknihovna.cz/search/api/client",
-    "citationUrl": "https://citace.ceskadigitalniknihovna.cz/api/v1",
-    "georefUrl": "https://api.georeference.trinera.cloud/georefs/latest"
+    "baseUrl": "https://api.kramerius7.nkp.cz/search/api/client",
+    "citationUrl": "https://citace.kramerius7.nkp.cz/api/v1",
+    "georefUrl": "https://api.georeference.trinera.cloud/georefs/latest",
+    "pdfServer": "https://new.kramerius7.nkp.cz/pdf"
   },
-
+  "ai": {
+   "apiBaseUrl": "https://new.kramerius7.nkp.cz/",
+   "llm": {
+     "provider": "qwen",
+     "baseUrl": "https://new.kramerius7.nkp.cz/ai/v1",
+     "model": "Qwen/Qwen3.5-9B",
+     "auth": "kramerius"
+   }
+  },
   "i18n": {
     "defaultLanguage": "cs",
     "fallbackLanguage": "en",
-    "supportedLanguages": ["cs", "en", "sk", "pl"]
+    "supportedLanguages": [
+      "cs",
+      "en",
+      "sk",
+      "pl"
+    ]
   },
-
   "integrations": {
     "clientId": "",
     "analytics": {
@@ -31,7 +48,6 @@
       "apiKey": "AIzaSyCGDIOYeh5bw_vsBcZxZH3GOzmA0aetqBw"
     }
   },
-
   "features": {
     "keycloak": true,
     "mapSearch": true,
@@ -39,14 +55,12 @@
     "georef": true,
     "ai": true,
     "folders": true,
-    "librarySwitch": true,
+    "librarySwitch": false,
     "showExportHistory": false
   },
-
   "ui": {
     "cookiebar": true
   },
-
   "export": {
     "print": true,
     "jpeg": true,
@@ -55,10 +69,12 @@
     "txt": true,
     "enrichWithAI": true
   },
-
   "viewer": {
     "defaultMode": "single",
-    "availableModes": ["book", "single"],
+    "availableModes": [
+      "book",
+      "single"
+    ],
     "rememberLastMode": true,
     "controls": {
       "zoomIn": true,
@@ -77,7 +93,6 @@
       "share": true
     }
   },
-
   "search": {
     "doctypes": [
       "monograph",
@@ -99,40 +114,53 @@
     ],
     "facetThreads": -1
   },
-
   "pages": [
     {
       "id": "about",
-      "label": { "cs": "O projektu", "en": "About", "sk": "O projekte", "pl": "O projekcie" },
-      "content": { "cs": "local-config/html/about/about.cs.html", "en": "local-config/html/about/about.en.html" },
+      "label": {
+        "cs": "O projektu",
+        "en": "About",
+        "sk": "O projekte",
+        "pl": "O projekcie"
+      },
+      "content": {
+        "cs": "local-config/nkp/html/about/about.cs.html",
+        "en": "local-config/nkp/html/about/about.en.html"
+      },
       "showInHeader": true
     },
     {
       "id": "terms",
       "content": {
-        "cs": ["local-config/html/terms/terms.cs.html", "local-config/html/terms/terms2.cs.html"],
-        "en": ["local-config/html/terms/terms.en.html", "local-config/html/terms/terms2.en.html"]
+        "cs": [
+          "local-config/nkp/html/terms/terms.cs.html",
+          "local-config/nkp/html/terms/terms2.cs.html"
+        ],
+        "en": [
+          "local-config/nkp/html/terms/terms.en.html",
+          "local-config/nkp/html/terms/terms2.en.html"
+        ]
       }
     },
     {
       "id": "copyright",
       "content": {
-        "cs": "local-config/html/copyright/copyright.cs.html",
-        "en": "local-config/html/copyright/copyright.en.html"
+        "cs": "local-config/nkp/html/copyright/copyright.cs.html",
+        "en": "local-config/nkp/html/copyright/copyright.en.html"
       }
     },
     {
       "id": "gdpr",
       "content": {
-        "cs": "local-config/html/gdpr/gdpr.cs.html",
-        "en": "local-config/html/gdpr/gdpr.en.html"
+        "cs": "local-config/nkp/html/gdpr/gdpr.cs.html",
+        "en": "local-config/nkp/html/gdpr/gdpr.en.html"
       }
     },
     {
       "id": "faq",
       "content": {
-        "cs": "local-config/html/faq/faq.cs.html",
-        "en": "local-config/html/faq/faq.en.html"
+        "cs": "local-config/nkp/html/faq/faq.cs.html",
+        "en": "local-config/nkp/html/faq/faq.en.html"
       }
     }
   ]

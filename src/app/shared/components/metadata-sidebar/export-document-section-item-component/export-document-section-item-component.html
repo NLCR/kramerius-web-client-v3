@@ -37,6 +37,13 @@
         {{ (loginRequired ? 'confirm--login-required' : 'confirm') | translate }}
       }
     </button>
+
+    @if (directPdf(); as pdf) {
+      <a class="direct-pdf-download" [href]="pdf.downloadUrl" (click)="onDirectPdfDownload()">
+        <span>{{ 'direct-pdf-download' | translate }}</span>
+        <span class="direct-pdf-download__size">({{ pdf.sizeMb }} MB)</span>
+      </a>
+    }
   </div>
   }
 
