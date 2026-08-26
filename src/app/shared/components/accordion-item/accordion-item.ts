@@ -20,6 +20,7 @@ export class AccordionItem {
   @Input() closeIconClass: string = 'icon-add-circle';
   @Input() allowHtml: boolean = false;
   @Input() linkify: boolean = false;
+  @Input() contentParams: Record<string, unknown> | null = null;
 
   @Output() toggle = new EventEmitter<void>();
 

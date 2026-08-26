@@ -13,11 +13,11 @@
   @if (isOpen) {
     <div class="accordion-item__content" [id]="panelId" role="region">
       @if (allowHtml) {
-        <div [innerHTML]="content | translate"></div>
+        <div [innerHTML]="content | translate: contentParams"></div>
       } @else if (linkify) {
-        <p [innerHTML]="content | translate | linkify"></p>
+        <p [innerHTML]="content | translate: contentParams | linkify"></p>
       } @else {
-        <p>{{ content | translate }}</p>
+        <p>{{ content | translate: contentParams }}</p>
       }
     </div>
   }

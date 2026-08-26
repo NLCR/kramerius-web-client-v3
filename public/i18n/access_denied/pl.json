@@ -28,7 +28,7 @@
     "access-denied.dnnto.faq.q6": "Czy mogę pobrać lub wydrukować dokument?",
     "access-denied.dnnto.faq.a6": "Nie, dokumenty w trybie DNNT można czytać tylko online – nie można ich pobrać ani wydrukować. Jeśli jednak otworzysz ten sam dokument na komputerze w czytelni biblioteki, która go udostępnia, możesz wydrukować wybrane fragmenty na użytek osobisty.",
     "access-denied.dnnto.faq.q7": "Jestem zarejestrowanym czytelnikiem i nie mogę uzyskać dostępu do dokumentu DNNT. Co mam zrobić?",
-    "access-denied.dnnto.faq.a7": "Sprawdź, czy jesteś zalogowany przez bibliotekę obsługującą usługę DNNT. Jeśli tak, a dokument nadal się nie wyświetla, skontaktuj się ze swoją biblioteką, aby zweryfikować status konta czytelnika.",
+    "access-denied.dnnto.faq.a7": "Sprawdź, czy jesteś zalogowany przez bibliotekę obsługującą usługę DNNT. Jeśli tak, a dokument nadal się nie wyświetla, skontaktuj się z nami pod adresem {{email}}, abyśmy zweryfikowali status Twojego konta czytelnika.",
     "access-denied.dnnto.faq.q8": "Gdzie znajdę dodatkowe informacje o projekcie DNNT?",
     "access-denied.dnnto.faq.a8": "Wszystkie informacje o projekcie DNNT, warunkach włączenia do SDNNT i udostępnianiu dzieł można znaleźć na stronie https://dnnt.cz. Znajdziesz tam również listę bibliotek cyfrowych udostępniających swoje dokumenty w trybie DNNT.",
     "access-denied.dnntt.faq.q1": "Co oznacza oznaczenie „Dzieła niedostępne na rynku – czytelnia”?",

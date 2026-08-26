@@ -10,6 +10,7 @@
       [closeIconClass]="closeIconClass"
       [allowHtml]="item.allowHtml || false"
       [linkify]="item.linkify || false"
+      [contentParams]="item.contentParams || null"
       (toggle)="toggleItem(item.id)">
     </app-accordion-item>
   }

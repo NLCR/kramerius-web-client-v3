@@ -34,7 +34,7 @@
     "access-denied.dnnto.faq.q6": "Can I download or print the document?",
     "access-denied.dnnto.faq.a6": "No, DNNT documents can only be read online – they cannot be downloaded or printed. However, if you open the same document on a computer in the study room of the library that provides access, you can print selected parts for personal use.",
     "access-denied.dnnto.faq.q7": "I am a registered reader and cannot access the DNNT document. What should I do?",
-    "access-denied.dnnto.faq.a7": "Check if you are logged in via a library that supports the DNNT service. If yes and the document still does not appear, contact your library to verify the status of your reader account.",
+    "access-denied.dnnto.faq.a7": "Check if you are logged in via a library that supports the DNNT service. If yes and the document still does not appear, contact us at {{email}} so we can verify the status of your reader account.",
     "access-denied.dnnto.faq.q8": "Where can I find additional information about the DNNT project?",
     "access-denied.dnnto.faq.a8": "All information about the DNNT project, conditions for inclusion in SDNNT, and making works available can be found on the website https://dnnt.cz. You will also find a list of digital libraries that make their documents available in DNNT mode.",
     "access-denied.dnntt.faq.q1": "What does \"Works unavailable on the market – study room\" mean?",

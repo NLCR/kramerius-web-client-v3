@@ -11,6 +11,8 @@ export interface AccordionItemData {
   allowHtml?: boolean;
   /** Turn bare URLs and e-mails in the (plain-text) content into links. */
   linkify?: boolean;
+  /** ngx-translate interpolation params for `content` (e.g. { email: '...' }). */
+  contentParams?: Record<string, unknown>;
 }
 
 @Component({

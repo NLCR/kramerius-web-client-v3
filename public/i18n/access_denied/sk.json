@@ -34,7 +34,7 @@
     "access-denied.dnnto.faq.q6": "Môžem si dokument stiahnuť alebo vytlačiť?",
     "access-denied.dnnto.faq.a6": "Nie, dokumenty v režime DNNT možno online len čítať – nejde ich stiahnuť ani vytlačiť. Pokiaľ si ale rovnaký dokument otvoríte na počítači v študovni knižnice, ktorá ho sprístupňuje, môžete si z neho vytlačiť vybrané časti pre osobnú potrebu.",
     "access-denied.dnnto.faq.q7": "Som registrovaný čitateľ a k dokumentu DNNT sa nemôžem dostať. Čo mám robiť?",
-    "access-denied.dnnto.faq.a7": "Skontrolujte, či ste prihlásení cez knižnicu, ktorá službu DNNT podporuje. Pokiaľ áno a napriek tomu sa vám dokument nezobrazuje, kontaktujte svoju knižnicu, aby overila stav vášho čitateľského konta.",
+    "access-denied.dnnto.faq.a7": "Skontrolujte, či ste prihlásení cez knižnicu, ktorá službu DNNT podporuje. Pokiaľ áno a napriek tomu sa vám dokument nezobrazuje, kontaktujte nás na {{email}}, aby sme overili stav vášho čitateľského konta.",
     "access-denied.dnnto.faq.q8": "Kde nájdem dodatočné informácie o projekte DNNT?",
     "access-denied.dnnto.faq.a8": "Všetky informácie o projekte DNNT, podmienkach zaradenia na SDNNT a sprístupňovaní diel nájdete na webe https://dnnt.cz. Nájdete tu zároveň zoznam digitálnych knižníc, ktoré svoje dokumenty v režime DNNT sprístupňujú.",
     "access-denied.dnntt.faq.q1": "Čo znamená označenie „Diela nedostupné na trhu – študovňa“?",

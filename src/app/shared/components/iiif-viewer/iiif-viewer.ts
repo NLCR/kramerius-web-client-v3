@@ -601,6 +601,12 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     const currentPid = this.imagePid || this.metadata?.uuid;
     if (!currentPid) return EMPTY;
 
+    // Area selection ("select area"/crop) is scoped to a single page. Turning it
+    // off on every page change (a no-op when it wasn't active) prevents it from
+    // getting stuck across a page turn — mouse nav staying disabled and the
+    // crosshair cursor persisting even though the page itself already changed.
+    this.iiifViewerService.setSelectionMode(false);
+
     // Clear existing overlays when changing pages
     this.iiifViewerService.clearAllOverlays();
 

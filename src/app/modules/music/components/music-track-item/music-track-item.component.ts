@@ -1,4 +1,4 @@
-import {Component, EventEmitter, HostBinding, inject, Input, OnInit, Output} from '@angular/core';
+import {Component, EventEmitter, HostBinding, inject, Input, OnDestroy, OnInit, Output, signal} from '@angular/core';
 import {AsyncPipe, NgClass, NgIf} from '@angular/common';
 import {SoundTrackModel, TrackViewType} from '../../../models/sound-track.model';
 import {TranslatePipe} from '@ngx-translate/core';
@@ -23,9 +23,16 @@ import {ThumbnailImageComponent} from '../../../../shared/components/thumbnail-i
   styleUrls: ['./music-track-item.component.scss', '../music-track-list-table.scss'],
   standalone: true
 })
-export class MusicTrackItemComponent implements OnInit {
+export class MusicTrackItemComponent implements OnInit, OnDestroy {
 
   isMouseOverFavorite = false;
+
+  // Fallback duration (seconds) read directly from the audio file when Solr's
+  // 'track.length' is missing/0 — mirrors how the player itself determines
+  // duration (from the loaded audio element), so the list stops showing "0:00"
+  // for tracks whose Solr metadata never got a length.
+  private probedDurationSeconds = signal<number | null>(null);
+  private probeAudio: HTMLAudioElement | null = null;
 
   public musicService = inject(MusicService);
   private favoritesService = inject(FavoritesService);
@@ -48,6 +55,25 @@ export class MusicTrackItemComponent implements OnInit {
   ngOnInit() {
     if (this.track?.pid) {
       this.isFavorited$ = this.favoritesService.getFavoritedStatus(this.track.pid);
+    }
+
+    if (!this.track?.['track.length'] && this.track?.url) {
+      this.probeAudio = new Audio();
+      this.probeAudio.preload = 'metadata';
+      this.probeAudio.addEventListener('loadedmetadata', () => {
+        if (this.probeAudio && isFinite(this.probeAudio.duration)) {
+          this.probedDurationSeconds.set(this.probeAudio.duration);
+        }
+      });
+      this.probeAudio.src = this.track.url;
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.probeAudio) {
+      this.probeAudio.removeAttribute('src');
+      this.probeAudio.load();
+      this.probeAudio = null;
     }
   }
 
@@ -76,12 +102,12 @@ export class MusicTrackItemComponent implements OnInit {
   }
 
   get duration(): string {
-    const seconds = this.track?.['track.length'];
+    const seconds = this.track?.['track.length'] || this.probedDurationSeconds();
     if (seconds == null) {
       return '-';
     }
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 

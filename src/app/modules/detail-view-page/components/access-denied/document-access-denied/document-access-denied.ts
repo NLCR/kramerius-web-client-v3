@@ -240,16 +240,25 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
       // Either way the answer text can contain a bare URL or e-mail, so it is
       // linkified — up front here, or by the accordion for the key form.
       ...(group.answers.length === 1
-        ? { content: group.answers[0].contentKey, linkify: true }
+        ? { content: group.answers[0].contentKey, linkify: true, contentParams: this.faqInterpolationParams }
         : { content: this.buildMergedAnswer(group.answers), allowHtml: true })
     }));
+  }
+
+  /**
+   * Interpolation params for FAQ answer keys that reference a contact e-mail
+   * (e.g. "kontaktujte svou knihovnu na {{email}}"). Harmless for answers whose
+   * translated text has no `{{email}}` placeholder.
+   */
+  private get faqInterpolationParams(): Record<string, unknown> {
+    return { email: this.configService.app?.contactEmail || '' };
   }
 
   private buildMergedAnswer(answers: FaqAnswer[]): string {
     return answers
       .map(answer => {
         const label = this.licenseLabel(answer.licenseType);
-        const text = this.translate.instant(answer.contentKey);
+        const text = this.translate.instant(answer.contentKey, this.faqInterpolationParams);
         return `<p class="faq-answer"><span class="faq-answer__license">${escapeHtml(label)}</span>${linkifyText(text)}</p>`;
       })
       .join('');
