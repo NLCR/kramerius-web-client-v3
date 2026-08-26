@@ -182,7 +182,9 @@ export function getCustomDefinedFacets() {
           label: 'custom-accessibility--public',
           ...FacetIcons.public,
           count: 0,
-          type: FacetElementType.radio
+          type: FacetElementType.radio,
+          tooltipIcon: 'icon-question',
+          tooltipText: 'custom-accessibility--public-tooltip',
         },
         {
           key: FacetAccessibilityTypes.afterLogin,

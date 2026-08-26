@@ -678,6 +678,7 @@
   "license-info-tooltip": "Zobraziť popis licencie",
   "custom-accessibility--all-tooltip": "Niektoré dokumenty sú voľne prístupné, iné sú stále chránené autorským zákonom a ich zobrazenie závisí od typu prístupu (bez prihlásenia, po prihlásení alebo iba v knižnici).",
   "custom-accessibility--available-tooltip": "Iba dostupné zobrazí len dokumenty, ktoré si môžete práve teraz otvoriť. Bez prihlásenia uvidíte len verejné diela. Po prihlásení aj ďalšie dokumenty sprístupnené vašou knižnicou (napr. DNNT).",
+  "custom-accessibility--public-tooltip": "Verejné zobrazí len diela voľne dostupné komukoľvek bez prihlásenia (napr. diela mimo autorských práv). Líši sa od možnosti „Iba dostupné“, ktorá po prihlásení zahrnie aj ďalšie dokumenty sprístupnené vašou knižnicou.",
   "custom-accessibility--afterLogin-tooltip": "Zobrazí dokumenty dostupné po prihlásení. Ide o autorsky chránené diela označené ako diela nedostupné na trhu (DNNT), ktoré sú sprístupnené online v režime čítania registrovaným čitateľom zapojených knižníc.",
   "periodicals-section--header": "Periodika",
   "books-section--header": "Knihy",
