@@ -42,6 +42,8 @@
     </div>
   }
   @if (displayItems.length === 0) {
-    <div class="no-results">{{'no_results_to_display' | translate}}</div>
+    <div class="no-results">
+      {{ (currentPageHasNoOcr ? 'no_results_to_display--no-ocr-hint' : 'no_results_to_display') | translate }}
+    </div>
   }
 </div>

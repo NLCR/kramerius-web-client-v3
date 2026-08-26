@@ -3,7 +3,9 @@
     {{ 'ai.powered-by' | translate }}
   </div>
 
-  <div class="ai-actions__items" [class.disabled]="!userService.isLoggedIn || actionsDisabled">
+  <div class="ai-actions__items" [class.disabled]="!userService.isLoggedIn || actionsDisabled"
+    [appCdkTooltip]="actionsDisabled && actionsDisabledReason ? (actionsDisabledReason | translate) : ''"
+    [tooltipPosition]="'top'">
     <button class="ai-actions__item" (click)="onRead()" [class.active]="ttsService.isReading()" [disabled]="actionsDisabled">
       <div class="ai-actions__item-left">
         <i class="icon-voice-square" aria-hidden="true"></i>

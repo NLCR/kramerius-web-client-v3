@@ -74,7 +74,11 @@ export class UserInfoComponent {
   }
 
   truncateDisplayName(name: string | null | undefined): string {
-    if (!name) return '-';
+    // Empty (not '-') while the name is still loading right after login —
+    // user data arrives via a separate request after the auth state itself
+    // is already set, so this briefly renders before `user` resolves. A
+    // literal '-' read as a broken/empty account (GitHub issue #165).
+    if (!name) return '';
     return name.length > 13 ? name.substring(0, 13) + '...' : name;
   }
 

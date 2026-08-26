@@ -3,6 +3,7 @@ import {
   DetailPageItemComponent
 } from '../../../modules/detail-view-page/components/detail-page-item/detail-page-item.component';
 import { DetailViewService } from '../../../modules/detail-view-page/services/detail-view.service';
+import { DocumentInfoService } from '../../services/document-info.service';
 import { Page } from '../../models/page.model';
 import {TranslatePipe} from '@ngx-translate/core';
 import {CdkTooltipDirective} from '../../directives';
@@ -33,6 +34,18 @@ export class SearchResultsListComponent implements OnChanges, AfterViewChecked {
   @Output() resultClick = new EventEmitter<SearchResult>();
 
   public detailViewService = inject(DetailViewService);
+  public documentInfoService = inject(DocumentInfoService);
+
+  /**
+   * Best-effort hint for the empty-results message: true when the currently
+   * viewed page has no OCR text layer at all. Search then genuinely can't
+   * find anything, which reads very differently from "the term isn't in this
+   * document" (GitHub issue #109). Only the current page's OCR status is
+   * known client-side, so this is a hint, not a document-wide guarantee.
+   */
+  get currentPageHasNoOcr(): boolean {
+    return !this.documentInfoService.hasOcrText();
+  }
 
   private previousPid: string | null = null;
   private shouldScroll = false;

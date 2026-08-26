@@ -9,11 +9,12 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { SettingsService } from '../../../../modules/settings/settings.service';
 import { DocumentInfoService } from '../../../services/document-info.service';
 import { ConfigService } from '../../../../core/config/config.service';
+import { CdkTooltipDirective } from '../../../directives';
 
 @Component({
   selector: 'app-ai-actions',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, CdkTooltipDirective],
   templateUrl: './ai-actions.component.html',
   styleUrl: './ai-actions.component.scss'
 })
@@ -46,6 +47,17 @@ export class AiActionsComponent {
 
   get actionsDisabled(): boolean {
     return !this.altoAvailable || !this.textActionAllowed;
+  }
+
+  /**
+   * Explains why the actions are greyed out (GitHub issue #109) — otherwise
+   * a logged-in reader has no way to tell "no OCR" apart from "not allowed
+   * by this license".
+   */
+  get actionsDisabledReason(): string | null {
+    if (!this.altoAvailable) return 'ai.disabled-no-ocr-tooltip';
+    if (!this.textActionAllowed) return 'ai.disabled-license-tooltip';
+    return null;
   }
 
   openReadingSettings(event: Event): void {
