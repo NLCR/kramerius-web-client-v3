@@ -139,7 +139,12 @@ export class ConfigService {
 
   private fetchLocalConfig(name: ConfigFileName): Promise<Response> {
     const timestamp = Date.now();
-    return fetch(`local-config/${name}.json?t=${timestamp}`);
+    // Leading slash matters: without it this is relative to the current route,
+    // not the site root. A hard refresh on any deep route (e.g. /view/uuid:...)
+    // would then request .../view/local-config/config-main.json — a 404 — so
+    // config never loads and every API call falls back to a same-origin
+    // relative URL (see EnvironmentService.getApiUrl).
+    return fetch(`/local-config/${name}.json?t=${timestamp}`);
   }
 
   /**
@@ -787,7 +792,12 @@ export class ConfigService {
   async loadHtmlContent(url: string): Promise<string> {
     try {
       const timestamp = Date.now();
-      const response = await fetch(`${url}?t=${timestamp}`);
+      // Config data (e.g. config-licenses.json's instructionPage/page fields)
+      // stores these as "local-config/..." without a leading slash. Fetched
+      // as-is, that resolves relative to the CURRENT route rather than the
+      // site root, so it 404s whenever the user isn't on a root-level page.
+      const absoluteUrl = url.startsWith('/') || /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `/${url}`;
+      const response = await fetch(`${absoluteUrl}?t=${timestamp}`);
       if (!response.ok) return '';
       const buffer = await response.arrayBuffer();
       return new TextDecoder('utf-8').decode(buffer);
