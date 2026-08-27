@@ -1,7 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { EnvironmentService } from './environment.service';
-import { Observable } from 'rxjs';
+import { Observable, throwError } from 'rxjs';
 import { UserSession } from '../models/user-session.model';
 import { map } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
@@ -109,7 +109,16 @@ export class UserService {
    * Get user session from API
    */
   public getUserSession(): Observable<UserSession> {
-    return this.http.get<UserSession>(`${this.API_URL}?sessionAttributes=true`).pipe(
+    const apiUrl = this.API_URL;
+    if (!apiUrl) {
+      // Without a real base URL this would otherwise fire a bare relative
+      // request (e.g. /user?sessionAttributes=true) that the browser resolves
+      // against this app's own origin instead of the API, which silently
+      // fails with a confusing "Http failure during parsing" error.
+      return throwError(() => new Error('UserService: cannot fetch session — API URL not available yet.'));
+    }
+
+    return this.http.get<UserSession>(`${apiUrl}?sessionAttributes=true`).pipe(
       map(res => res)
     );
   }

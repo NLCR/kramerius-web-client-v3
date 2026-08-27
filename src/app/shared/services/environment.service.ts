@@ -159,12 +159,18 @@ export class EnvironmentService {
     // const baseUrl = this.get('krameriusBaseUrl');
     // return ensureTrailingSlash(baseUrl) + path.replace(/^\/+/, '');
     const baseUrl = this.getKrameriusUrl();
+    // Without a base, ensureTrailingSlash('') + path still produces a non-empty
+    // '/path' — a same-origin-relative URL the browser silently resolves
+    // against this app's own host (e.g. http://localhost:4200/user) instead of
+    // the real API, since callers only skip the request when this is falsy.
+    if (!baseUrl) return '';
 
     return ensureTrailingSlash(baseUrl) + path.replace(/^\/+/, '');
   }
 
   getPureApiUrl(path: string = ''): string {
     const baseUrl = this.getKrameriusUrl(false);
+    if (!baseUrl) return '';
     return ensureTrailingSlash(baseUrl) + path.replace(/^\/+/, '');
   }
 
