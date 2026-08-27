@@ -1439,8 +1439,12 @@ export class SolrService {
     sortDirection: SolrSortDirections = SolrSortDirections.desc,
     availabilityFilter?: { isActive: boolean, licenses: string[], userLicenses?: string[] }
   ): Observable<SearchResultResponse> {
-    // Geographic filter goes in q= (not fq=), per API behavior
-    const geoQuery = `{!field f=coords.bbox score=overlapRatio}Intersects(ENVELOPE(${west},${east},${north},${south}))`;
+    // Geographic filter goes in q= (not fq=), per API behavior.
+    // `score=overlapRatio` is only valid for a BBoxField; this deployment's
+    // `coords.bbox` is indexed as a plain spatial (RPT) field, so Solr 500s
+    // on that local param — confirmed directly against the production API.
+    // Falls back to Solr's default scoring for the spatial match instead.
+    const geoQuery = `{!field f=coords.bbox}Intersects(ENVELOPE(${west},${east},${north},${south}))`;
 
     const mapDocFields = [
       'pid', 'accessibility', 'model', 'authors', 'title.search',
