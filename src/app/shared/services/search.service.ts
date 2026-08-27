@@ -150,7 +150,10 @@ export class SearchService extends BaseFilterService {
     override advancedSearchService: AdvancedSearchService
   ) {
     super();
-    this.load();
+    // Fire-and-forget: not awaited by design (constructors can't be async),
+    // but an unhandled rejection here (e.g. API URL not ready yet) otherwise
+    // surfaces as a bare, contextless error via the global ErrorHandler.
+    this.load().catch(err => console.warn('SearchService: failed to preload user licenses on startup.', err));
 
     this.results$ = this.store.select(selectSearchResults);
     this.nonPageResults$ = this.store.select(selectNonPageSearchResults);

@@ -15,7 +15,10 @@ export class PeriodicalFilterService implements FilterService {
     private userService: UserService,
   ) {
 
-    this.load();
+    // Fire-and-forget: not awaited by design (constructors can't be async),
+    // but an unhandled rejection here (e.g. API URL not ready yet) otherwise
+    // surfaces as a bare, contextless error via the global ErrorHandler.
+    this.load().catch(err => console.warn('PeriodicalFilterService: failed to preload user licenses on startup.', err));
 
   }
 

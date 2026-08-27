@@ -92,7 +92,10 @@ export class CollectionsService extends BaseFilterService {
 
     this._pageSize.set(1000);
 
-    this.load();
+    // Fire-and-forget: not awaited by design (constructors can't be async),
+    // but an unhandled rejection here otherwise surfaces as a bare,
+    // contextless error via the global ErrorHandler.
+    this.load().catch(err => console.warn('CollectionsService: failed to preload user licenses on startup.', err));
     this.initialize();
 
     effect(() => {

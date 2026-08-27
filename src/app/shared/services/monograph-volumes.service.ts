@@ -37,7 +37,10 @@ export class MonographVolumesService extends BaseFilterService {
     super();
     console.log('MonographVolumesService initialized');
 
-    this.load();
+    // Fire-and-forget: not awaited by design (constructors can't be async),
+    // but an unhandled rejection here otherwise surfaces as a bare,
+    // contextless error via the global ErrorHandler.
+    this.load().catch(err => console.warn('MonographVolumesService: failed to preload user licenses on startup.', err));
     this.initialize();
 
     // Listen for page size changes from settings
