@@ -14,6 +14,7 @@ const NO_CACHE_PATTERNS = [
   '/auth',             // Authentication endpoints
   '/user',             // User-specific data
   '/session',           // Session-related endpoints
+  '/ocr/',              // OCR may be protected and is returned as text/binary data
 ] as const;
 
 interface CacheEntry {
@@ -87,8 +88,11 @@ function getEntrySize(key: string, entry: CacheEntry): number {
 }
 
 export const simpleCacheInterceptor: HttpInterceptorFn = (req, next) => {
-  // Only cache GET requests and URLs that are allowed to be cached
-  if (req.method !== 'GET' || !shouldCache(req.url)) {
+  // localStorage preserves JSON values only. Caching an ArrayBuffer or Blob
+  // would serialize its body as `{}` and a later request would receive an empty
+  // response. This was visible when OCR worked the first time but reopening the
+  // transcript read the corrupted `/ocr/text` response from this cache.
+  if (req.method !== 'GET' || req.responseType !== 'json' || !shouldCache(req.url)) {
     return next(req);
   }
 

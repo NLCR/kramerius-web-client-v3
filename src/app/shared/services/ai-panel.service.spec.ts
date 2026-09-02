@@ -15,6 +15,7 @@ import { DocumentInfoService } from './document-info.service';
 describe('AiPanelService summary language', () => {
   let service: AiPanelService;
   let askLLM: jasmine.Spy;
+  let fetchOcrContent: jasmine.Spy;
   let currentLang: string;
 
   /** Instructions passed to the model on the most recent summary request. */
@@ -23,13 +24,15 @@ describe('AiPanelService summary language', () => {
   function configure(uiLang: string): AiPanelService {
     currentLang = uiLang;
     askLLM = jasmine.createSpy('askLLM').and.returnValue(of('a summary'));
+    fetchOcrContent = jasmine.createSpy('fetchOcrContent')
+      .and.returnValue(of({ text: 'some page text', altoXml: '<alto/>' }));
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         AiPanelService,
         { provide: AltoService, useValue: {
-          fetchOcrContent: () => of({ text: 'some page text', altoXml: '<alto/>' }),
+          fetchOcrContent,
           getStyledHtml: () => '',
         } },
         { provide: AiApiService, useValue: {
@@ -113,6 +116,20 @@ describe('AiPanelService summary language', () => {
     // Picking a summary language must not silently retarget translation.
     expect(service.targetLanguage()).toBe('cs');
     expect(service.summaryLanguage()).toBe('de');
+  });
+
+  it('loads the transcript again after the panel is closed and reopened', () => {
+    service = configure('cs');
+
+    service.showPageText('uuid:page-1');
+    expect(service.content()).toBe('some page text');
+
+    service.close();
+    service.showPageText('uuid:page-1');
+
+    expect(service.error()).toBeNull();
+    expect(service.content()).toBe('some page text');
+    expect(fetchOcrContent).toHaveBeenCalledTimes(2);
   });
 
 });
