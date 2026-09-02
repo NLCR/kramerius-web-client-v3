@@ -76,6 +76,15 @@ describe('AiPanelService summary language', () => {
     expect(askLLM.calls.mostRecent().args[3]).toBe(600);
   });
 
+  it('tells the summarizer to interpret OCR substitutions without inventing content', () => {
+    service = configure('cs');
+    service.showSummary('uuid:page-1');
+
+    expect(lastInstructions()).toContain('substituted characters');
+    expect(lastInstructions()).toContain('silently account for obvious OCR errors');
+    expect(lastInstructions()).toContain('do not invent information');
+  });
+
   it('no longer pins the summary to the language of the original', () => {
     service = configure('en');
     service.showSummary('uuid:page-1');

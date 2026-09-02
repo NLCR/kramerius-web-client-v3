@@ -12,7 +12,12 @@ import { DocumentInfoService } from './document-info.service';
 describe('TtsService Piper playback', () => {
   let service: TtsService;
   let detailViewStub: { pages: { pid: string }[]; goToPage: jasmine.Spy };
-  let aiApiStub: { detectLanguage: jasmine.Spy; translate: jasmine.Spy; textToSpeech: jasmine.Spy };
+  let aiApiStub: {
+    detectLanguage: jasmine.Spy;
+    correctOcrText: jasmine.Spy;
+    translate: jasmine.Spy;
+    textToSpeech: jasmine.Spy;
+  };
   let toastStub: { show: jasmine.Spy };
   let playSpy: jasmine.Spy;
   let pauseSpy: jasmine.Spy;
@@ -37,6 +42,7 @@ describe('TtsService Piper playback', () => {
     };
     aiApiStub = {
       detectLanguage: jasmine.createSpy('detectLanguage').and.returnValue(of('cs')),
+      correctOcrText: jasmine.createSpy('correctOcrText').and.callFake((text: string) => of(text)),
       translate: jasmine.createSpy('translate').and.callFake((text: string) => of(text)),
       textToSpeech: jasmine.createSpy('textToSpeech').and.returnValue(of(AUDIO)),
     };
@@ -69,8 +75,26 @@ describe('TtsService Piper playback', () => {
     service.startReading('page-1');
 
     expect(aiApiStub.detectLanguage).toHaveBeenCalledWith('first block');
+    expect(aiApiStub.correctOcrText).toHaveBeenCalledWith('first block', 'cs');
     expect(aiApiStub.textToSpeech).toHaveBeenCalledWith('first block', 'cs', undefined);
     expect(playSpy).toHaveBeenCalled();
+  });
+
+  it('speaks the contextually corrected OCR returned by Qwen', () => {
+    aiApiStub.correctOcrText.and.returnValue(of('zdravý zrak'));
+
+    service.startReading('page-1');
+
+    expect(aiApiStub.textToSpeech).toHaveBeenCalledWith('zdravý zrak', 'cs', undefined);
+  });
+
+  it('falls back to cleaned source text when contextual OCR correction fails', () => {
+    aiApiStub.correctOcrText.and.returnValue(throwError(() => new Error('temporary failure')));
+
+    service.startReading('page-1');
+
+    expect(aiApiStub.textToSpeech).toHaveBeenCalledWith('first block', 'cs', undefined);
+    expect(service.isReading()).toBe(true);
   });
 
   it('holds its position when WAV autoplay is blocked', fakeAsync(() => {

@@ -108,6 +108,16 @@ describe('AltoService OCR loading', () => {
     httpMock.expectNone('https://api.example.org/items/knav/uuid:page/ocr/text');
   });
 
+  it('normalizes encoding debris extracted from ALTO as well as plain OCR', () => {
+    const altoXml = '<alto><Layout><Page WIDTH="100" HEIGHT="100"><PrintSpace><TextBlock><TextLine WIDTH="90"><String CONTENT="PalackÃ½"/><String CONTENT="smutn뿯½"/></TextLine></TextBlock></PrintSpace></Page></Layout></alto>';
+    let result: OcrPageContent | undefined;
+    service.fetchOcrContent('uuid:page').subscribe(value => result = value);
+
+    httpMock.expectOne('https://api.example.org/items/knav/uuid:page/ocr/alto').flush(altoXml);
+
+    expect(result?.text).toBe('Palacký smutn');
+  });
+
   it('decodes a UTF-16LE OCR stream instead of showing its bytes as control characters', () => {
     const transcript = 'aneb tělesná poroba, jak Palacký dí, věci neznámé, teprv později, když nelidský Němců';
     let result: OcrPageContent | undefined;

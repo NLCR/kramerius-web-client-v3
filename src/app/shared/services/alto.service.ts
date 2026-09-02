@@ -6,6 +6,7 @@ import { EnvironmentService } from './environment.service';
 import { CdkSourceService } from './cdk-source.service';
 import { SKIP_ERROR_INTERCEPTOR } from '../../core/services/http-context-tokens';
 import { escapeHtml } from '../utils/escape-html';
+import { normalizeOcrText } from '../utils/ocr-text';
 
 export interface AltoBox {
   x: number;
@@ -119,7 +120,7 @@ export class AltoService {
       }
     }
 
-    return this.cleanOcrText(text);
+    return normalizeOcrText(text);
   }
 
   /**
@@ -133,7 +134,7 @@ export class AltoService {
    * Collapse each encoded replacement character back to one unknown source byte,
    * restore the original UTF-16 code-unit boundaries and retain every code unit
    * whose two bytes are still known. A genuinely lost byte stays U+FFFD and is
-   * removed by cleanOcrText; it cannot be reconstructed safely, but it must not
+   * removed by normalizeOcrText; it cannot be reconstructed safely, but it must not
    * turn into unrelated Hangul or private-use characters.
    */
   private decodeMangledUtf16(bytes: Uint8Array, encoding: string): string | null {
@@ -210,16 +211,6 @@ export class AltoService {
 
     const declaredCharset = contentType?.match(/charset\s*=\s*["']?([^;"'\s]+)/i)?.[1];
     return declaredCharset || 'utf-8';
-  }
-
-  private cleanOcrText(text: string): string {
-    return text
-      .replace(/^\uFEFF/, '')
-      // Preserve tabs/newlines, but remove binary control codes accidentally
-      // embedded in legacy OCR and their visible Unicode control-picture forms.
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
-      .replace(/[\u2400-\u2426]/g, '')
-      .replace(/\uFFFD/g, '');
   }
 
   /**
@@ -494,7 +485,7 @@ export class AltoService {
       }
     }
 
-    return text.trim();
+    return normalizeOcrText(text);
   }
 
   /**
@@ -575,7 +566,7 @@ export class AltoService {
       }
     }
 
-    return text.trim();
+    return normalizeOcrText(text);
   }
 
   /**
@@ -714,7 +705,7 @@ export class AltoService {
         }
 
         words.push({
-          content,
+          content: normalizeOcrText(content),
           isBold,
           isItalic
         });
@@ -899,6 +890,8 @@ export class AltoService {
       blocks.push(block);
     }
 
-    return blocks;
+    return blocks
+      .map(item => ({ ...item, text: normalizeOcrText(item.text) }))
+      .filter(item => item.text.length > 0);
   }
 }

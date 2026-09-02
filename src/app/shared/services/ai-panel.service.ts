@@ -234,7 +234,12 @@ export class AiPanelService {
     const target = language
       ? `Write the summary in ${language.name} (language code: ${language.code}), regardless of the language of the source text.`
       : 'Keep the summary in the same language as the original text.';
-    return `You are a helpful assistant. Summarize the following text concisely. ${target}`;
+    return [
+      'You are a helpful assistant. Summarize the following text concisely.',
+      'The source is an OCR transcription and may contain substituted characters, broken words, missing accents or encoding artifacts.',
+      'Infer the intended reading from context and silently account for obvious OCR errors, but do not invent information or modernize historical wording.',
+      target
+    ].join(' ');
   }
 
   /** The UI language when it is one we can ask for, otherwise Czech. */

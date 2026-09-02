@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpContext } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
@@ -96,6 +96,39 @@ export class AiApiService {
         if (!code) throw new Error('invalid_language_response');
         return code;
       })
+    );
+  }
+
+  /**
+   * Corrects linguistic OCR substitutions before a block is spoken. Transport
+   * damage has already been removed locally; the model is used here because
+   * substitutions such as 1/l, rn/m or a missing accent require word context.
+   */
+  correctOcrText(input: string, language?: string): Observable<string> {
+    const tokens = input.match(/\S+/gu) ?? [];
+    if (tokens.length === 0) return of(input);
+
+    const languageHint = language
+      ? `The likely source language has ISO code ${language}.`
+      : 'Infer the source language from the text.';
+    const instructions = [
+      'You are a conservative OCR character corrector for text-to-speech.',
+      languageHint,
+      'Input is JSON with the full context and an object of indexed tokens.',
+      'Return only a valid JSON object mapping a token index to its corrected token.',
+      'Include only tokens with an obvious OCR error fixable by changing, inserting or deleting at most two characters.',
+      'Keep attached punctuation and all digits unchanged. Never add, remove, split, merge or reorder tokens.',
+      'Preserve names, meaning, historical vocabulary and archaic spelling. Omit uncertain tokens.',
+      'Never paraphrase, translate, summarize, modernize or explain.'
+    ].join(' ');
+    const indexedTokens = Object.fromEntries(tokens.map((token, index) => [String(index), token]));
+    const request = JSON.stringify({ context: input, tokens: indexedTokens });
+    // A sparse correction map is much shorter than the source. The cap also
+    // limits damage if a model ignores the requested response shape.
+    const maxTokens = Math.min(800, Math.max(128, Math.ceil(input.length * 0.5)));
+
+    return this.askConfiguredQwen(request, instructions, maxTokens).pipe(
+      map(result => this.applyOcrCorrections(input, tokens, result))
     );
   }
 
@@ -240,8 +273,58 @@ export class AiApiService {
 
   private removeOuterCodeFence(value: string): string {
     const trimmed = value.trim();
-    const fenced = trimmed.match(/^```(?:html|text)?\s*\n?([\s\S]*?)\n?```$/i);
+    const fenced = trimmed.match(/^```(?:html|text|json)?\s*\n?([\s\S]*?)\n?```$/i);
     return (fenced?.[1] ?? trimmed).trim();
+  }
+
+  /** Applies only small, structurally safe token edits from the model. */
+  private applyOcrCorrections(input: string, tokens: string[], response: string): string {
+    let corrections: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(this.removeOuterCodeFence(response));
+      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') return input;
+      corrections = parsed as Record<string, unknown>;
+    } catch {
+      return input;
+    }
+
+    let index = 0;
+    return input.replace(/\S+/gu, source => {
+      const tokenIndex = index++;
+      if (tokens[tokenIndex] !== source) return source;
+      const candidateValue = corrections[String(tokenIndex)];
+      if (typeof candidateValue !== 'string') return source;
+      const candidate = candidateValue.trim();
+      if (!candidate || /\s/u.test(candidate)) return source;
+      if (this.nonAlphanumeric(candidate) !== this.nonAlphanumeric(source)) return source;
+      if (candidate.match(/\d/gu)?.join('') !== source.match(/\d/gu)?.join('')) return source;
+
+      return this.editDistance(source, candidate) <= 2 ? candidate : source;
+    });
+  }
+
+  private nonAlphanumeric(value: string): string {
+    return value.replace(/[\p{L}\p{N}]/gu, '');
+  }
+
+  /** Unicode-aware Levenshtein distance for validating a proposed token edit. */
+  private editDistance(left: string, right: string): number {
+    const a = Array.from(left);
+    const b = Array.from(right);
+    let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+
+    for (let row = 1; row <= a.length; row++) {
+      const current = [row];
+      for (let column = 1; column <= b.length; column++) {
+        current[column] = Math.min(
+          current[column - 1] + 1,
+          previous[column] + 1,
+          previous[column - 1] + (a[row - 1] === b[column - 1] ? 0 : 1)
+        );
+      }
+      previous = current;
+    }
+    return previous[b.length];
   }
 
   // --- HTTP Helper ---

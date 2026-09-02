@@ -115,6 +115,38 @@ describe('AiApiService Qwen integration', () => {
     expect(result).toBe('cs');
   });
 
+  it('uses Qwen to correct contextual OCR substitutions without translating the text', () => {
+    aiConfig.llm.auth = 'none';
+    let result = '';
+    service.correctOcrText('smutn duch a zdrav zrak 1945.', 'cs').subscribe(value => result = value);
+
+    const request = httpMock.expectOne('https://ai.example.org/v1/chat/completions');
+    const instructions = request.request.body.messages[0].content as string;
+    expect(instructions).toContain('OCR character corrector');
+    expect(instructions).toContain('ISO code cs');
+    expect(instructions).toContain('historical vocabulary and archaic spelling');
+    expect(instructions).toContain('Never paraphrase, translate, summarize');
+    const payload = JSON.parse(request.request.body.messages[1].content);
+    expect(payload.context).toBe('smutn duch a zdrav zrak 1945.');
+    expect(payload.tokens).toEqual({
+      '0': 'smutn', '1': 'duch', '2': 'a', '3': 'zdrav', '4': 'zrak', '5': '1945.'
+    });
+    request.flush({ choices: [{ message: { content: '{"0":"smutný","3":"zdravý"}' } }] });
+
+    expect(result).toBe('smutný duch a zdravý zrak 1945.');
+  });
+
+  it('rejects unsafe OCR proposals that rewrite words, punctuation or numbers', () => {
+    aiConfig.llm.auth = 'none';
+    let result = '';
+    service.correctOcrText('Lpe mhouranovi 1945.', 'cs').subscribe(value => result = value);
+
+    const request = httpMock.expectOne('https://ai.example.org/v1/chat/completions');
+    request.flush({ choices: [{ message: { content: '```json\n{"0":"Lépe!","1":"mluvícímu","2":"1948."}\n```' } }] });
+
+    expect(result).toBe('Lpe mhouranovi 1945.');
+  });
+
   it('rejects Kramerius-authenticated calls with an expired access token', () => {
     tokenExpired = true;
     let errorMessage = '';

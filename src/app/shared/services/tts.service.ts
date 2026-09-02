@@ -7,7 +7,7 @@ import { SettingsService } from '../../modules/settings/settings.service';
 import { DocumentInfoService } from './document-info.service';
 import { ToastService } from './toast.service';
 import { Observable, of, Subscription } from 'rxjs';
-import { switchMap, take } from 'rxjs/operators';
+import { catchError, switchMap, take } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class TtsService {
@@ -258,10 +258,10 @@ export class TtsService {
       this.iiifViewerService.clearTtsHighlight();
     }
 
-    // Qwen prepares/optionally translates the text; Piper returns a WAV from
-    // the same self-hosted /ai gateway.
+    // Qwen first repairs context-dependent OCR substitutions and optionally
+    // translates the text; Piper then returns a WAV from the same /ai gateway.
     this.activeTtsRequest?.unsubscribe();
-    this.activeTtsRequest = this.maybeTranslate(block.text, lang, voiceLangCode).pipe(
+    this.activeTtsRequest = this.prepareTextForSpeech(block.text, lang, voiceLangCode).pipe(
       switchMap(text => this.aiApiService.textToSpeech(text, voiceLangCode || lang, voice)),
       take(1),
     ).subscribe({
@@ -520,5 +520,22 @@ export class TtsService {
       return of(text);
     }
     return this.aiApiService.translate(text, voiceLangCode);
+  }
+
+  /**
+   * Uses the local Qwen model for contextual OCR correction. Correction is an
+   * enhancement, not a prerequisite for speech: if that request fails, Piper
+   * still receives the deterministically cleaned source text. Translation (when
+   * required because Piper has no source-language voice) retains its existing
+   * error semantics.
+   */
+  private prepareTextForSpeech(text: string, documentLang: string, voiceLangCode?: string): Observable<string> {
+    return this.aiApiService.correctOcrText(text, documentLang).pipe(
+      catchError(error => {
+        console.warn('OCR correction failed; reading cleaned source text:', error);
+        return of(text);
+      }),
+      switchMap(corrected => this.maybeTranslate(corrected, documentLang, voiceLangCode))
+    );
   }
 }
