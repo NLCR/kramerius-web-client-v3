@@ -19,11 +19,12 @@ import { InputComponent } from '../input/input.component';
 import { resolveNamespacedTranslation } from '../../translation/namespaced-translation';
 
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
+import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 
 @Component({
   selector: 'app-select',
   standalone: true,
-  imports: [NgIf, NgForOf, TranslatePipe, NgClass, NgTemplateOutlet, FormsModule, InputComponent, ScrollingModule],
+  imports: [NgIf, NgForOf, TranslatePipe, NgClass, NgTemplateOutlet, FormsModule, InputComponent, ScrollingModule, OverlayModule],
   templateUrl: './select.component.html',
   styleUrl: './select.component.scss',
 })
@@ -68,12 +69,25 @@ export class SelectComponent<T = any> implements AfterViewInit, OnDestroy, OnCha
   filterText = '';
   filteredOptions: T[] = [];
   focusedIndex = -1;
-  showAbove = false;
-  dropdownStyle: {[key: string]: string} = {};
+  dropdownWidth = 0;
+  readonly overlayPositions: ConnectedPosition[] = [
+    {
+      originX: 'start', originY: 'bottom',
+      overlayX: 'start', overlayY: 'top',
+      offsetY: 6,
+    },
+    {
+      originX: 'start', originY: 'top',
+      overlayX: 'start', overlayY: 'bottom',
+      offsetY: -6,
+    },
+  ];
 
   @ViewChild('wrapper') wrapperRef?: ElementRef;
+  @ViewChild('optionsContainer') optionsContainerRef?: ElementRef<HTMLElement>;
   @ViewChild('filterInput') filterInputRef?: InputComponent;
   @ViewChild(CdkVirtualScrollViewport) virtualViewport?: CdkVirtualScrollViewport;
+  private resizeObserver?: ResizeObserver;
 
   constructor(
     private hostRef: ElementRef,
@@ -109,13 +123,17 @@ export class SelectComponent<T = any> implements AfterViewInit, OnDestroy, OnCha
   }
 
   ngAfterViewInit() {
-    new ResizeObserver(() => this.checkPosition()).observe(document.body);
+    this.resizeObserver = new ResizeObserver(() => this.checkPosition());
+    if (this.wrapperRef?.nativeElement) {
+      this.resizeObserver.observe(this.wrapperRef.nativeElement);
+    }
     document.addEventListener('click', this.onClickOutside);
     document.addEventListener('scroll', this.onScrollClose, true);
     this.updateFilteredOptions();
   }
 
   ngOnDestroy() {
+    this.resizeObserver?.disconnect();
     document.removeEventListener('click', this.onClickOutside);
     document.removeEventListener('scroll', this.onScrollClose, true);
   }
@@ -128,23 +146,20 @@ export class SelectComponent<T = any> implements AfterViewInit, OnDestroy, OnCha
 
   toggle() {
     if (this.disabled) return;
-    this.open.update((v) => {
-      if (!v) {
-        this.filterText = '';
-        this.updateFilteredOptions();
-        this.focusedIndex = this.filteredOptions.findIndex((o) => o === this.value);
-        if (this.focusedIndex >= 0) {
-          this.scrollFocusedIntoView();
-        }
-        // Hide until properly positioned to prevent flash during CSS transitions
-        this.dropdownStyle = { visibility: 'hidden', 'pointer-events': 'none' };
-      }
-      return !v;
-    });
+    const willOpen = !this.open();
+    if (willOpen) {
+      this.filterText = '';
+      this.updateFilteredOptions();
+      this.focusedIndex = this.filteredOptions.findIndex((o) => o === this.value);
+      this.checkPosition();
+    }
+    this.open.set(willOpen);
 
     requestAnimationFrame(() => {
       if (this.open()) {
-        this.checkPosition();
+        if (this.focusedIndex >= 0) {
+          this.scrollFocusedIntoView();
+        }
         if (this.filterable) {
           this.filterInputRef?.focus();
         }
@@ -312,39 +327,14 @@ export class SelectComponent<T = any> implements AfterViewInit, OnDestroy, OnCha
   checkPosition() {
     const wrapperEl = this.wrapperRef?.nativeElement as HTMLElement;
     if (!wrapperEl) return;
-
-    const rect = wrapperEl.getBoundingClientRect();
-    const optionCount = Math.min(this.filteredOptions.length || this.options.length, 8);
-    const dropdownHeight = (this.filterable ? 50 : 0) + optionCount * 36 + 2;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-
-    this.showAbove = spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
-
-    const style: {[key: string]: string} = {
-      position: 'fixed',
-      width: rect.width + 'px',
-      left: rect.left + 'px',
-      'z-index': String(Math.max(this.zIndex, 1001)),
-      'margin-top': '0',
-      'margin-bottom': '0',
-      visibility: 'visible',
-      'pointer-events': 'auto',
-    };
-    if (this.showAbove) {
-      style['top'] = 'auto';
-      style['bottom'] = (window.innerHeight - rect.top + 6) + 'px';
-    } else {
-      style['top'] = (rect.bottom + 6) + 'px';
-      style['bottom'] = 'auto';
-    }
-    this.dropdownStyle = style;
+    this.dropdownWidth = wrapperEl.getBoundingClientRect().width;
   }
 
   trackByFn = (_: number, option: T) => option;
 
   private onClickOutside = (event: Event) => {
-    if (!this.hostRef.nativeElement.contains(event.target)) {
+    const target = event.target as Node;
+    if (!this.hostRef.nativeElement.contains(target) && !this.optionsContainerRef?.nativeElement.contains(target)) {
       this.open.set(false);
       this.filterText = '';
       this.updateFilteredOptions();
@@ -355,7 +345,7 @@ export class SelectComponent<T = any> implements AfterViewInit, OnDestroy, OnCha
     if (!this.open()) return;
     const target = event.target as Node;
     // Don't close when scrolling within the dropdown options list
-    if (this.hostRef.nativeElement.contains(target)) return;
+    if (this.hostRef.nativeElement.contains(target) || this.optionsContainerRef?.nativeElement.contains(target)) return;
     this.open.set(false);
     this.filterText = '';
     this.updateFilteredOptions();

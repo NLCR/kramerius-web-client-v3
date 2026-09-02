@@ -89,6 +89,7 @@
                 [filterable]="true"
                 [translateNamespace]="dropdownTranslateNamespace"
                 [zIndex]="2000"
+                (valueChange)="dropdownChange($index, $event)"
               ></app-select>
 
               <advanced-date-filter

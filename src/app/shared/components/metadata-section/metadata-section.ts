@@ -1238,7 +1238,10 @@ export class MetadataSection implements OnInit, OnChanges {
   }
 
   getDonatorUrl(donator: string): string | null {
-    return this.donatorUrlMap[donator.toLowerCase()] ?? null;
+    const normalized = donator.toLowerCase();
+    // K3toK5 is intentionally displayed only as a logo, without an external link.
+    if (normalized === 'k3tok5') return null;
+    return this.donatorUrlMap[normalized] ?? null;
   }
 
 }

@@ -249,14 +249,16 @@ export class AiApiService {
   private postAbsolute<T>(url: string, body: any, authMode: AiLlmAuthMode): Observable<T> {
     const token = this.authService.getAccessToken();
     if (authMode === 'kramerius' && !token) {
-      return throwError(() => new Error('unauthorized'));
+      return throwError(() => new Error('ai.error-unauthorized'));
     }
 
     let headers = new HttpHeaders()
       .set('X-Tai-Source', location.href)
       .set('X-Tai-Project', 'Kramerius')
       .set('Content-Type', 'application/json');
-    if (authMode === 'kramerius' && token) {
+    // Do not manually forward a token that is already expired. The global
+    // interceptor will refresh it after the endpoint's 401 and retry once.
+    if (authMode === 'kramerius' && token && !this.authService.isTokenExpired()) {
       headers = headers.set('Authorization', `Bearer ${token}`);
     }
 
@@ -265,18 +267,38 @@ export class AiApiService {
       context: new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true)
     }).pipe(
       catchError(error => {
-        let errorCode = 'unknown_error';
-        if (error.error?.errorCode) {
-          errorCode = error.error.errorCode;
-        } else if (typeof error.error?.detail === 'string') {
-          errorCode = error.error.detail;
-        } else if (typeof error.error?.error?.message === 'string') {
-          errorCode = error.error.error.message;
-        } else if (error.status === 403 || error.status === 401) {
-          errorCode = 'unauthorized';
-        }
-        return throwError(() => new Error(errorCode));
+        return throwError(() => new Error(this.getErrorMessage(error)));
       })
     );
+  }
+
+  private getErrorMessage(error: any): string {
+    switch (error?.status) {
+      case 0: return 'ai.error-network';
+      case 401:
+      case 403: return 'ai.error-unauthorized';
+      case 405: return 'ai.error-endpoint';
+      case 408:
+      case 504: return 'ai.error-timeout';
+      case 413: return 'ai.error-input-too-long';
+      case 429: return 'ai.error-rate-limit';
+      case 500:
+      case 502:
+      case 503: return 'ai.error-unavailable';
+    }
+
+    if (typeof error?.error?.errorCode === 'string') {
+      return error.error.errorCode;
+    }
+    if (typeof error?.error?.detail === 'string') {
+      return error.error.detail;
+    }
+    if (typeof error?.error?.error?.message === 'string') {
+      return error.error.error.message;
+    }
+    if (error instanceof Error && !('status' in error) && error.message) {
+      return error.message;
+    }
+    return 'ai.error-unknown';
   }
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpContext } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { EnvironmentService } from './environment.service';
 import { CdkSourceService } from './cdk-source.service';
 import { SKIP_ERROR_INTERCEPTOR } from '../../core/services/http-context-tokens';
@@ -27,6 +28,11 @@ export interface AltoTextBlock {
   vMax: number;
   width: number;
   height: number;
+}
+
+export interface OcrPageContent {
+  text: string;
+  altoXml: string | null;
 }
 
 @Injectable({
@@ -62,6 +68,102 @@ export class AltoService {
       responseType: 'text',
       context: new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true)
     });
+  }
+
+  /** Fetches the plain OCR transcript for a specific page. */
+  fetchOcrText(pid: string): Observable<string> {
+    const url = this.API_URL + this.cdkSource.prefixedItemPath(pid, 'ocr/text');
+    return this.http.get(url, {
+      // Some older OCR streams are UTF-16LE (usually with a BOM). Asking the
+      // browser for text would decode them as UTF-8 before the app can inspect
+      // the original bytes, producing strings such as "t␛␁lesn�" for "tělesná".
+      responseType: 'arraybuffer',
+      observe: 'response',
+      context: new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true)
+    }).pipe(
+      map(response => this.decodeOcrText(response.body ?? new ArrayBuffer(0), response.headers.get('content-type')))
+    );
+  }
+
+  private decodeOcrText(buffer: ArrayBuffer, contentType: string | null): string {
+    const bytes = new Uint8Array(buffer);
+    const encoding = this.detectOcrEncoding(bytes, contentType);
+
+    let text: string;
+    try {
+      text = new TextDecoder(encoding, { fatal: encoding === 'utf-8' }).decode(bytes);
+    } catch {
+      // A missing/incorrect charset on old OCR data is more likely than truly
+      // invalid text. Windows-1250 is a safe final fallback for Central-European
+      // single-byte OCR streams and never destroys the original byte values.
+      text = new TextDecoder('windows-1250').decode(bytes);
+    }
+
+    return this.cleanOcrText(text);
+  }
+
+  private detectOcrEncoding(bytes: Uint8Array, contentType: string | null): string {
+    if (bytes.length >= 2) {
+      if (bytes[0] === 0xff && bytes[1] === 0xfe) return 'utf-16le';
+      if (bytes[0] === 0xfe && bytes[1] === 0xff) return 'utf-16be';
+    }
+    if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+      return 'utf-8';
+    }
+
+    // Also recognize BOM-less UTF-16. Latin OCR text has a zero high byte for
+    // most characters, predominantly at odd indexes in little-endian streams.
+    const sampleLength = Math.min(bytes.length, 512);
+    let evenZeroes = 0;
+    let oddZeroes = 0;
+    for (let index = 0; index < sampleLength; index++) {
+      if (bytes[index] !== 0) continue;
+      index % 2 === 0 ? evenZeroes++ : oddZeroes++;
+    }
+    const pairs = Math.floor(sampleLength / 2);
+    if (pairs >= 4) {
+      if (oddZeroes > pairs * 0.3 && evenZeroes < pairs * 0.1) return 'utf-16le';
+      if (evenZeroes > pairs * 0.3 && oddZeroes < pairs * 0.1) return 'utf-16be';
+    }
+
+    const declaredCharset = contentType?.match(/charset\s*=\s*["']?([^;"'\s]+)/i)?.[1];
+    return declaredCharset || 'utf-8';
+  }
+
+  private cleanOcrText(text: string): string {
+    return text
+      .replace(/^\uFEFF/, '')
+      // Preserve tabs/newlines, but remove binary control codes accidentally
+      // embedded in legacy OCR and their visible Unicode control-picture forms.
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+      .replace(/[\u2400-\u2426]/g, '')
+      .replace(/\uFFFD/g, '');
+  }
+
+  /**
+   * Loads the richest available OCR representation. When ALTO is preferred but
+   * cannot be loaded or contains no text, the plain OCR transcript is used.
+   */
+  fetchOcrContent(pid: string, preferAlto = true): Observable<OcrPageContent> {
+    const fetchPlainText = (): Observable<OcrPageContent> => this.fetchOcrText(pid).pipe(
+      map(text => ({ text: text.trim(), altoXml: null }))
+    );
+
+    if (!preferAlto) {
+      return fetchPlainText();
+    }
+
+    const altoContent: Observable<OcrPageContent | null> = this.fetchAltoXml(pid).pipe(
+      map(altoXml => {
+        const text = this.getFullText(altoXml);
+        return text ? { text, altoXml } : null;
+      }),
+      catchError(() => of(null))
+    );
+
+    return altoContent.pipe(
+      switchMap(content => content ? of(content) : fetchPlainText())
+    );
   }
 
   /**

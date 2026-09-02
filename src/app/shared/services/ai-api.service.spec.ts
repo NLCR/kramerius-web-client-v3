@@ -8,10 +8,12 @@ describe('AiApiService Qwen integration', () => {
   let service: AiApiService;
   let httpMock: HttpTestingController;
   let token: string | null;
+  let tokenExpired: boolean;
   let aiConfig: any;
 
   beforeEach(() => {
     token = 'signed-kramerius-token';
+    tokenExpired = false;
     aiConfig = {
       apiBaseUrl: 'https://api.trinera.cloud/api',
       llm: {
@@ -26,7 +28,13 @@ describe('AiApiService Qwen integration', () => {
       imports: [HttpClientTestingModule],
       providers: [
         AiApiService,
-        { provide: AuthService, useValue: { getAccessToken: () => token } },
+        {
+          provide: AuthService,
+          useValue: {
+            getAccessToken: () => token,
+            isTokenExpired: () => tokenExpired,
+          }
+        },
         { provide: ConfigService, useValue: { get ai() { return aiConfig; } } }
       ]
     });
@@ -75,7 +83,47 @@ describe('AiApiService Qwen integration', () => {
       error: error => errorMessage = error.message
     });
 
-    expect(errorMessage).toBe('unauthorized');
+    expect(errorMessage).toBe('ai.error-unauthorized');
     httpMock.expectNone('https://ai.example.org/v1/chat/completions');
+  });
+
+  it('uses the Trinera API base URL for page translation', () => {
+    let result = '';
+    service.translate('Text strany', 'en').subscribe(value => result = value);
+
+    const request = httpMock.expectOne('https://api.trinera.cloud/api/google/translate');
+    expect(request.request.body).toEqual({ q: ['Text strany'], target: 'en', format: 'text' });
+    request.flush({ data: { translations: [{ translatedText: 'Page text' }] } });
+
+    expect(result).toBe('Page text');
+  });
+
+  it('does not manually send an expired access token', () => {
+    tokenExpired = true;
+    service.askLLM('Text', 'Shrň').subscribe();
+
+    const request = httpMock.expectOne('https://ai.example.org/v1/chat/completions');
+    expect(request.request.headers.has('Authorization')).toBeFalse();
+    request.flush({ choices: [{ message: { content: 'Shrnutí' } }] });
+  });
+
+  it('returns a useful message key for a misconfigured endpoint', () => {
+    let errorMessage = '';
+    service.translate('Text', 'en').subscribe({ error: error => errorMessage = error.message });
+
+    httpMock.expectOne('https://api.trinera.cloud/api/google/translate')
+      .flush('Method Not Allowed', { status: 405, statusText: 'Method Not Allowed' });
+
+    expect(errorMessage).toBe('ai.error-endpoint');
+  });
+
+  it('returns a useful message key for an AI timeout', () => {
+    let errorMessage = '';
+    service.askLLM('Text', 'Shrň').subscribe({ error: error => errorMessage = error.message });
+
+    httpMock.expectOne('https://ai.example.org/v1/chat/completions')
+      .flush('Gateway Timeout', { status: 504, statusText: 'Gateway Timeout' });
+
+    expect(errorMessage).toBe('ai.error-timeout');
   });
 });

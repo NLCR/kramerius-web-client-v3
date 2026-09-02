@@ -80,11 +80,7 @@ export class AuthService {
 
     return this.http.post<TokenResponse>(`${this.API_URL}/auth/token`, params).pipe(
       map(response => this.mapTokenResponse(response)),
-      tap(newTokens => this.handleSuccessfulAuth(newTokens)),
-      catchError(error => {
-        this.logout();
-        return throwError(() => error);
-      })
+      tap(newTokens => this.handleSuccessfulAuth(newTokens))
     );
   }
 

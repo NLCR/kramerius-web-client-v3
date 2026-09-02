@@ -1,4 +1,4 @@
-<div class="select-wrapper" #wrapper (click)="toggle()" [attr.aria-expanded]="open()" role="button" tabindex="0"
+<div class="select-wrapper" #wrapper cdkOverlayOrigin #overlayOrigin="cdkOverlayOrigin" (click)="toggle()" [attr.aria-expanded]="open()" role="button" tabindex="0"
   aria-haspopup="listbox"
   [attr.aria-activedescendant]="!filterable && open() && focusedIndex >= 0 ? 'option-' + focusedIndex : null"
   [ngClass]="[theme, class, 'size-' + size]" (keydown)="onKeyDown($event)">
@@ -10,7 +10,14 @@
   <i class="icon-arrow-down arrow-icon" [class.open]="open()" aria-hidden="true"></i>
 </div>
 
-<div *ngIf="open()" class="options-container" [class.above]="showAbove" [style]="dropdownStyle" role="listbox">
+<ng-template cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="overlayOrigin"
+  [cdkConnectedOverlayOpen]="open()"
+  [cdkConnectedOverlayPositions]="overlayPositions"
+  [cdkConnectedOverlayWidth]="dropdownWidth"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8">
+<div #optionsContainer class="options-container" [style.z-index]="zIndex" role="listbox">
   <!-- Filter Input -->
   <div *ngIf="filterable" class="filter-container">
     <app-input #filterInput [type]="'text'" class="filter-input" [placeholder]="filterPlaceholder | translate" [showMicButton]="showMicButton"
@@ -57,3 +64,4 @@
     {{ focusedOptionLabel || displayLabel(value) }}
   </div>
 </div>
+</ng-template>

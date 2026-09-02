@@ -98,6 +98,7 @@ export class PdfService {
   }
 
   set uuid(uuid: string | null) {
+    if (uuid === this._uuid) return;
     this._uuid = uuid;
     // Reset state when UUID changes
     if (uuid) {
@@ -641,13 +642,14 @@ export class PdfService {
   }
 
   bookModeToggle() {
-    if (this.pdfProperties.pageViewMode === 'book') {
-      this.pdfProperties.pageViewMode = 'single';
-    } else {
-      this.pdfProperties.pageViewMode = 'book';
-    }
-    this.cachedPageViewMode = this.pdfProperties.pageViewMode;
-    this.pdfProperties.bookMode = this.pdfProperties.pageViewMode === 'book';
+    const pageViewMode: PageViewModeType = this.pdfProperties.pageViewMode === 'book' ? 'single' : 'book';
+    this.cachedPageViewMode = pageViewMode;
+    this.pdfProperties = {
+      ...this.pdfProperties,
+      pageViewMode,
+      bookMode: pageViewMode === 'book'
+    };
+    this.propertiesSubject.next(this.pdfProperties);
   }
 
   toggleTextLayerMode() {

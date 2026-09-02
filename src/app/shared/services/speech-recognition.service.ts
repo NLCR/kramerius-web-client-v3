@@ -1,6 +1,6 @@
-import {computed, inject, Injectable, NgZone, signal} from '@angular/core';
+import {inject, Injectable, NgZone, signal} from '@angular/core';
 import {Observable, Subject} from 'rxjs';
-import {AppTranslationService} from '../translation/app-translation.service';
+import {TranslateService} from '@ngx-translate/core';
 import {ToastService} from './toast.service';
 
 // SpeechRecognitionErrorEvent.error values that are worth telling the user about.
@@ -25,7 +25,7 @@ const LANG_TO_SPEECH_LOCALE: Record<string, string> = {
 })
 export class SpeechRecognitionService {
 
-  private translationService = inject(AppTranslationService);
+  private translationService = inject(TranslateService);
   private toastService = inject(ToastService);
   private zone = inject(NgZone);
   private recognition: any = null;
@@ -33,10 +33,10 @@ export class SpeechRecognitionService {
 
   isListening = signal(false);
 
-  private speechLang = computed(() => {
-    const code = this.translationService.currentLanguage().code;
+  private get speechLang(): string {
+    const code = this.translationService.getCurrentLang() || this.translationService.getFallbackLang() || 'en';
     return LANG_TO_SPEECH_LOCALE[code] ?? 'en-US';
-  });
+  }
 
   get isSupported(): boolean {
     return !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition;
@@ -57,7 +57,7 @@ export class SpeechRecognitionService {
     const recognition = new SR();
     this.recognition = recognition;
 
-    recognition.lang = this.speechLang();
+    recognition.lang = this.speechLang;
     recognition.interimResults = false;
     recognition.continuous = false;
     recognition.maxAlternatives = 1;
@@ -98,8 +98,14 @@ export class SpeechRecognitionService {
       }
     };
 
-    this.isListening.set(true);
-    recognition.start();
+    try {
+      recognition.start();
+      this.isListening.set(true);
+    } catch (error) {
+      console.error('Speech recognition could not be started:', error);
+      cleanup();
+      this.toastService.show('voice-input-error-network', null, 5000);
+    }
 
     return this.result$.asObservable();
   }

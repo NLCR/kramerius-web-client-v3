@@ -1,4 +1,23 @@
-<div class="page-navigator">
+<div class="page-navigator" [class.compact]="compact">
+  @if (compact) {
+    <button class="button primary"
+            [attr.aria-label]="'go-to-prev-page--arialabel' | translate"
+            (click)="goPrev()"
+            [disabled]="currentPage <= 1">
+      <i class="icon-arrow-left-1"></i>
+    </button>
+
+    <span class="compact-indicator" aria-live="polite">
+      {{ currentPage }} {{ 'pagination-of' | translate }} {{ totalPages }}
+    </span>
+
+    <button class="button primary"
+            [attr.aria-label]="'go-to-next-page--arialabel' | translate"
+            (click)="goNext()"
+            [disabled]="currentPage >= totalPages">
+      <i class="icon-arrow-right-1"></i>
+    </button>
+  } @else {
   <span class="label">{{ 'page' | translate }}</span>
 
 <!--  <div class="spacer"></div>-->
@@ -27,4 +46,5 @@
           [disabled]="currentPage >= totalPages">
     <i class="icon-arrow-right-1"></i>
   </button>
+  }
 </div>

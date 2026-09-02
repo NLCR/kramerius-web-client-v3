@@ -329,12 +329,13 @@
   @if (showMobilePageNav) {
     <app-page-navigator
       class="mobile-page-nav-bar"
-      [class.mobile-page-nav-bar--hidden]="!mobileNavVisible()"
-      [currentPage]="detailViewService.currentPageIndex + 1"
-      [totalPages]="detailViewService.totalPagesOnly"
-      (next)="detailViewService.goToNext()"
-      (prev)="detailViewService.goToPrevious()"
-      (pageChange)="detailViewService.goToPage($event)">
+      [class.mobile-page-nav-bar--tabs-visible]="mobileNavVisible()"
+      [compact]="true"
+      [currentPage]="mobileCurrentPage"
+      [totalPages]="mobileTotalPages"
+      (next)="goToNextMobilePage()"
+      (prev)="goToPreviousMobilePage()"
+      (pageChange)="goToMobilePage($event)">
     </app-page-navigator>
   }
 

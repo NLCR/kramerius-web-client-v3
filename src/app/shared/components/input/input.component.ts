@@ -14,7 +14,7 @@ import {MatAutocomplete, MatAutocompleteModule, MatAutocompleteTrigger} from '@a
 import {FormsModule, NgModel} from '@angular/forms';
 import {CdkTooltipDirective} from '../../directives';
 import {SpeechRecognitionService} from '../../services/speech-recognition.service';
-import {Subscription} from 'rxjs';
+import {Subscription, take} from 'rxjs';
 
 @Component({
   selector: 'app-input',
@@ -74,6 +74,7 @@ export class InputComponent implements OnInit, AfterViewInit, OnDestroy {
   @Output() onBlurEvent = new EventEmitter<void>();
   @Output() onCaseSensitiveEvent = new EventEmitter<void>();
   @Output() postfixIconClick = new EventEmitter<void>();
+  @Output() dictationResult = new EventEmitter<string>();
 
   @ViewChild('inputElement', { static: false }) inputElement!: ElementRef<HTMLInputElement>;
   @ViewChild('inputModel', { static: false }) inputModel!: NgModel;
@@ -217,10 +218,16 @@ export class InputComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleDictation() {
     this.speechSub?.unsubscribe();
-    this.speechSub = this.speechService.toggle().subscribe(transcript => {
+    if (this.speechService.isListening()) {
+      this.speechService.stop();
+      return;
+    }
+
+    this.speechSub = this.speechService.start().pipe(take(1)).subscribe(transcript => {
       const currentValue = typeof this.value === 'string' ? this.value : '';
       const newValue = currentValue ? `${currentValue} ${transcript}` : transcript;
       this.onInputChange(newValue);
+      this.dictationResult.emit(newValue);
       this.cdr.detectChanges();
     });
   }

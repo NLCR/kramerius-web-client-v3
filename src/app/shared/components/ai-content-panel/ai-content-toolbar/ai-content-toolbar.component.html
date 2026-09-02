@@ -14,7 +14,7 @@
   </div>
 
   <div class="ai-content-toolbar__right">
-    <mat-slide-toggle
+    <mat-slide-toggle class="original-toggle"
       [hideIcon]="true"
       [class]="'size-sm'"
       [checked]="aiPanelService.showOriginal()"
@@ -22,17 +22,17 @@
       {{ 'ai.original' | translate }}
     </mat-slide-toggle>
 
-    <button class="button square-button tertiary outlined" (click)="increaseFontSize()"
+    <button class="button square-button tertiary outlined font-size-button" (click)="increaseFontSize()"
       [attr.aria-label]="'increase-font-size--arialabel' | translate" title="T+">
       <i class="icon-search-zoom-in-2" aria-hidden="true"></i>
     </button>
 
-    <button class="button square-button tertiary outlined" (click)="decreaseFontSize()"
+    <button class="button square-button tertiary outlined font-size-button" (click)="decreaseFontSize()"
       [attr.aria-label]="'decrease-font-size--arialabel' | translate" title="T-">
       <i class="icon-search-zoom-out-2" aria-hidden="true"></i>
     </button>
 
-    <button class="button square-button tertiary outlined" (click)="fullscreenToggle.emit()" [title]="'ai.fullscreen' | translate">
+    <button class="button square-button tertiary outlined fullscreen-button" (click)="fullscreenToggle.emit()" [title]="'ai.fullscreen' | translate">
       <i class="icon-maximize-3"></i>
     </button>
 

@@ -168,10 +168,20 @@ app-fullscreen {
     &.ai-only-view {
       app-ai-content-panel {
         position: fixed;
-        inset: 0;
-        z-index: 200;
+        top: max(var(--spacing-x2), env(safe-area-inset-top));
+        right: max(var(--spacing-x2), env(safe-area-inset-right));
+        bottom: max(var(--spacing-x2), env(safe-area-inset-bottom));
+        left: max(var(--spacing-x2), env(safe-area-inset-left));
+        z-index: 1100;
+        width: auto;
+        height: auto;
+        max-width: none;
         margin: 0;
         border-left: none;
+        border: 1px solid var(--color-border-light);
+        border-radius: var(--spacing-x3);
+        box-shadow: 0 12px 40px rgba(16, 23, 25, 0.24);
+        overflow: hidden;
       }
     }
   }
@@ -299,7 +309,7 @@ app-mobile-nav-bar {
 // Compact prev/next/page-count strip, docked directly above the tab bar.
 app-page-navigator.mobile-page-nav-bar {
   position: fixed;
-  bottom: calc(60px + var(--playback-bar-height, 0px));
+  bottom: var(--playback-bar-height, 0px);
   left: 0;
   right: 0;
   z-index: 100;
@@ -310,17 +320,20 @@ app-page-navigator.mobile-page-nav-bar {
   background: var(--color-bg-base);
   border-top: 1px solid var(--color-border-light);
   box-sizing: border-box;
+  transition: bottom 0.25s ease;
+
+  &.mobile-page-nav-bar--tabs-visible {
+    bottom: calc(60px + var(--playback-bar-height, 0px));
+  }
 }
 
 // Immersive nav bar: slide down out of view when hidden, respecting motion prefs.
-app-mobile-nav-bar.mobile-nav-bar--immersive,
-app-page-navigator.mobile-page-nav-bar {
+app-mobile-nav-bar.mobile-nav-bar--immersive {
   transition: transform 0.25s ease, opacity 0.25s ease;
   transform: translateY(0);
   opacity: 1;
 
-  &.mobile-nav-bar--hidden,
-  &.mobile-page-nav-bar--hidden {
+  &.mobile-nav-bar--hidden {
     transform: translateY(100%);
     opacity: 0;
     pointer-events: none;

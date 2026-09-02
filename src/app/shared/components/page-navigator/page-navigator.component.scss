@@ -53,4 +53,27 @@
     flex-shrink: 0;
     padding: 12px;
   }
+
+  &.compact {
+    justify-content: center;
+    gap: var(--spacing-x3);
+
+    .compact-indicator {
+      min-width: 96px;
+      color: var(--color-text-base);
+      font-size: var(--font-size-base);
+      font-weight: 600;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    button {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
 }

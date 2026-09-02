@@ -337,18 +337,14 @@ export class AdvancedSearchService {
 
     const isMobileOrTablet = this.breakpointService.isMobile() || this.breakpointService.isTablet();
 
-    // On desktop, width/height are intentionally left unset: the component's own
-    // :host already sizes itself (see advanced-search-dialog.component.scss). Forcing
-    // a 90vw/90vh CDK overlay pane around a smaller fixed-size host left the dialog
-    // sitting off-center instead of centered in the (larger) pane. maxWidth still
-    // needs to be raised explicitly — Material's own default (560px) would otherwise
-    // clip the host's 980px width regardless of centering.
+    // Keep the desktop pane explicitly bounded and centered. Material's default
+    // max-width (560px) would otherwise clip the dialog and its select overlays.
     const dialogRef = this.dialog.open(AdvancedSearchDialogComponent, {
-      width: isMobileOrTablet ? '100vw' : undefined,
-      height: isMobileOrTablet ? '100vh' : undefined,
-      maxWidth: isMobileOrTablet ? '100vw' : '95vw',
-      maxHeight: isMobileOrTablet ? '100vh' : '95vh',
-      panelClass: isMobileOrTablet ? 'mobile-fullscreen-dialog' : undefined,
+      width: isMobileOrTablet ? '100vw' : 'min(980px, 94vw)',
+      height: isMobileOrTablet ? '100vh' : 'min(86vh, 820px)',
+      maxWidth: isMobileOrTablet ? '100vw' : '94vw',
+      maxHeight: isMobileOrTablet ? '100vh' : '86vh',
+      panelClass: isMobileOrTablet ? 'mobile-fullscreen-dialog' : 'advanced-search-dialog-panel',
       autoFocus: false,
       ariaLabelledBy: 'advanced-search-dialog-title',
     });

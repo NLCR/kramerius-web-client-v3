@@ -40,6 +40,7 @@ import { FullscreenComponent } from '../../shared/components/fullscreen/fullscre
 import { MusicService } from '../music/services/music.service';
 import { SoundService } from '../../shared/services/sound.service';
 import { ViewerControls } from '../../shared/components/viewer-controls/viewer-controls';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-detail-view-page',
@@ -78,6 +79,8 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   public detailFullscreen = inject(DetailFullscreenService);
   public musicService = inject(MusicService);
   public soundService = inject(SoundService);
+  private readonly pdfCurrentPage = toSignal(this.pdfService.currentPage$, { initialValue: 1 });
+  private readonly pdfTotalPages = toSignal(this.pdfService.totalPages$, { initialValue: 0 });
 
   @HostBinding('style.--license-bar-offset')
   get licenseBarOffset() { return this.uiState.licenseBarVisible() ? 'var(--license-bar-height)' : '0px'; }
@@ -97,10 +100,9 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   mobileActivePanel = signal<string>('');
   mobileSlideUpOpen = signal(false);
 
-  // Immersive mobile chrome: the bottom nav bar is hidden by default and
-  // toggled by a clean tap on the viewer (see ViewerTapToggleDirective), then
-  // hidden again when a slide-up panel opens.
-  mobileNavVisible = signal(false);
+  // Start with the mobile chrome visible so page navigation is discoverable.
+  // A clean viewer tap may still hide the tab bar, while the page strip remains.
+  mobileNavVisible = signal(true);
   // Reserved height (px) the visible nav bar takes from the viewer. Includes the
   // page prev/next/count strip (see showMobilePageNav) that sits above the tab bar.
   private static readonly MOBILE_NAV_BAR_HEIGHT = 60;
@@ -131,10 +133,9 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     // cannot interpolate a calc() height that changes via a custom property.
     effect(() => {
       const visible = this.mobileNavVisible();
-      const target = visible
-        ? DetailViewPageComponent.MOBILE_NAV_BAR_HEIGHT +
-          (this.showMobilePageNav ? DetailViewPageComponent.MOBILE_PAGE_NAV_HEIGHT : 0)
-        : 0;
+      const target =
+        (visible ? DetailViewPageComponent.MOBILE_NAV_BAR_HEIGHT : 0) +
+        (this.showMobilePageNav ? DetailViewPageComponent.MOBILE_PAGE_NAV_HEIGHT : 0);
       this.animateMobileNavBarHeight(target);
     });
     this.activeSidebarTab$ = route.queryParamMap.pipe(
@@ -321,7 +322,45 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     if (!document) return false;
     if (this.detailViewService.isEpub || document.epub) return false;
     if (document.model === DocumentTypeEnum.soundrecording && this.detailViewService.soundRecordingViewMode() === 'records') return false;
-    return this.detailViewService.totalPagesOnly > 1;
+    return this.mobileTotalPages > 1;
+  }
+
+  get mobileCurrentPage(): number {
+    return this.detailViewService.isPdf
+      ? this.pdfCurrentPage()
+      : this.detailViewService.currentPageIndex + 1;
+  }
+
+  get mobileTotalPages(): number {
+    return this.detailViewService.isPdf
+      ? this.pdfTotalPages()
+      : this.detailViewService.totalPagesOnly;
+  }
+
+  goToNextMobilePage(): void {
+    if (this.detailViewService.isPdf) {
+      const step = this.pdfService.pdfProperties.bookMode ? 2 : 1;
+      this.pdfService.navigateToPage(Math.min(this.mobileCurrentPage + step, this.mobileTotalPages));
+      return;
+    }
+    this.detailViewService.goToNext();
+  }
+
+  goToPreviousMobilePage(): void {
+    if (this.detailViewService.isPdf) {
+      const step = this.pdfService.pdfProperties.bookMode ? 2 : 1;
+      this.pdfService.navigateToPage(Math.max(this.mobileCurrentPage - step, 1));
+      return;
+    }
+    this.detailViewService.goToPrevious();
+  }
+
+  goToMobilePage(pageIndex: number): void {
+    if (this.detailViewService.isPdf) {
+      this.pdfService.navigateToPage(pageIndex + 1);
+      return;
+    }
+    this.detailViewService.goToPage(pageIndex);
   }
 
   /** Viewer type for the mobile viewer-controls menu, mirroring the main-content viewer selection. */

@@ -2,6 +2,7 @@ import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { AltoService } from './alto.service';
 import { AiApiService, AiModel, TranslateProvider } from './ai-api.service';
 import { LocalStorageService } from './local-storage.service';
+import { DocumentInfoService } from './document-info.service';
 import { Subscription } from 'rxjs';
 import { take } from 'rxjs/operators';
 
@@ -19,6 +20,7 @@ export class AiPanelService {
   private altoService = inject(AltoService);
   private aiApiService = inject(AiApiService);
   private localStorageService = inject(LocalStorageService);
+  private documentInfoService = inject(DocumentInfoService);
   private activeSubscription: Subscription | null = null;
 
   constructor() {
@@ -67,9 +69,8 @@ export class AiPanelService {
     this.error.set(null);
     this.currentPagePid.set(pagePid);
 
-    this.activeSubscription = this.altoService.fetchAltoXml(pagePid).pipe(take(1)).subscribe({
-      next: (altoXml) => {
-        const text = this.altoService.getFullText(altoXml);
+    this.activeSubscription = this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
+      next: ({ text, altoXml }) => {
         if (!text) {
           this.isLoading.set(false);
           this.error.set('ai.text-transcript-unavailable');
@@ -77,7 +78,7 @@ export class AiPanelService {
         }
 
         // Translate styled HTML to preserve formatting
-        const html = this.altoService.getStyledHtml(altoXml);
+        const html = altoXml ? this.altoService.getStyledHtml(altoXml) : '';
         const inputToTranslate = html || text;
         const format = html ? 'html' as const : 'text' as const;
 
@@ -118,9 +119,8 @@ export class AiPanelService {
     this.error.set(null);
     this.currentPagePid.set(pagePid);
 
-    this.activeSubscription = this.altoService.fetchAltoXml(pagePid).pipe(take(1)).subscribe({
-      next: (altoXml) => {
-        const text = this.altoService.getFullText(altoXml);
+    this.activeSubscription = this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
+      next: ({ text }) => {
         if (!text) {
           this.isLoading.set(false);
           this.error.set('ai.text-transcript-unavailable');
@@ -172,15 +172,14 @@ export class AiPanelService {
     this.error.set(null);
     this.currentPagePid.set(pagePid);
 
-    this.activeSubscription = this.altoService.fetchAltoXml(pagePid).pipe(take(1)).subscribe({
-      next: (altoXml) => {
-        const text = this.altoService.getFullText(altoXml);
+    this.activeSubscription = this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
+      next: ({ text, altoXml }) => {
         this.isLoading.set(false);
         if (!text) {
           this.error.set('ai.text-transcript-unavailable');
           return;
         }
-        const html = this.altoService.getStyledHtml(altoXml);
+        const html = altoXml ? this.altoService.getStyledHtml(altoXml) : '';
         if (html) {
           this.styledHtml.set(html);
         } else {

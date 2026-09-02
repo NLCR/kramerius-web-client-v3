@@ -218,6 +218,12 @@ export class AdvancedSearchFilterRow implements OnInit {
     this.emitChange();
   }
 
+  dropdownChange(index: number, value: string) {
+    this.filter.values![index].elementValue = value;
+    this.filter.values![index].solrValue = value;
+    this.emitChange();
+  }
+
   onExactMatchToggle(index: number) {
     this.filter.values![index].caseSensitive = !this.filter.values![index].caseSensitive;
     this.emitChange();

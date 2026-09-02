@@ -17,6 +17,7 @@
     [prefixIcon]="prefixIcon"
     [autofocus]="autofocus"
     (valueChange)="onInputValueChange($event.toString())"
+    (dictationResult)="onDictationResult($event)"
     (enter)="onSearch()"
     [isCaseSensitive]="isCaseSensitive"
     (onCaseSensitiveEvent)="toggledCaseSensitive()"
@@ -74,5 +75,4 @@
   </div>
 
 </div>
-
 

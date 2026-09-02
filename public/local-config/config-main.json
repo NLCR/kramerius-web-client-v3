@@ -18,7 +18,7 @@
     "pdfServer": "https://new.kramerius7.nkp.cz/pdf"
   },
   "ai": {
-   "apiBaseUrl": "https://new.kramerius7.nkp.cz/",
+   "apiBaseUrl": "https://api.trinera.cloud/api",
    "llm": {
      "provider": "qwen",
      "baseUrl": "https://new.kramerius7.nkp.cz/ai/v1",

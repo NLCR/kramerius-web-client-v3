@@ -30,8 +30,8 @@ export class AiActionsComponent {
   documentInfoService = inject(DocumentInfoService);
   private configService = inject(ConfigService);
 
-  get altoAvailable(): boolean {
-    return this.documentInfoService.hasAlto();
+  get ocrAvailable(): boolean {
+    return this.documentInfoService.hasAlto() || this.documentInfoService.hasOcrText();
   }
 
   get textActionAllowed(): boolean {
@@ -46,7 +46,7 @@ export class AiActionsComponent {
   }
 
   get actionsDisabled(): boolean {
-    return !this.altoAvailable || !this.textActionAllowed;
+    return !this.ocrAvailable || !this.textActionAllowed;
   }
 
   /**
@@ -55,7 +55,7 @@ export class AiActionsComponent {
    * by this license".
    */
   get actionsDisabledReason(): string | null {
-    if (!this.altoAvailable) return 'ai.disabled-no-ocr-tooltip';
+    if (!this.ocrAvailable) return 'ai.disabled-no-ocr-tooltip';
     if (!this.textActionAllowed) return 'ai.disabled-license-tooltip';
     return null;
   }

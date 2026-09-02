@@ -4,6 +4,7 @@ import { AiApiService, TtsProvider } from './ai-api.service';
 import { DetailViewService } from '../../modules/detail-view-page/services/detail-view.service';
 import { IIIFViewerService } from './iiif-viewer.service';
 import { SettingsService } from '../../modules/settings/settings.service';
+import { DocumentInfoService } from './document-info.service';
 import { Observable, of } from 'rxjs';
 import { take, switchMap } from 'rxjs/operators';
 
@@ -15,6 +16,7 @@ export class TtsService {
   private detailViewService = inject(DetailViewService);
   private iiifViewerService = inject(IIIFViewerService);
   private settingsService = inject(SettingsService);
+  private documentInfoService = inject(DocumentInfoService);
 
   private audio = new Audio();
   private prefetchedAudio: string | null = null;
@@ -135,9 +137,11 @@ export class TtsService {
   // --- Private methods ---
 
   private loadPageAndRead(pagePid: string): void {
-    this.altoService.fetchAltoXml(pagePid).pipe(take(1)).subscribe({
-      next: (altoXml) => {
-        const blocks = this.altoService.getBlocksForReading(altoXml);
+    this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
+      next: ({ text, altoXml }) => {
+        const blocks = altoXml
+          ? this.altoService.getBlocksForReading(altoXml)
+          : this.getBlocksForPlainText(text);
 
         if (blocks.length === 0) {
           // No text on this page, try next page
@@ -166,7 +170,7 @@ export class TtsService {
         }
       },
       error: (err) => {
-        console.error('Failed to fetch ALTO XML for TTS:', err);
+        console.error('Failed to fetch OCR text for TTS:', err);
         // Try next page on error
         this.advanceToNextPage();
       }
@@ -189,8 +193,12 @@ export class TtsService {
     const lang = this._detectedLanguage() || 'cs';
     const { voice, provider, voiceLangCode } = this.resolveVoiceAndProvider(lang);
 
-    // Show highlight on the current block
-    this.iiifViewerService.showTtsHighlight(block);
+    // Plain OCR has no page coordinates, so highlighting is only possible for ALTO.
+    if (block.width > 0 && block.height > 0) {
+      this.iiifViewerService.showTtsHighlight(block);
+    } else {
+      this.iiifViewerService.clearTtsHighlight();
+    }
 
     // Check if we have prefetched audio for this block
     if (this.prefetchedAudio && this.prefetchingBlockIndex === index) {
@@ -314,7 +322,7 @@ export class TtsService {
       // Navigate the viewer to the next page
       this.detailViewService.goToPage(currentIndex + 1);
 
-      // Load ALTO for the next page and continue reading
+      // Load OCR for the next page and continue reading
       // Small delay to let the page navigation settle
       setTimeout(() => {
         this.loadPageAndRead(nextPage.pid);
@@ -323,6 +331,46 @@ export class TtsService {
       // No more pages, stop reading
       this.stop();
     }
+  }
+
+  /** Splits a plain OCR transcript into reasonably sized TTS requests. */
+  private getBlocksForPlainText(text: string): AltoTextBlock[] {
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    const chunks: string[] = [];
+    let currentWords: string[] = [];
+    let currentLength = 0;
+
+    const flush = (): void => {
+      if (currentWords.length === 0) return;
+      chunks.push(currentWords.join(' '));
+      currentWords = [];
+      currentLength = 0;
+    };
+
+    for (const word of words) {
+      const nextLength = currentLength + (currentWords.length > 0 ? 1 : 0) + word.length;
+      if (currentWords.length > 0 && nextLength > 600) {
+        flush();
+      }
+
+      currentWords.push(word);
+      currentLength += (currentWords.length > 1 ? 1 : 0) + word.length;
+
+      if (currentLength >= 180 && /[.!?;:]$/.test(word)) {
+        flush();
+      }
+    }
+    flush();
+
+    return chunks.map(chunk => ({
+      text: chunk,
+      hMin: 0,
+      hMax: 0,
+      vMin: 0,
+      vMax: 0,
+      width: 0,
+      height: 0
+    }));
   }
 
   /**

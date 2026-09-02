@@ -184,6 +184,14 @@ export class AutocompleteComponent implements OnInit, OnDestroy {
     }
   }
 
+  onDictationResult(value: string) {
+    this.inputTerm.set(value);
+    // Without a submit button, valueChange already triggers auto-submit.
+    if (this.autoSubmit && this.showSubmitButton) {
+      this.onSubmit();
+    }
+  }
+
   onSelectSuggestion(event: MatAutocompleteSelectedEvent) {
     const option: MatOption = event.option;
     const value = option.value;

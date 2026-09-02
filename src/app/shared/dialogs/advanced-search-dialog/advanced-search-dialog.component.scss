@@ -1,8 +1,8 @@
 @use "mixins" as *;
 
 :host {
-  width: min(980px, 94vw);
-  height: min(86vh, 820px);
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;

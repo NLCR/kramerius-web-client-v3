@@ -81,13 +81,13 @@
   </button>
 
   <button *ngIf="showBookModeButton && (type !== 'image' || (iiifMapMode$ | async) === false)" (click)="onBookMode()"
-          [class.primary]="(iiifBookMode$ | async) === true"
-          [class.tertiary]="(iiifBookMode$ | async) === false"
-          [class.outlined]="(iiifBookMode$ | async) === false"
+          [class.primary]="(type === 'pdf' ? (pdfBookMode$ | async) : (iiifBookMode$ | async)) === true"
+          [class.tertiary]="(type === 'pdf' ? (pdfBookMode$ | async) : (iiifBookMode$ | async)) === false"
+          [class.outlined]="(type === 'pdf' ? (pdfBookMode$ | async) : (iiifBookMode$ | async)) === false"
           class="button"
           [appCdkTooltip]="'viewer-controls.book-mode' | translate"
           [attr.aria-label]="'viewer-controls.book-mode' | translate"
-          [attr.aria-pressed]="(iiifBookMode$ | async) === true">
+          [attr.aria-pressed]="(type === 'pdf' ? (pdfBookMode$ | async) : (iiifBookMode$ | async)) === true">
     <i class="icon icon-book-1" aria-hidden="true"></i>
   </button>
 

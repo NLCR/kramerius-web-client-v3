@@ -13,6 +13,7 @@ export class PageNavigatorComponent {
 
   @Input() currentPage = 1;
   @Input() totalPages = 1;
+  @Input() compact = false;
 
   @Output() prev = new EventEmitter<void>();
   @Output() next = new EventEmitter<void>();

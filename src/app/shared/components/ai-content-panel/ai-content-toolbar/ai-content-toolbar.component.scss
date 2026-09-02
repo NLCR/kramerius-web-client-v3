@@ -11,6 +11,8 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-x3);
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
   &__title {
@@ -24,8 +26,37 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-x2);
+    flex: 0 0 auto;
   }
 
+}
+
+@media (max-width: 603px) {
+  .ai-content-toolbar {
+    padding: var(--spacing-x2);
+    gap: var(--spacing-x1);
+
+    &__left,
+    &__right {
+      gap: var(--spacing-x1);
+    }
+
+    &__title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .original-toggle,
+    .fullscreen-button {
+      display: none;
+    }
+  }
+}
+
+@media (max-width: 380px) {
+  .ai-content-toolbar .font-size-button {
+    display: none;
+  }
 }
 
 :host ::ng-deep mat-slide-toggle label {
