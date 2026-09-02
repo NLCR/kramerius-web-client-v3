@@ -90,16 +90,83 @@ export class AltoService {
     const encoding = this.detectOcrEncoding(bytes, contentType);
 
     let text: string;
-    try {
-      text = new TextDecoder(encoding, { fatal: encoding === 'utf-8' }).decode(bytes);
-    } catch {
-      // A missing/incorrect charset on old OCR data is more likely than truly
-      // invalid text. Windows-1250 is a safe final fallback for Central-European
-      // single-byte OCR streams and never destroys the original byte values.
-      text = new TextDecoder('windows-1250').decode(bytes);
+    const recoveredUtf16 = this.decodeMangledUtf16(bytes, encoding);
+    if (recoveredUtf16 !== null) {
+      text = recoveredUtf16;
+    } else {
+      try {
+        text = new TextDecoder(encoding, { fatal: encoding === 'utf-8' }).decode(bytes);
+      } catch {
+        // A missing/incorrect charset on old OCR data is more likely than truly
+        // invalid text. Windows-1250 is a safe final fallback for Central-European
+        // single-byte OCR streams and never destroys the original byte values.
+        text = new TextDecoder('windows-1250').decode(bytes);
+      }
     }
 
     return this.cleanOcrText(text);
+  }
+
+  /**
+   * Recovers a legacy UTF-16 stream that an upstream service has already decoded
+   * as UTF-8 and then encoded again. In that form ASCII/control bytes survive as
+   * themselves, while every invalid byte becomes the UTF-8 sequence EF BF BD.
+   * Feeding those expanded sequences directly to TextDecoder('utf-16le') creates
+   * visible garbage such as `뿯½` or `뿯붿` and shifts no useful text back into
+   * place.
+   *
+   * Collapse each encoded replacement character back to one unknown source byte,
+   * restore the original UTF-16 code-unit boundaries and retain every code unit
+   * whose two bytes are still known. A genuinely lost byte stays U+FFFD and is
+   * removed by cleanOcrText; it cannot be reconstructed safely, but it must not
+   * turn into unrelated Hangul or private-use characters.
+   */
+  private decodeMangledUtf16(bytes: Uint8Array, encoding: string): string | null {
+    const normalizedEncoding = encoding.toLowerCase();
+    const littleEndian = normalizedEncoding === 'utf-16le' || normalizedEncoding === 'utf-16';
+    const bigEndian = normalizedEncoding === 'utf-16be';
+    if (!littleEndian && !bigEndian) return null;
+
+    const logicalBytes: Array<number | null> = [];
+    let replacements = 0;
+    for (let index = 0; index < bytes.length;) {
+      if (bytes[index] === 0xef && bytes[index + 1] === 0xbf && bytes[index + 2] === 0xbd) {
+        logicalBytes.push(null);
+        replacements++;
+        index += 3;
+      } else {
+        logicalBytes.push(bytes[index]);
+        index++;
+      }
+    }
+
+    if (replacements === 0 || logicalBytes.length < 8 || logicalBytes.length % 2 !== 0) {
+      return null;
+    }
+
+    // Do not reinterpret an arbitrary binary payload merely because it happened
+    // to contain EF BF BD. Real Latin UTF-16 OCR has a 00/01 high byte in the
+    // overwhelming majority of code units.
+    let knownPairs = 0;
+    let latinPairs = 0;
+    for (let index = 0; index < logicalBytes.length; index += 2) {
+      const low = littleEndian ? logicalBytes[index] : logicalBytes[index + 1];
+      const high = littleEndian ? logicalBytes[index + 1] : logicalBytes[index];
+      if (low === null || high === null) continue;
+      knownPairs++;
+      if (high <= 0x01 || (low === 0xff && high === 0xfe)) latinPairs++;
+    }
+    if (knownPairs < 3 || latinPairs / knownPairs < 0.5) return null;
+
+    let recovered = '';
+    for (let index = 0; index < logicalBytes.length; index += 2) {
+      const low = littleEndian ? logicalBytes[index] : logicalBytes[index + 1];
+      const high = littleEndian ? logicalBytes[index + 1] : logicalBytes[index];
+      recovered += low === null || high === null
+        ? '\uFFFD'
+        : String.fromCharCode(low | (high << 8));
+    }
+    return recovered;
   }
 
   private detectOcrEncoding(bytes: Uint8Array, contentType: string | null): string {

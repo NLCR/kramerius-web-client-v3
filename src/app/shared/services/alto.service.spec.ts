@@ -47,6 +47,16 @@ describe('AltoService OCR loading', () => {
     return bytes.buffer;
   }
 
+  /** Simulates the legacy proxy reading UTF-16 bytes as UTF-8 before returning them. */
+  function mangledUtf16le(text: string): ArrayBuffer {
+    const original = new Uint8Array(utf16le(text));
+    let malformed = '';
+    for (const byte of original) {
+      malformed += byte < 0x80 ? String.fromCharCode(byte) : '\uFFFD';
+    }
+    return utf8(malformed);
+  }
+
   it('loads plain OCR directly when ALTO is not available', () => {
     let result: OcrPageContent | undefined;
     service.fetchOcrContent('uuid:page', false).subscribe(value => result = value);
@@ -110,5 +120,27 @@ describe('AltoService OCR loading', () => {
       .flush(utf8('Čistý\u0001 text ␛bez značek�'));
 
     expect(result?.text).toBe('Čistý text bez značek');
+  });
+
+  it('does not turn replacement bytes in a mangled UTF-16 transcript into Hangul or private-use characters', () => {
+    const transcript = [
+      'upokojil se, porozuměv, že smutný duch suší',
+      'kosti, a že by zdravý svému ještě více ublížil,',
+      'neboť se říkává, že již veselá mysl je půl zdravá.',
+      'Lépe mhouřanovi, než slepcovi! rozvážil, že má při',
+      'všem neštěstí zdravý zrak a počal o všech věcech přemýšleti.'
+    ].join('\n');
+    let result: OcrPageContent | undefined;
+    service.fetchOcrContent('uuid:page', false).subscribe(value => result = value);
+
+    httpMock.expectOne('https://api.example.org/items/knav/uuid:page/ocr/text')
+      .flush(mangledUtf16le(transcript));
+
+    expect(result?.text).toContain('upokojil se, porozuměv, že smutn duch suš');
+    expect(result?.text).toContain('neboť se řkv');
+    expect(result?.text).toContain('rozvžil');
+    expect(result?.text).toContain('přemšleti');
+    expect(result?.text).not.toMatch(/[\uAC00-\uD7AF\uE000-\uF8FF\uFFFD]/);
+    expect(result?.text).not.toContain('뿯½');
   });
 });
