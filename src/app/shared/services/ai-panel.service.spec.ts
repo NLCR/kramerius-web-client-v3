@@ -15,6 +15,7 @@ import { DocumentInfoService } from './document-info.service';
 describe('AiPanelService summary language', () => {
   let service: AiPanelService;
   let askLLM: jasmine.Spy;
+  let correctOcrTranscript: jasmine.Spy;
   let fetchOcrContent: jasmine.Spy;
   let currentLang: string;
 
@@ -24,6 +25,8 @@ describe('AiPanelService summary language', () => {
   function configure(uiLang: string): AiPanelService {
     currentLang = uiLang;
     askLLM = jasmine.createSpy('askLLM').and.returnValue(of('a summary'));
+    correctOcrTranscript = jasmine.createSpy('correctOcrTranscript')
+      .and.returnValue(of('some corrected page text'));
     fetchOcrContent = jasmine.createSpy('fetchOcrContent')
       .and.returnValue(of({ text: 'some page text', altoXml: '<alto/>' }));
 
@@ -37,6 +40,7 @@ describe('AiPanelService summary language', () => {
         } },
         { provide: AiApiService, useValue: {
           askLLM,
+          correctOcrTranscript,
           translate: () => of(''),
           getDefaultModel: () => ({ provider: 'openai', name: 'GPT 4o mini', code: 'gpt-4o-mini' }),
         } },
@@ -146,6 +150,19 @@ describe('AiPanelService summary language', () => {
     expect(service.error()).toBeNull();
     expect(service.content()).toBe('some page text');
     expect(fetchOcrContent).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a conservatively corrected page transcript as a separate panel type', () => {
+    service = configure('cs');
+
+    service.showCorrectedTranscript('uuid:page-1');
+
+    expect(fetchOcrContent).toHaveBeenCalledWith('uuid:page-1', true);
+    expect(correctOcrTranscript).toHaveBeenCalledWith('some page text');
+    expect(service.contentType()).toBe('corrected-text');
+    expect(service.content()).toBe('some corrected page text');
+    expect(service.error()).toBeNull();
+    expect(service.isLoading()).toBeFalse();
   });
 
 });

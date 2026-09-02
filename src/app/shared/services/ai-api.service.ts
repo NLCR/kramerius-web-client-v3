@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpContext } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
+import { Observable, from, of, throwError } from 'rxjs';
+import { catchError, concatMap, map, toArray } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { AiLlmAuthMode } from '../../core/config/config.interfaces';
@@ -100,8 +100,8 @@ export class AiApiService {
   }
 
   /**
-   * Corrects linguistic OCR substitutions before a block is spoken. Transport
-   * damage has already been removed locally; the model is used here because
+   * Corrects linguistic OCR substitutions before text is displayed or spoken.
+   * Transport damage has already been removed locally; the model is used because
    * substitutions such as 1/l, rn/m or a missing accent require word context.
    */
   correctOcrText(input: string, language?: string): Observable<string> {
@@ -112,7 +112,7 @@ export class AiApiService {
       ? `The likely source language has ISO code ${language}.`
       : 'Infer the source language from the text.';
     const instructions = [
-      'You are a conservative OCR character corrector for text-to-speech.',
+      'You are a conservative OCR character corrector for display and text-to-speech.',
       languageHint,
       'Input is JSON with the full context and an object of indexed tokens.',
       'Return only a valid JSON object mapping a token index to its corrected token.',
@@ -129,6 +129,23 @@ export class AiApiService {
 
     return this.askConfiguredQwen(request, instructions, maxTokens).pipe(
       map(result => this.applyOcrCorrections(input, tokens, result))
+    );
+  }
+
+  /**
+   * Corrects a complete page without asking the model to reproduce the whole
+   * page in one response. Chunks are processed sequentially and concatenated
+   * byte-for-byte at their original boundaries; correctOcrText itself permits
+   * only small edits inside existing tokens.
+   */
+  correctOcrTranscript(input: string, language?: string): Observable<string> {
+    const chunks = this.splitOcrCorrectionInput(input);
+    if (chunks.length === 0) return of(input);
+
+    return from(chunks).pipe(
+      concatMap(chunk => this.correctOcrText(chunk, language)),
+      toArray(),
+      map(corrected => corrected.join(''))
     );
   }
 
@@ -325,6 +342,29 @@ export class AiApiService {
       previous = current;
     }
     return previous[b.length];
+  }
+
+  /** Splits near whitespace while retaining every original character. */
+  private splitOcrCorrectionInput(input: string, maxLength = 2400): string[] {
+    if (!input) return [];
+    const chunks: string[] = [];
+    let offset = 0;
+
+    while (offset < input.length) {
+      let end = Math.min(offset + maxLength, input.length);
+      if (end < input.length) {
+        const minimumBreak = offset + Math.floor(maxLength * 0.6);
+        for (let candidate = end; candidate >= minimumBreak; candidate--) {
+          if (/\s/u.test(input[candidate - 1])) {
+            end = candidate;
+            break;
+          }
+        }
+      }
+      chunks.push(input.slice(offset, end));
+      offset = end;
+    }
+    return chunks;
   }
 
   // --- HTTP Helper ---

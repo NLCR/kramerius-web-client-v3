@@ -180,6 +180,8 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
             this.aiPanelService.showSummary(pid);
           } else if (contentType === 'text') {
             this.aiPanelService.showPageText(pid);
+          } else if (contentType === 'corrected-text') {
+            this.aiPanelService.showCorrectedTranscript(pid);
           }
         }
       }

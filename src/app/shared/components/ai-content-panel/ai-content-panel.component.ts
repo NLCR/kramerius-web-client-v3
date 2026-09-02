@@ -32,6 +32,7 @@ export class AiContentPanelComponent {
     const type = this.aiPanelService.contentType();
     if (type === 'translation') return 'ai.loading-translation';
     if (type === 'summary') return 'ai.loading-summary';
+    if (type === 'corrected-text') return 'ai.loading-corrected-transcript';
     return 'ai.loading';
   }
 }

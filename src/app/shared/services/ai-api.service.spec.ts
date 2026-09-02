@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { SKIP_AUTH_INTERCEPTOR } from '../../core/services/http-context-tokens';
@@ -145,6 +146,22 @@ describe('AiApiService Qwen integration', () => {
     request.flush({ choices: [{ message: { content: '```json\n{"0":"Lépe!","1":"mluvícímu","2":"1948."}\n```' } }] });
 
     expect(result).toBe('Lpe mhouranovi 1945.');
+  });
+
+  it('corrects a long page sequentially in bounded chunks without losing separators', () => {
+    const source = Array.from({ length: 900 }, () => 'smutn').join(' ');
+    const correctChunk = spyOn(service, 'correctOcrText')
+      .and.callFake((chunk: string) => of(chunk.replace(/smutn/g, 'smutný')));
+    let result = '';
+
+    service.correctOcrTranscript(source, 'cs').subscribe(value => result = value);
+
+    expect(correctChunk.calls.count()).toBeGreaterThan(1);
+    for (const call of correctChunk.calls.all()) {
+      expect((call.args[0] as string).length).toBeLessThanOrEqual(2400);
+      expect(call.args[1]).toBe('cs');
+    }
+    expect(result).toBe(Array.from({ length: 900 }, () => 'smutný').join(' '));
   });
 
   it('rejects Kramerius-authenticated calls with an expired access token', () => {

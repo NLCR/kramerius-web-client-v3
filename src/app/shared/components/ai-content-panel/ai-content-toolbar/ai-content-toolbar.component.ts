@@ -30,6 +30,7 @@ export class AiContentToolbarComponent {
     const type = this.aiPanelService.contentType();
     if (type === 'translation') return 'ai.translation-result';
     if (type === 'summary') return 'ai.summary-result';
+    if (type === 'corrected-text') return 'ai.corrected-transcript-result';
     if (type === 'text') return 'ai.selected-text';
     return 'ai';
   }

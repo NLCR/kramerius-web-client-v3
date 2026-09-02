@@ -14,7 +14,7 @@ const MIN_FONT_SIZE = 10;
 const MAX_FONT_SIZE = 28;
 const SUMMARY_MAX_TOKENS = 600;
 
-export type AiPanelContentType = 'translation' | 'summary' | 'text' | null;
+export type AiPanelContentType = 'translation' | 'summary' | 'text' | 'corrected-text' | null;
 export type AiPanelMode = 'split' | 'ai-only';
 
 @Injectable({ providedIn: 'root' })
@@ -146,6 +146,46 @@ export class AiPanelService {
           error: (err) => {
             this.isLoading.set(false);
             this.error.set(this.describeError(err, 'Summary failed'));
+          }
+        });
+      },
+      error: () => {
+        this.isLoading.set(false);
+        this.error.set('ai.text-transcript-unavailable');
+      }
+    });
+  }
+
+  showCorrectedTranscript(pagePid: string): void {
+    const isReload = this.panelVisible() && this.contentType() === 'corrected-text';
+    this.cancelPending();
+    this.panelVisible.set(true);
+    if (!isReload) {
+      this.panelMode.set(this.showOriginal() ? 'split' : 'ai-only');
+    }
+    this.contentType.set('corrected-text');
+    this.content.set('');
+    this.styledHtml.set('');
+    this.isLoading.set(true);
+    this.error.set(null);
+    this.currentPagePid.set(pagePid);
+
+    this.activeSubscription = this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
+      next: ({ text }) => {
+        if (!text) {
+          this.isLoading.set(false);
+          this.error.set('ai.text-transcript-unavailable');
+          return;
+        }
+
+        this.activeSubscription = this.aiApiService.correctOcrTranscript(text).pipe(take(1)).subscribe({
+          next: corrected => {
+            this.content.set(corrected);
+            this.isLoading.set(false);
+          },
+          error: err => {
+            this.isLoading.set(false);
+            this.error.set(this.describeError(err, 'OCR correction failed'));
           }
         });
       },

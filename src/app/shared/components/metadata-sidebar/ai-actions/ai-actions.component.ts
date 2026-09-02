@@ -99,4 +99,11 @@ export class AiActionsComponent {
     if (!pid) return;
     this.aiPanelService.showSummary(pid);
   }
+
+  onCorrectTranscript(): void {
+    if (!this.userService.isLoggedIn || this.actionsDisabled) return;
+    const pid = this.detailViewService.currentPagePid;
+    if (!pid) return;
+    this.aiPanelService.showCorrectedTranscript(pid);
+  }
 }
