@@ -12,11 +12,11 @@ export const DEFAULT_CONFIG: AppConfiguration = {
     aiProxyUrl: ''
   },
   ai: {
-    apiBaseUrl: 'https://api.trinera.cloud/api',
     llm: {
-      provider: 'trinera',
-      model: 'gpt-4o-mini',
-      auth: 'kramerius'
+      provider: 'qwen',
+      baseUrl: '/ai/v1',
+      model: 'Qwen/Qwen3.5-9B',
+      auth: 'none'
     }
   },
   i18n: {

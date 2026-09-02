@@ -841,6 +841,8 @@
   "settings.tts.primary": "Primárny",
   "settings.tts.set-primary": "Nastaviť ako primárny",
   "settings.tts.add-language": "Pridať jazyk",
+  "settings.tts.device": "Zariadenie",
+  "settings.tts.automatic-device-voice": "Automatický hlas zariadenia",
   "settings.tts.note": "Predčítanie je dostupné iba pre dostupné dokumenty.",
   "toggle-and-or-operator": "Prepnúť operátor A/ALEBO",
   "equals-operator": "Presná zhoda",

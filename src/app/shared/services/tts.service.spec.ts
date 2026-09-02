@@ -1,26 +1,29 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 import { TtsService } from './tts.service';
 import { AltoService } from './alto.service';
 import { AiApiService } from './ai-api.service';
+import { BrowserSpeechHandlers, BrowserTtsService } from './browser-tts.service';
 import { DetailViewService } from '../../modules/detail-view-page/services/detail-view.service';
 import { IIIFViewerService } from './iiif-viewer.service';
 import { SettingsService } from '../../modules/settings/settings.service';
 import { ToastService } from './toast.service';
 import { DocumentInfoService } from './document-info.service';
 
-/**
- * Regression tests for issue #161: on mobile, a blocked autoplay made reading
- * race through every block and page — highlighting text and turning pages while
- * playing nothing at all.
- */
-describe('TtsService playback failure handling', () => {
+describe('TtsService browser speech playback', () => {
   let service: TtsService;
   let detailViewStub: { pages: { pid: string }[]; goToPage: jasmine.Spy };
-  let aiApiStub: { textToSpeech: jasmine.Spy; detectLanguage: jasmine.Spy; translate: jasmine.Spy };
-  let audio: HTMLAudioElement;
+  let aiApiStub: { detectLanguage: jasmine.Spy; translate: jasmine.Spy };
+  let browserTtsStub: {
+    isSupported: jasmine.Spy;
+    speak: jasmine.Spy;
+    pause: jasmine.Spy;
+    resume: jasmine.Spy;
+    cancel: jasmine.Spy;
+  };
+  let latestHandlers: BrowserSpeechHandlers;
+  let toastStub: { show: jasmine.Spy };
 
-  /** Blocks so we can tell "advanced" from "held position". */
   const BLOCKS = [
     { text: 'first block' },
     { text: 'second block' },
@@ -34,10 +37,22 @@ describe('TtsService playback failure handling', () => {
       goToPage: jasmine.createSpy('goToPage'),
     };
     aiApiStub = {
-      textToSpeech: jasmine.createSpy('textToSpeech').and.returnValue(of('AAAA')),
       detectLanguage: jasmine.createSpy('detectLanguage').and.returnValue(of('cs')),
-      translate: jasmine.createSpy('translate').and.callFake((t: string) => of(t)),
+      translate: jasmine.createSpy('translate').and.callFake((text: string) => of(text)),
     };
+    browserTtsStub = {
+      isSupported: jasmine.createSpy('isSupported').and.returnValue(true),
+      speak: jasmine.createSpy('speak').and.callFake(
+        (_text: string, _language: string, _voice: string | undefined, handlers: BrowserSpeechHandlers) => {
+          latestHandlers = handlers;
+          return {} as SpeechSynthesisUtterance;
+        }
+      ),
+      pause: jasmine.createSpy('pause'),
+      resume: jasmine.createSpy('resume'),
+      cancel: jasmine.createSpy('cancel'),
+    };
+    toastStub = { show: jasmine.createSpy('show') };
 
     TestBed.configureTestingModule({
       providers: [
@@ -47,116 +62,86 @@ describe('TtsService playback failure handling', () => {
           getBlocksForReading: () => BLOCKS,
         } },
         { provide: AiApiService, useValue: aiApiStub },
+        { provide: BrowserTtsService, useValue: browserTtsStub },
         { provide: DetailViewService, useValue: detailViewStub },
         { provide: IIIFViewerService, useValue: {
           showTtsHighlight: () => {},
           clearTtsHighlight: () => {},
         } },
         { provide: SettingsService, useValue: { settings: null } },
-        { provide: ToastService, useValue: { show: () => {} } },
+        { provide: ToastService, useValue: toastStub },
         { provide: DocumentInfoService, useValue: { hasAlto: () => true } },
       ],
     });
     service = TestBed.inject(TtsService);
-    audio = (service as any).audio as HTMLAudioElement;
   });
 
   afterEach(() => service.stop());
 
-  /** Makes every play() attempt fail the way a mobile autoplay block does. */
-  function blockAutoplay(): void {
-    const err = new DOMException('play() failed', 'NotAllowedError');
-    spyOn(audio, 'play').and.returnValue(Promise.reject(err));
-  }
-
-  function failPlaybackWith(name: string): void {
-    spyOn(audio, 'play').and.returnValue(Promise.reject(new DOMException('nope', name)));
-  }
-
-  it('does not advance through blocks when autoplay is blocked', async () => {
-    blockAutoplay();
-
+  it('detects language through AI and speaks the OCR block locally', () => {
     service.startReading('page-1');
-    await new Promise(r => setTimeout(r, 0));
 
-    // It must hold on the first block rather than racing to the end.
-    expect(service.currentBlockIndex()).toBe(0);
-    expect(detailViewStub.goToPage).not.toHaveBeenCalled();
+    expect(aiApiStub.detectLanguage).toHaveBeenCalledWith('first block');
+    expect(browserTtsStub.speak).toHaveBeenCalledWith(
+      'first block', 'cs', undefined, jasmine.any(Object)
+    );
   });
 
-  it('reports blocked playback and pauses so the user can resume with a tap', async () => {
-    blockAutoplay();
-
+  it('holds its position when browser speech is blocked', () => {
     service.startReading('page-1');
-    await new Promise(r => setTimeout(r, 0));
+    latestHandlers.onError?.('not-allowed');
 
+    expect(service.currentBlockIndex()).toBe(0);
     expect(service.playbackBlocked()).toBe(true);
     expect(service.isPaused()).toBe(true);
-    // Still "reading" — the session is alive, just waiting for a gesture.
-    expect(service.isReading()).toBe(true);
-  });
-
-  it('does not turn pages while blocked', async () => {
-    blockAutoplay();
-
-    service.startReading('page-1');
-    await new Promise(r => setTimeout(r, 0));
-
-    expect(detailViewStub.goToPage).not.toHaveBeenCalled();
-    expect(service.currentPagePid()).toBe('page-1');
-  });
-
-  it('stops after repeated genuine playback failures instead of racing on', async () => {
-    // A non-autoplay failure is a real error: skipping is allowed, but only up
-    // to the ceiling, after which reading stops.
-    failPlaybackWith('NotSupportedError');
-
-    service.startReading('page-1');
-    await new Promise(r => setTimeout(r, 0));
-
-    expect(service.isReading()).toBe(false);
     expect(detailViewStub.goToPage).not.toHaveBeenCalled();
   });
 
-  it('stops after repeated TTS API errors rather than skipping the whole document', async () => {
-    aiApiStub.textToSpeech.and.returnValue(throwError(() => new Error('api down')));
-
+  it('retries the current block after a user resumes blocked speech', () => {
     service.startReading('page-1');
-    await new Promise(r => setTimeout(r, 0));
+    latestHandlers.onError?.('not-allowed');
+    const callsBefore = browserTtsStub.speak.calls.count();
 
-    expect(service.isReading()).toBe(false);
-    expect(detailViewStub.goToPage).not.toHaveBeenCalled();
-  });
-
-  it('clears blocked state when reading stops', async () => {
-    blockAutoplay();
-
-    service.startReading('page-1');
-    await new Promise(r => setTimeout(r, 0));
-    expect(service.playbackBlocked()).toBe(true);
-
-    service.stop();
-    expect(service.playbackBlocked()).toBe(false);
-    expect(service.isReading()).toBe(false);
-  });
-
-  it('re-requests the current block when resuming from a blocked start', async () => {
-    blockAutoplay();
-
-    service.startReading('page-1');
-    await new Promise(r => setTimeout(r, 0));
-
-    const callsBefore = aiApiStub.textToSpeech.calls.count();
     service.resume();
-    await new Promise(r => setTimeout(r, 0));
 
-    // Resume must fetch audio again, not play an element with no usable source.
-    // (Playback stays blocked here because the stub rejects every play(); on a
-    // real device the tap that triggered resume() is what lifts the block.)
-    expect(aiApiStub.textToSpeech.calls.count()).toBeGreaterThan(callsBefore);
-    // It must still not have raced ahead while blocked.
+    expect(browserTtsStub.speak.calls.count()).toBe(callsBefore + 1);
     expect(service.currentBlockIndex()).toBe(0);
+  });
+
+  it('stops after three consecutive browser speech failures', () => {
+    service.startReading('page-1');
+    latestHandlers.onError?.('synthesis-failed');
+    latestHandlers.onError?.('synthesis-failed');
+    latestHandlers.onError?.('synthesis-failed');
+
+    expect(service.isReading()).toBe(false);
     expect(detailViewStub.goToPage).not.toHaveBeenCalled();
   });
 
+  it('delegates pause and resume to browser speech', () => {
+    service.startReading('page-1');
+    service.pause();
+    service.resume();
+
+    expect(browserTtsStub.pause).toHaveBeenCalled();
+    expect(browserTtsStub.resume).toHaveBeenCalled();
+  });
+
+  it('cancels local speech when reading stops', () => {
+    service.startReading('page-1');
+    service.stop();
+
+    expect(browserTtsStub.cancel).toHaveBeenCalled();
+    expect(service.isReading()).toBe(false);
+  });
+
+  it('reports when local speech synthesis is unavailable', () => {
+    browserTtsStub.isSupported.and.returnValue(false);
+
+    service.startReading('page-1');
+
+    expect(service.isReading()).toBe(false);
+    expect(service.error()).toBe('ai.error-unavailable');
+    expect(toastStub.show).toHaveBeenCalledWith('ai.error-unavailable');
+  });
 });

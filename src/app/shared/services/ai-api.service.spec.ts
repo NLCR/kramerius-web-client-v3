@@ -16,7 +16,6 @@ describe('AiApiService Qwen integration', () => {
     token = 'signed-kramerius-token';
     tokenExpired = false;
     aiConfig = {
-      apiBaseUrl: 'https://api.trinera.cloud/api',
       llm: {
         provider: 'qwen',
         baseUrl: 'https://ai.example.org/v1',
@@ -89,15 +88,31 @@ describe('AiApiService Qwen integration', () => {
     httpMock.expectNone('https://ai.example.org/v1/chat/completions');
   });
 
-  it('uses the Trinera API base URL for page translation', () => {
+  it('uses the configured Qwen endpoint for page translation', () => {
+    aiConfig.llm.auth = 'none';
     let result = '';
     service.translate('Text strany', 'en').subscribe(value => result = value);
 
-    const request = httpMock.expectOne('https://api.trinera.cloud/api/google/translate');
-    expect(request.request.body).toEqual({ q: ['Text strany'], target: 'en', format: 'text' });
-    request.flush({ data: { translations: [{ translatedText: 'Page text' }] } });
+    const request = httpMock.expectOne('https://ai.example.org/v1/chat/completions');
+    expect(request.request.headers.has('Authorization')).toBeFalse();
+    expect(request.request.context.get(SKIP_AUTH_INTERCEPTOR)).toBeTrue();
+    expect(request.request.body.messages[0].content).toContain('ISO code en');
+    expect(request.request.body.messages[1].content).toBe('Text strany');
+    request.flush({ choices: [{ message: { content: 'Page text' } }] });
 
     expect(result).toBe('Page text');
+  });
+
+  it('uses Qwen instead of an external API for language detection', () => {
+    aiConfig.llm.auth = 'none';
+    let result = '';
+    service.detectLanguage('Příliš žluťoučký kůň').subscribe(value => result = value);
+
+    const request = httpMock.expectOne('https://ai.example.org/v1/chat/completions');
+    expect(request.request.body.messages[0].content).toContain('ISO 639-1');
+    request.flush({ choices: [{ message: { content: 'cs' } }] });
+
+    expect(result).toBe('cs');
   });
 
   it('rejects Kramerius-authenticated calls with an expired access token', () => {
@@ -116,7 +131,7 @@ describe('AiApiService Qwen integration', () => {
     let errorMessage = '';
     service.translate('Text', 'en').subscribe({ error: error => errorMessage = error.message });
 
-    httpMock.expectOne('https://api.trinera.cloud/api/google/translate')
+    httpMock.expectOne('https://ai.example.org/v1/chat/completions')
       .flush('Method Not Allowed', { status: 405, statusText: 'Method Not Allowed' });
 
     expect(errorMessage).toBe('ai.error-endpoint');

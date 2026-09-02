@@ -16,11 +16,9 @@
     "baseUrl": "https://api.kramerius7.nkp.cz/search/api/client",
     "citationUrl": "https://citace.kramerius7.nkp.cz/api/v1",
     "georefUrl": "https://api.georeference.trinera.cloud/georefs/latest",
-    "pdfServer": "https://new.kramerius7.nkp.cz/pdf",
-    "aiProxyUrl": "https://api.trinera.cloud/api"
+    "pdfServer": "https://new.kramerius7.nkp.cz/pdf"
   },
   "ai": {
-   "apiBaseUrl": "https://api.trinera.cloud/api",
    "llm": {
      "provider": "qwen",
      "baseUrl": "https://new.kramerius7.nkp.cz/ai/v1",

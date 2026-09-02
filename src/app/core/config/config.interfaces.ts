@@ -15,11 +15,12 @@ export interface ApiConfig {
   georefUrl?: string;       // Georeference annotations API base URL (Allmaps annotations)
   /** Optional service that reports and serves pre-generated whole-document PDFs. */
   pdfServer?: string;
-  aiProxyUrl?: string;      // AI proxy API base URL (TTS, translation, summaries)
+  aiProxyUrl?: string;      // Legacy external AI proxy URL
 }
 
-// AI integrations. TTS and translations continue to use apiBaseUrl, while the
-// LLM endpoint can be switched independently to a self-hosted Qwen server.
+// AI integrations. Text generation, translation and language detection use the
+// configured OpenAI-compatible Qwen endpoint. Speech is synthesized locally by
+// the browser and therefore needs neither this endpoint nor a bearer token.
 export type AiLlmProvider = 'trinera' | 'qwen';
 export type AiLlmAuthMode = 'kramerius' | 'none';
 
@@ -36,7 +37,7 @@ export interface AiLlmConfig {
 }
 
 export interface AiConfig {
-  /** Existing Trinera API used by TTS, translation and built-in LLM providers. */
+  /** Legacy external AI proxy URL, retained for backwards-compatible configs. */
   apiBaseUrl?: string;
   llm?: AiLlmConfig;
 }

@@ -13,7 +13,6 @@ export interface AiModel {
   code: string;
 }
 
-export type TtsProvider = 'openai' | 'google' | 'elevenlabs';
 export type TranslateProvider = 'google' | 'deepl';
 
 /**
@@ -77,83 +76,26 @@ export class AiApiService {
     return AI_MODELS.find(model => model.code === configuredCode) ?? AI_MODELS[1];
   }
 
-  // --- TTS ---
-
-  elevenLabsTTS(text: string, voice: string): Observable<string> {
-    const body = { model_id: 'eleven_multilingual_v2', text };
-    return this.post<{ audioContent: string }>(`/elevenlabs/tts/${voice}`, body).pipe(
-      map(r => r.audioContent)
-    );
-  }
-
-  openAiTTS(text: string, voice: string): Observable<string> {
-    const body = { model: 'tts-1', voice, input: text };
-    return this.post<{ audioContent: string }>('/openai/tts', body).pipe(
-      map(r => r.audioContent)
-    );
-  }
-
-  googleTTS(text: string, voice: string, language: string): Observable<string> {
-    const body = {
-      audioConfig: {
-        audioEncoding: 'MP3',
-        effectsProfileId: ['small-bluetooth-speaker-class-device'],
-        pitch: 0,
-        speakingRate: 1
-      },
-      input: { text: text.toLocaleLowerCase() },
-      voice: { languageCode: language, name: voice }
-    };
-    return this.post<{ audioContent: string }>('/google/tts', body).pipe(
-      map(r => r.audioContent)
-    );
-  }
-
-  textToSpeech(text: string, language: string, provider: TtsProvider = 'google', voice?: string): Observable<string> {
-    switch (provider) {
-      case 'elevenlabs':
-        return this.elevenLabsTTS(text, voice || 'EXAVITQu4vr4xnSDxMaL');
-      case 'openai':
-        return this.openAiTTS(text, voice || 'alloy');
-      case 'google':
-      default: {
-        // Google TTS requires full locale codes (e.g. cs-CZ, en-US, sk-SK, pl-PL)
-        const locale = this.toGoogleLocale(language);
-        return this.googleTTS(text, voice || `${locale}-Standard-A`, locale);
-      }
-    }
-  }
-
   // --- Translation ---
 
-  translateWithGoogle(input: string, targetLanguage: string, format: 'text' | 'html' = 'text'): Observable<string> {
-    const body = { q: [input], target: targetLanguage, format };
-    return this.post<any>('/google/translate', body).pipe(
-      map(r => r.data.translations[0].translatedText)
-    );
-  }
-
-  translateWithDeepL(input: string, targetLanguage: string, tagHandling?: 'html'): Observable<string> {
-    const body: any = { text: [input], target_lang: targetLanguage };
-    if (tagHandling) body.tag_handling = tagHandling;
-    return this.post<any>('/deepl/translate', body).pipe(
-      map(r => r.translations[0].text)
-    );
-  }
-
-  translate(input: string, targetLanguage: string, provider: TranslateProvider = 'google', format: 'text' | 'html' = 'text'): Observable<string> {
-    if (provider === 'deepl') {
-      return this.translateWithDeepL(input, targetLanguage, format === 'html' ? 'html' : undefined);
-    }
-    return this.translateWithGoogle(input, targetLanguage, format);
+  translate(input: string, targetLanguage: string, _provider: TranslateProvider = 'google', format: 'text' | 'html' = 'text'): Observable<string> {
+    return this.translateWithQwen(input, targetLanguage, format);
   }
 
   // --- Language Detection ---
 
   detectLanguage(input: string): Observable<string> {
-    const body = { q: input };
-    return this.post<any>('/google/translate/detect', body).pipe(
-      map(r => r.data.detections[0][0].language)
+    const instructions = [
+      'Identify the language of the supplied text.',
+      'Return only its lowercase ISO 639-1 two-letter code, for example cs, en, de or pl.',
+      'Do not add punctuation, Markdown or an explanation.'
+    ].join(' ');
+    return this.askConfiguredQwen(input.slice(0, 3000), instructions, 16).pipe(
+      map(result => {
+        const code = result.trim().toLowerCase().match(/\b[a-z]{2}\b/)?.[0];
+        if (!code) throw new Error('invalid_language_response');
+        return code;
+      })
     );
   }
 
@@ -252,20 +194,30 @@ export class AiApiService {
     );
   }
 
-  // --- Locale Helper ---
+  private askConfiguredQwen(input: string, instructions: string, maxTokens: number): Observable<string> {
+    const model = this.configService.ai.llm?.model || 'Qwen/Qwen3.5-9B';
+    return this.askQwen(input, instructions, model, maxTokens);
+  }
 
-  private static readonly LOCALE_MAP: Record<string, string> = {
-    cs: 'cs-CZ', sk: 'sk-SK', pl: 'pl-PL', en: 'en-US', de: 'de-DE',
-    fr: 'fr-FR', es: 'es-ES', it: 'it-IT', pt: 'pt-PT', ru: 'ru-RU',
-    uk: 'uk-UA', hu: 'hu-HU', ro: 'ro-RO', nl: 'nl-NL', sv: 'sv-SE',
-    da: 'da-DK', nb: 'nb-NO', fi: 'fi-FI', ja: 'ja-JP', zh: 'zh-CN',
-    ko: 'ko-KR', ar: 'ar-XA', hi: 'hi-IN', tr: 'tr-TR', el: 'el-GR',
-    bg: 'bg-BG', hr: 'hr-HR', sr: 'sr-RS', sl: 'sl-SI', lt: 'lt-LT',
-    lv: 'lv-LV', et: 'et-EE',
-  };
+  private translateWithQwen(input: string, targetLanguage: string, format: 'text' | 'html'): Observable<string> {
+    const formatRule = format === 'html'
+      ? 'Preserve all HTML elements, attributes and document structure; translate only human-readable text nodes.'
+      : 'Preserve paragraph breaks and punctuation.';
+    const instructions = [
+      `Translate the supplied content into the language with ISO code ${targetLanguage}.`,
+      formatRule,
+      'Return only the translated content, without commentary, labels or Markdown code fences.'
+    ].join(' ');
 
-  private toGoogleLocale(lang: string): string {
-    return AiApiService.LOCALE_MAP[lang] || `${lang}-${lang.toUpperCase()}`;
+    return this.askConfiguredQwen(input, instructions, 2048).pipe(
+      map(result => this.removeOuterCodeFence(result))
+    );
+  }
+
+  private removeOuterCodeFence(value: string): string {
+    const trimmed = value.trim();
+    const fenced = trimmed.match(/^```(?:html|text)?\s*\n?([\s\S]*?)\n?```$/i);
+    return (fenced?.[1] ?? trimmed).trim();
   }
 
   // --- HTTP Helper ---

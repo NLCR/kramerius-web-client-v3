@@ -1,16 +1,15 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Settings, TtsVoiceEntry } from '../../settings.model';
 import { LanguageBadgeComponent } from '../../../../shared/components/language-badge/language-badge.component';
 import { LanguageSelectComponent } from '../../../../shared/components/language-select/language-select.component';
 import { TtsVoiceDropdownComponent } from './tts-voice-dropdown/tts-voice-dropdown.component';
 import { AppTranslationService } from '../../../../shared/translation/app-translation.service';
-import { AiApiService, TtsProvider } from '../../../../shared/services/ai-api.service';
-import { take } from 'rxjs/operators';
+import { BrowserTtsService } from '../../../../shared/services/browser-tts.service';
 import { TRANSLATION_LANGUAGES } from '../../../../shared/translation/translation-languages';
 import { Language } from '../../../../shared/translation/lang-picker/language';
-import { TtsVoiceOption, SAMPLE_TEXTS, getAllVoices, getVoiceLabel } from './tts-voices.data';
+import { TtsVoiceOption, SAMPLE_TEXTS } from './tts-voices.data';
 
 @Component({
   selector: 'app-settings-read-section',
@@ -19,17 +18,18 @@ import { TtsVoiceOption, SAMPLE_TEXTS, getAllVoices, getVoiceLabel } from './tts
   templateUrl: './settings-read-section.component.html',
   styleUrl: './settings-read-section.component.scss'
 })
-export class SettingsReadSectionComponent implements OnInit {
+export class SettingsReadSectionComponent implements OnInit, OnDestroy {
   @Input() settings!: Settings;
   @Output() settingsChange = new EventEmitter<Settings>();
 
   private translationService = inject(AppTranslationService);
-  private aiApiService = inject(AiApiService);
+  private translate = inject(TranslateService);
+  private browserTtsService = inject(BrowserTtsService);
 
   readonly allLanguages = TRANSLATION_LANGUAGES;
   voiceEntries: TtsVoiceEntry[] = [];
   previewingIndex = -1;
-  private audio = new Audio();
+  private previewUtterance: SpeechSynthesisUtterance | null = null;
 
   get availableLanguages(): Language[] {
     const used = new Set(this.voiceEntries.map(e => e.langCode));
@@ -46,7 +46,7 @@ export class SettingsReadSectionComponent implements OnInit {
       if (existing) {
         existing.isPrimary = true;
       } else {
-        this.voiceEntries.unshift({ langCode: appLang, voice: 'fable', provider: 'openai', isPrimary: true });
+        this.voiceEntries.unshift({ langCode: appLang, voice: '', provider: 'browser', isPrimary: true });
       }
       this.emitChange();
     }
@@ -57,7 +57,8 @@ export class SettingsReadSectionComponent implements OnInit {
   }
 
   getVoiceLabel(entry: TtsVoiceEntry): string {
-    return getVoiceLabel(entry.voice, entry.langCode);
+    return this.browserTtsService.voicesForLanguage(entry.langCode)
+      .find(voice => voice.name === entry.voice)?.name || this.translate.instant('settings.tts.automatic-device-voice');
   }
 
   onVoiceChange(index: number, voice: TtsVoiceOption): void {
@@ -69,7 +70,7 @@ export class SettingsReadSectionComponent implements OnInit {
   addLanguage(code: string): void {
     const lang = this.allLanguages.find(l => l.code === code);
     if (!lang) return;
-    this.voiceEntries.push({ langCode: lang.code, voice: 'fable', provider: 'openai', isPrimary: false });
+    this.voiceEntries.push({ langCode: lang.code, voice: '', provider: 'browser', isPrimary: false });
     this.emitChange();
   }
 
@@ -86,10 +87,9 @@ export class SettingsReadSectionComponent implements OnInit {
 
   previewVoice(index: number): void {
     const entry = this.voiceEntries[index];
-    if (!entry.voice) return;
-
     if (this.previewingIndex === index) {
-      this.audio.pause();
+      this.browserTtsService.cancel(this.previewUtterance);
+      this.previewUtterance = null;
       this.previewingIndex = -1;
       return;
     }
@@ -97,26 +97,23 @@ export class SettingsReadSectionComponent implements OnInit {
     this.previewingIndex = index;
     const sampleText = SAMPLE_TEXTS[entry.langCode] || SAMPLE_TEXTS['en'];
 
-    this.aiApiService.textToSpeech(sampleText, entry.langCode, entry.provider as TtsProvider, entry.voice)
-      .pipe(take(1))
-      .subscribe({
-        next: (audioContent) => this.playAudio(audioContent, () => { this.previewingIndex = -1; }),
-        error: () => { this.previewingIndex = -1; }
-      });
-  }
-
-  private playAudio(base64: string, onEnd: () => void): void {
-    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    const blob = new Blob([bytes], { type: 'audio/mpeg' });
-    if (this.audio.src?.startsWith('blob:')) {
-      URL.revokeObjectURL(this.audio.src);
-    }
-    this.audio.src = URL.createObjectURL(blob);
-    this.audio.onended = onEnd;
-    this.audio.play().catch(onEnd);
+    this.previewUtterance = this.browserTtsService.speak(sampleText, entry.langCode, entry.voice, {
+      onEnd: () => this.finishPreview(),
+      onError: () => this.finishPreview(),
+    });
+    if (!this.previewUtterance) this.finishPreview();
   }
 
   private emitChange(): void {
     this.settingsChange.emit({ ...this.settings, ttsVoices: this.voiceEntries.map(v => ({ ...v })) } as Settings);
+  }
+
+  private finishPreview(): void {
+    this.previewUtterance = null;
+    this.previewingIndex = -1;
+  }
+
+  ngOnDestroy(): void {
+    this.browserTtsService.cancel(this.previewUtterance);
   }
 }

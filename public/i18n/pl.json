@@ -840,6 +840,8 @@
   "settings.tts.primary": "Główny",
   "settings.tts.set-primary": "Ustaw jako główny",
   "settings.tts.add-language": "Dodaj język",
+  "settings.tts.device": "Urządzenie",
+  "settings.tts.automatic-device-voice": "Automatyczny głos urządzenia",
   "settings.tts.note": "Czytanie na głos jest dostępne tylko dla dostępnych dokumentów.",
   "toggle-and-or-operator": "Przełącz operator I/LUB",
   "equals-operator": "Dokładne dopasowanie",

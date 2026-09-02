@@ -850,6 +850,8 @@
   "settings.tts.primary": "Primary",
   "settings.tts.set-primary": "Set as primary",
   "settings.tts.add-language": "Add language",
+  "settings.tts.device": "Device",
+  "settings.tts.automatic-device-voice": "Automatic device voice",
   "settings.tts.note": "Reading aloud is only available for accessible documents.",
   "toggle-and-or-operator": "Toggle AND/OR operator",
   "equals-operator": "Match exactly",

@@ -5,17 +5,11 @@ import { AiApiService } from './ai-api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 
-/**
- * Regression test: the AI proxy base URL used to be hardcoded in AiApiService,
- * so a deployment pointing at its own proxy had to patch the source. It now
- * comes from `api.aiProxyUrl` in config-main.json, like `citationUrl`/`georefUrl`,
- * with no built-in fallback — an unconfigured proxy must not quietly reach a
- * third-party default the deployment never opted into.
- */
-describe('AiApiService base URL', () => {
+/** Regression coverage: every text AI function must use the self-hosted Qwen URL. */
+describe('AiApiService Qwen base URL', () => {
   let httpMock: HttpTestingController;
 
-  function setup(apiConfig: Record<string, string> | undefined): AiApiService {
+  function setup(ai: any, api: any = {}): AiApiService {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -26,7 +20,7 @@ describe('AiApiService base URL', () => {
           getAccessToken: () => 'test-token',
           isTokenExpired: () => false,
         } },
-        { provide: ConfigService, useValue: { api: apiConfig, ai: {} } },
+        { provide: ConfigService, useValue: { api, ai } },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -35,40 +29,46 @@ describe('AiApiService base URL', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('calls the proxy configured in api.aiProxyUrl', () => {
-    const service = setup({ aiProxyUrl: 'https://ai.example.org/api' });
+  it('sends translation to the configured Qwen endpoint', () => {
+    const service = setup({
+      llm: { provider: 'qwen', baseUrl: 'https://ai.example.org/v1', model: 'Qwen/Test', auth: 'none' }
+    });
 
-    service.openAiTTS('ahoj', 'alloy').subscribe();
+    service.translate('ahoj', 'en').subscribe();
 
-    const req = httpMock.expectOne(r => r.url.endsWith('/openai/tts'));
-    expect(req.request.url).toBe('https://ai.example.org/api/openai/tts');
-    req.flush({ audioContent: 'AAAA' });
+    const request = httpMock.expectOne('https://ai.example.org/v1/chat/completions');
+    expect(request.request.body.model).toBe('Qwen/Test');
+    request.flush({ choices: [{ message: { content: 'hello' } }] });
   });
 
-  it('uses no hardcoded proxy host when api.aiProxyUrl is missing', () => {
-    const service = setup({});
+  it('never falls back to a legacy Trinera proxy for translation', () => {
+    const service = setup(
+      { llm: { provider: 'qwen', baseUrl: '/ai/v1', model: 'Qwen/Test', auth: 'none' } },
+      { aiProxyUrl: 'https://api.trinera.cloud/api' },
+    );
 
-    service.openAiTTS('ahoj', 'alloy').subscribe();
+    service.translate('ahoj', 'en').subscribe();
 
-    const req = httpMock.expectOne(r => r.url.endsWith('/openai/tts'));
-    expect(req.request.url).toBe('/openai/tts');
-    expect(req.request.url).not.toContain('trinera.cloud');
-    req.flush({ audioContent: 'AAAA' });
+    const request = httpMock.expectOne('/ai/v1/chat/completions');
+    expect(request.request.url).not.toContain('trinera.cloud');
+    request.flush({ choices: [{ message: { content: 'hello' } }] });
   });
 
-  it('re-reads the config for each request rather than caching a build-time URL', () => {
-    const api: Record<string, string> = { aiProxyUrl: 'https://first.example.org/api' };
-    const service = setup(api);
+  it('re-reads the Qwen config for each request', () => {
+    const ai = {
+      llm: { provider: 'qwen', baseUrl: 'https://first.example.org/v1', model: 'Qwen/Test', auth: 'none' }
+    };
+    const service = setup(ai);
 
-    service.openAiTTS('a', 'alloy').subscribe();
-    const first = httpMock.expectOne(r => r.url.endsWith('/openai/tts'));
-    expect(first.request.url).toBe('https://first.example.org/api/openai/tts');
-    first.flush({ audioContent: 'AAAA' });
+    service.detectLanguage('ahoj').subscribe();
+    const first = httpMock.expectOne('https://first.example.org/v1/chat/completions');
+    expect(first.request.url).toBe('https://first.example.org/v1/chat/completions');
+    first.flush({ choices: [{ message: { content: 'cs' } }] });
 
-    api['aiProxyUrl'] = 'https://second.example.org/api';
-    service.openAiTTS('b', 'alloy').subscribe();
-    const second = httpMock.expectOne(r => r.url.endsWith('/openai/tts'));
-    expect(second.request.url).toBe('https://second.example.org/api/openai/tts');
-    second.flush({ audioContent: 'AAAA' });
+    ai.llm.baseUrl = 'https://second.example.org/v1';
+    service.detectLanguage('hello').subscribe();
+    const second = httpMock.expectOne('https://second.example.org/v1/chat/completions');
+    expect(second.request.url).toBe('https://second.example.org/v1/chat/completions');
+    second.flush({ choices: [{ message: { content: 'en' } }] });
   });
 });

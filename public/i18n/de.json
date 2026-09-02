@@ -847,6 +847,8 @@
   "settings.tts.primary": "Primär",
   "settings.tts.set-primary": "Als primär festlegen",
   "settings.tts.add-language": "Sprache hinzufügen",
+  "settings.tts.device": "Gerät",
+  "settings.tts.automatic-device-voice": "Automatische Gerätestimme",
   "settings.tts.note": "Das Vorlesen ist nur für zugängliche Dokumente verfügbar.",
   "toggle-and-or-operator": "Operator UND/ODER umschalten",
   "equals-operator": "Genau übereinstimmen",

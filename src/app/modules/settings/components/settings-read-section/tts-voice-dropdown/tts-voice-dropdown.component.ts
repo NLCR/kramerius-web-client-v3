@@ -1,10 +1,10 @@
 import { Component, EventEmitter, inject, Input, OnDestroy, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TranslateService } from '@ngx-translate/core';
 import { TtsVoiceEntry } from '../../../settings.model';
-import { AiApiService, TtsProvider } from '../../../../../shared/services/ai-api.service';
+import { BrowserTtsService } from '../../../../../shared/services/browser-tts.service';
 import { ClickOutsideDirective } from '../../../../../shared/directives/click-outside';
-import { take } from 'rxjs/operators';
-import { TtsVoiceOption, VoiceGroup, SAMPLE_TEXTS, getVoiceGroups } from '../tts-voices.data';
+import { TtsVoiceOption, VoiceGroup, SAMPLE_TEXTS } from '../tts-voices.data';
 
 @Component({
   selector: 'app-tts-voice-dropdown',
@@ -18,14 +18,24 @@ export class TtsVoiceDropdownComponent implements OnDestroy {
   @Input({ required: true }) label!: string;
   @Output() voiceChange = new EventEmitter<TtsVoiceOption>();
 
-  private aiApiService = inject(AiApiService);
+  private browserTtsService = inject(BrowserTtsService);
+  private translate = inject(TranslateService);
 
   expanded = false;
   previewingVoice: string | null = null;
-  private audio = new Audio();
+  private previewUtterance: SpeechSynthesisUtterance | null = null;
 
   get voiceGroups(): VoiceGroup[] {
-    return getVoiceGroups(this.entry.langCode);
+    const automatic: TtsVoiceOption = {
+      name: this.translate.instant('settings.tts.automatic-device-voice'), code: '', gender: '', provider: 'browser'
+    };
+    const voices = this.browserTtsService.voicesForLanguage(this.entry.langCode).map(voice => ({
+      name: voice.name,
+      code: voice.name,
+      gender: '',
+      provider: 'browser' as const,
+    }));
+    return [{ provider: this.translate.instant('settings.tts.device'), voices: [automatic, ...voices] }];
   }
 
   toggle(): void {
@@ -45,7 +55,8 @@ export class TtsVoiceDropdownComponent implements OnDestroy {
     event.stopPropagation();
 
     if (this.previewingVoice === voice.code) {
-      this.audio.pause();
+      this.browserTtsService.cancel(this.previewUtterance);
+      this.previewUtterance = null;
       this.previewingVoice = null;
       return;
     }
@@ -53,29 +64,19 @@ export class TtsVoiceDropdownComponent implements OnDestroy {
     this.previewingVoice = voice.code;
     const sampleText = SAMPLE_TEXTS[this.entry.langCode] || SAMPLE_TEXTS['en'];
 
-    this.aiApiService.textToSpeech(sampleText, this.entry.langCode, voice.provider as TtsProvider, voice.code)
-      .pipe(take(1))
-      .subscribe({
-        next: (audioContent) => this.playAudio(audioContent, () => { this.previewingVoice = null; }),
-        error: () => { this.previewingVoice = null; }
-      });
-  }
-
-  private playAudio(base64: string, onEnd: () => void): void {
-    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    const blob = new Blob([bytes], { type: 'audio/mpeg' });
-    if (this.audio.src?.startsWith('blob:')) {
-      URL.revokeObjectURL(this.audio.src);
-    }
-    this.audio.src = URL.createObjectURL(blob);
-    this.audio.onended = onEnd;
-    this.audio.play().catch(onEnd);
+    this.previewUtterance = this.browserTtsService.speak(sampleText, this.entry.langCode, voice.code, {
+      onEnd: () => this.finishPreview(),
+      onError: () => this.finishPreview(),
+    });
+    if (!this.previewUtterance) this.finishPreview();
   }
 
   ngOnDestroy(): void {
-    this.audio.pause();
-    if (this.audio.src?.startsWith('blob:')) {
-      URL.revokeObjectURL(this.audio.src);
-    }
+    this.browserTtsService.cancel(this.previewUtterance);
+  }
+
+  private finishPreview(): void {
+    this.previewUtterance = null;
+    this.previewingVoice = null;
   }
 }

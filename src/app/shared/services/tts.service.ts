@@ -1,13 +1,14 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { AltoService, AltoTextBlock } from './alto.service';
-import { AiApiService, TtsProvider, isQuotaExceeded } from './ai-api.service';
+import { AiApiService, isQuotaExceeded } from './ai-api.service';
 import { DetailViewService } from '../../modules/detail-view-page/services/detail-view.service';
 import { IIIFViewerService } from './iiif-viewer.service';
 import { SettingsService } from '../../modules/settings/settings.service';
 import { DocumentInfoService } from './document-info.service';
 import { ToastService } from './toast.service';
+import { BrowserTtsService } from './browser-tts.service';
 import { Observable, of } from 'rxjs';
-import { take, switchMap } from 'rxjs/operators';
+import { take } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class TtsService {
@@ -19,14 +20,10 @@ export class TtsService {
   private settingsService = inject(SettingsService);
   private documentInfoService = inject(DocumentInfoService);
   private toastService = inject(ToastService);
+  private browserTtsService = inject(BrowserTtsService);
 
-  private audio = new Audio();
-  private prefetchedAudio: string | null = null;
-  private prefetchingBlockIndex = -1;
-  private destroyed = false;
+  private currentUtterance: SpeechSynthesisUtterance | null = null;
   private isPlayingBlock = false;
-  /** True once playback has been unlocked by a user gesture (mobile autoplay policy). */
-  private audioUnlocked = false;
   /**
    * Consecutive blocks that failed to produce audio. Advancing on failure is what
    * lets reading skip an unreadable block, but without a ceiling it turns into a
@@ -67,26 +64,9 @@ export class TtsService {
     return index >= 0 && index < blocks.length ? blocks[index] : null;
   });
 
-  // TTS settings
-  private _provider = signal<TtsProvider>('google');
+  // Preferred system voice; an unavailable legacy cloud voice falls back to
+  // the first browser voice matching the requested language.
   private _voice = signal<string | null>(null);
-
-  constructor() {
-    this.audio.addEventListener('ended', () => {
-      if (this.isPlayingBlock) {
-        this.isPlayingBlock = false;
-        this.consecutiveFailures = 0;
-        this.onBlockEnded();
-      }
-    });
-    this.audio.addEventListener('error', (e) => {
-      console.error('TTS audio error:', e);
-      if (this.isPlayingBlock) {
-        this.isPlayingBlock = false;
-        this.onBlockFailed();
-      }
-    });
-  }
 
   // --- Public API ---
 
@@ -95,9 +75,11 @@ export class TtsService {
     // Cleared here rather than in stop(), so the reason for an aborted run
     // survives the stop() that aborting itself performs.
     this._error.set(null);
-    // Called from a click handler, so this is inside a user gesture — the one
-    // moment a mobile browser lets us prime the audio element (issue #161).
-    this.unlockAudio();
+    if (!this.browserTtsService.isSupported()) {
+      this._error.set('ai.error-unavailable');
+      this.toastService.show('ai.error-unavailable');
+      return;
+    }
     this._currentPagePid.set(pagePid);
     this._documentUuid.set(documentUuid || null);
     this._isReading.set(true);
@@ -108,7 +90,7 @@ export class TtsService {
 
   pause(): void {
     if (this._isReading() && !this._isPaused()) {
-      this.audio.pause();
+      this.browserTtsService.pause();
       this._isPaused.set(true);
     }
   }
@@ -121,12 +103,11 @@ export class TtsService {
     if (this._playbackBlocked()) {
       this._playbackBlocked.set(false);
       this._isPaused.set(false);
-      this.unlockAudio();
       this.readCurrentBlock();
       return;
     }
 
-    this.audio.play().catch(err => console.error('Failed to resume TTS audio:', err));
+    this.browserTtsService.resume();
     this._isPaused.set(false);
   }
 
@@ -140,10 +121,8 @@ export class TtsService {
 
   stop(): void {
     this.isPlayingBlock = false;
-    this.audio.pause();
-    this.cleanupBlobUrl();
-    this.prefetchedAudio = null;
-    this.prefetchingBlockIndex = -1;
+    this.browserTtsService.cancel(this.currentUtterance);
+    this.currentUtterance = null;
     this.consecutiveFailures = 0;
     this._playbackBlocked.set(false);
 
@@ -158,10 +137,6 @@ export class TtsService {
     this.iiifViewerService.clearTtsHighlight();
   }
 
-  setProvider(provider: TtsProvider): void {
-    this._provider.set(provider);
-  }
-
   setVoice(voice: string | null): void {
     this._voice.set(voice);
   }
@@ -174,31 +149,6 @@ export class TtsService {
   }
 
   // --- Private methods ---
-
-  /**
-   * Primes the audio element inside a user gesture so later programmatic play()
-   * calls are allowed. Mobile Safari/Chrome only grant playback permission to an
-   * element that has been played during a gesture; the element is constructed in
-   * this service's constructor, long before any tap, so without this the very
-   * first play() is refused (issue #161).
-   */
-  private unlockAudio(): void {
-    if (this.audioUnlocked) return;
-
-    // A silent WAV is enough to satisfy the gesture requirement.
-    this.audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-    this.audio.play().then(() => {
-      this.audioUnlocked = true;
-      // Real block audio may have started while the silent clip was warming up;
-      // only rewind the element if it is still the silent clip playing.
-      if (!this.isPlayingBlock) {
-        this.audio.pause();
-        this.audio.currentTime = 0;
-      }
-    }).catch(() => {
-      // Still blocked — playAudioContent surfaces this to the user instead.
-    });
-  }
 
   private loadPageAndRead(pagePid: string): void {
     this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
@@ -261,7 +211,7 @@ export class TtsService {
 
     const block = blocks[index];
     const lang = this._detectedLanguage() || 'cs';
-    const { voice, provider, voiceLangCode } = this.resolveVoiceAndProvider(lang);
+    const { voice, voiceLangCode } = this.resolveVoiceAndProvider(lang);
 
     // Plain OCR has no page coordinates, so highlighting is only possible for ALTO.
     if (block.width > 0 && block.height > 0) {
@@ -270,120 +220,53 @@ export class TtsService {
       this.iiifViewerService.clearTtsHighlight();
     }
 
-    // Check if we have prefetched audio for this block
-    if (this.prefetchedAudio && this.prefetchingBlockIndex === index) {
-      this.playAudioContent(this.prefetchedAudio);
-      this.prefetchedAudio = null;
-      this.prefetchingBlockIndex = -1;
-      // Prefetch next block
-      this.prefetchNextBlock();
-      return;
-    }
-
-    // Request TTS for current block (translate first if languages differ)
-    this.maybeTranslate(block.text, lang, voiceLangCode).pipe(
-      switchMap(text => this.aiApiService.textToSpeech(text, voiceLangCode || lang, provider, voice)),
-      take(1)
-    ).subscribe({
-        next: (audioContent) => {
-          if (!this._isReading()) return;
-          this.playAudioContent(audioContent);
-          // Start prefetching next block
-          this.prefetchNextBlock();
-        },
-        error: (err) => {
-          console.error('TTS error for block:', err);
-          // Skip to next block, but under the consecutive-failure ceiling —
-          // unless this is terminal (quota), which aborts the whole run.
-          this.onBlockFailed(err);
-        }
-      });
-  }
-
-  private prefetchNextBlock(): void {
-    const blocks = this._blocks();
-    const nextIndex = this._currentBlockIndex() + 1;
-
-    if (nextIndex >= blocks.length) return; // No more blocks to prefetch
-
-    const nextBlock = blocks[nextIndex];
-    const lang = this._detectedLanguage() || 'cs';
-    const { voice, provider, voiceLangCode } = this.resolveVoiceAndProvider(lang);
-
-    this.prefetchingBlockIndex = nextIndex;
-    this.maybeTranslate(nextBlock.text, lang, voiceLangCode).pipe(
-      switchMap(text => this.aiApiService.textToSpeech(text, voiceLangCode || lang, provider, voice)),
-      take(1)
-    ).subscribe({
-        next: (audioContent) => {
-          if (this.prefetchingBlockIndex === nextIndex) {
-            this.prefetchedAudio = audioContent;
-          }
-        },
-        error: (err) => {
-          // A prefetch failure is normally harmless — the block is re-requested
-          // when playback reaches it. Quota exhaustion is the exception: the
-          // retry would fail identically, so abort now instead of letting the
-          // current block finish into the same wall.
-          this.prefetchedAudio = null;
-          if (isQuotaExceeded(err)) {
-            this.abortWithError('ai.quota-exceeded');
-          }
-        }
-      });
-  }
-
-  private playAudioContent(audioContent: string): void {
-    this.cleanupBlobUrl();
-    this.isPlayingBlock = false;
-
-    // audioContent is base64 encoded
-    const binaryString = atob(audioContent);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    const blob = new Blob([bytes], { type: 'audio/mpeg' });
-    const url = URL.createObjectURL(blob);
-
-    this.audio.src = url;
-    this.isPlayingBlock = true;
-    this.audio.play().then(() => {
-      // Playback actually started: the block is being read, so reset the guard.
-      this.audioUnlocked = true;
-      this._playbackBlocked.set(false);
-      this.consecutiveFailures = 0;
-    }).catch(err => {
-      if (!this.isPlayingBlock) return;
-      this.isPlayingBlock = false;
-
-      // A blocked autoplay is NOT a reason to skip the block: advancing here is
-      // what made reading race through the whole document highlighting blocks and
-      // turning pages while silent (issue #161). Hold position and let the user
-      // resume with a tap, which counts as the gesture the browser is waiting for.
-      if (this.isAutoplayBlocked(err)) {
-        this._playbackBlocked.set(true);
-        this._isPaused.set(true);
-        return;
+    // Translation/detection uses Qwen; audio is generated locally by the browser.
+    this.maybeTranslate(block.text, lang, voiceLangCode).pipe(take(1)).subscribe({
+      next: text => {
+        if (!this._isReading()) return;
+        this.speakText(text, voiceLangCode || lang, voice);
+      },
+      error: err => {
+        console.error('TTS text preparation failed:', err);
+        this.onBlockFailed(err);
       }
-
-      console.error('Failed to play TTS audio:', err);
-      this.onBlockFailed();
     });
   }
 
-  private cleanupBlobUrl(): void {
-    if (this.audio.src && this.audio.src.startsWith('blob:')) {
-      URL.revokeObjectURL(this.audio.src);
+  private speakText(text: string, language: string, voice?: string): void {
+    this.isPlayingBlock = true;
+    let utterance: SpeechSynthesisUtterance | null = null;
+    utterance = this.browserTtsService.speak(text, language, voice, {
+      onStart: () => {
+        if (this.currentUtterance !== utterance) return;
+        this._playbackBlocked.set(false);
+        this.consecutiveFailures = 0;
+      },
+      onEnd: () => {
+        if (!this.isPlayingBlock || this.currentUtterance !== utterance) return;
+        this.isPlayingBlock = false;
+        this.currentUtterance = null;
+        this.consecutiveFailures = 0;
+        this.onBlockEnded();
+      },
+      onError: error => {
+        if (!this.isPlayingBlock || this.currentUtterance !== utterance) return;
+        this.isPlayingBlock = false;
+        this.currentUtterance = null;
+        if (error === 'not-allowed') {
+          this._playbackBlocked.set(true);
+          this._isPaused.set(true);
+          return;
+        }
+        console.error('Browser TTS error:', error);
+        this.onBlockFailed();
+      }
+    });
+    this.currentUtterance = utterance;
+    if (!utterance) {
+      this.isPlayingBlock = false;
+      this.onBlockFailed();
     }
-  }
-
-  /**
-   * A rejected play() means "blocked", not "broken", when the browser refused the
-   * gesture-less playback. Chrome/Safari report NotAllowedError for this.
-   */
-  private isAutoplayBlocked(err: unknown): boolean {
-    return (err as { name?: string } | null)?.name === 'NotAllowedError';
   }
 
   /**
@@ -454,9 +337,6 @@ export class TtsService {
       this._currentPagePid.set(nextPage.pid);
       this._currentBlockIndex.set(-1);
       this._blocks.set([]);
-      this.prefetchedAudio = null;
-      this.prefetchingBlockIndex = -1;
-
       // Navigate the viewer to the next page
       this.detailViewService.goToPage(currentIndex + 1);
 
@@ -512,34 +392,41 @@ export class TtsService {
   }
 
   /**
-   * Resolves the voice + provider to use for TTS based on settings.
-   * 1. If user set a voice via _voice signal, use that with current provider
-   * 2. If settings have a voice for the detected language, use that entry's voice + provider
-   * 3. If settings have a primary voice, use that entry's voice + provider
-   * 4. Fall back to undefined (API default)
+   * Resolves the preferred system voice based on settings.
+   * 1. If user set a voice via _voice signal, use it.
+   * 2. If settings have a voice for the detected language, use that entry.
+   * 3. Otherwise prefer an installed voice for the detected language.
+   * 4. If none exists, fall back to the primary configured voice.
+   * 5. Finally let the browser choose its default voice.
    *
    * Also returns voiceLangCode — the language the voice entry is configured for.
    * When voiceLangCode differs from the detected document language, the text
    * should be translated before TTS.
    */
-  private resolveVoiceAndProvider(lang: string): { voice?: string; provider: TtsProvider; voiceLangCode?: string } {
+  private resolveVoiceAndProvider(lang: string): { voice?: string; voiceLangCode?: string } {
     // Explicit override takes priority
     const override = this._voice();
-    if (override) return { voice: override, provider: this._provider() };
+    if (override) return { voice: override };
 
     const settings = this.settingsService.settings;
     const voices = settings?.ttsVoices;
-    if (!voices?.length) return { provider: this._provider() };
+    if (!voices?.length) return {};
 
     // Look for exact language match
     const langEntry = voices.find(v => v.langCode === lang && v.voice);
-    if (langEntry) return { voice: langEntry.voice, provider: langEntry.provider || this._provider(), voiceLangCode: langEntry.langCode };
+    if (langEntry) return { voice: langEntry.voice, voiceLangCode: langEntry.langCode };
+
+    // Prefer reading the source as-is with a system voice in its own language.
+    // Only translate to the primary configured language when the device has no
+    // matching voice at all.
+    const systemVoice = this.browserTtsService.voicesForLanguage(lang)[0];
+    if (systemVoice) return { voice: systemVoice.name, voiceLangCode: lang };
 
     // Fall back to primary voice
     const primary = voices.find(v => v.isPrimary && v.voice);
-    if (primary) return { voice: primary.voice, provider: primary.provider || this._provider(), voiceLangCode: primary.langCode };
+    if (primary) return { voice: primary.voice, voiceLangCode: primary.langCode };
 
-    return { provider: this._provider() };
+    return {};
   }
 
   /**

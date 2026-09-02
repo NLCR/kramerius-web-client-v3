@@ -15,7 +15,7 @@ export enum AppResultsViewType {
 export interface TtsVoiceEntry {
   langCode: string;
   voice: string;
-  provider: 'openai' | 'google' | 'elevenlabs';
+  provider: 'openai' | 'google' | 'elevenlabs' | 'browser';
   isPrimary?: boolean;
 }
 

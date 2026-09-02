@@ -44,7 +44,6 @@
       <div class="read-section__col-action">
         <button class="read-section__action-btn read-section__action-btn--play"
                 [class.active]="previewingIndex === i"
-                [disabled]="!entry.voice"
                 (click)="previewVoice(i)">
           <i class="icon-volume-high"></i>
         </button>
