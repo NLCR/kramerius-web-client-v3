@@ -1,5 +1,6 @@
 import { DocumentTypeEnum } from '../../../modules/constants/document-type';
 import { getOpenLicenses } from '../../../core/solr/solr-misc';
+import { mergeDocumentLicenses } from '../../../core/solr/solr-misc';
 
 /**
  * Simplified model for RecordItemComponent
@@ -97,7 +98,7 @@ export function searchDocumentToRecordItem(doc: any): RecordItem {
     subtitle: getDocumentSubtitle(doc),
     model: (doc.model as DocumentTypeEnum) || '',
     rootModel: doc.rootModel as DocumentTypeEnum | undefined,
-    licenses: Array.from(new Set([...(doc.licenses || doc['licenses.facet'] || []), ...(doc.containsLicenses || doc['contains_licenses'] || [])])),
+    licenses: mergeDocumentLicenses(doc.licenses, doc['licenses.facet'], doc.containsLicenses),
     authors: doc.authors,
     date: doc.date,
     ownParentPid: doc.ownParentPid,

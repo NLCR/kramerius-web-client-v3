@@ -16,6 +16,30 @@ export interface AiModel {
 export type TtsProvider = 'openai' | 'google' | 'elevenlabs';
 export type TranslateProvider = 'google' | 'deepl';
 
+/**
+ * Error code the AI proxy returns once the monthly token budget is spent
+ * Unlike a one-off failure this will not recover on the next request, so callers
+ * must abort the whole operation rather than retry the next block. Thrown as the
+ * message of the Error so every existing `err.message` consumer can match on it.
+ */
+export const AI_QUOTA_EXCEEDED = 'quota_exceeded';
+
+/**
+ * True when a thrown AI error is the quota-exhausted case.
+ * Accepts unknown so callers can pass an untyped RxJS error straight in.
+ */
+export function isQuotaExceeded(err: unknown): boolean {
+  return (err as { message?: string } | null)?.message === AI_QUOTA_EXCEEDED;
+}
+
+/**
+ * The AI proxy is config-driven only: no `api.aiProxyUrl` means no proxy URL, the
+ * same rule the header applies to `app.logo`. Requests then resolve against the
+ * app's own origin and fail loudly rather than silently reaching a third-party
+ * default the deployment never opted into.
+ */
+const DEFAULT_AI_URL = '';
+
 export const AI_MODELS: AiModel[] = [
   { provider: 'openai', name: 'GPT 4o', code: 'gpt-4o' },
   { provider: 'openai', name: 'GPT 4o mini', code: 'gpt-4o-mini' },
@@ -35,7 +59,11 @@ export class AiApiService {
   private configService = inject(ConfigService);
 
   private get apiBaseUrl(): string {
-    return (this.configService.ai.apiBaseUrl || 'https://api.trinera.cloud/api').replace(/\/+$/, '');
+    return (
+      this.configService.ai?.apiBaseUrl ||
+      this.configService.api?.aiProxyUrl ||
+      DEFAULT_AI_URL
+    ).replace(/\/+$/, '');
   }
 
   getDefaultModel(): AiModel {
@@ -266,6 +294,18 @@ export class AiApiService {
       headers,
       context: new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true)
     }).pipe(
+      // The proxy reports quota exhaustion as an `errorCode` body. Some endpoints
+      // send it with an error status, others with 200 — in the 200 case it would
+      // otherwise flow into the per-endpoint `map()`, which expects a success
+      // shape and would throw an opaque TypeError, losing the real reason. Turn
+      // it into a proper error here so both paths surface the same code.
+      map(response => {
+        const code = (response as { errorCode?: string } | null)?.errorCode;
+        if (code) {
+          throw new Error(code);
+        }
+        return response;
+      }),
       catchError(error => {
         return throwError(() => new Error(this.getErrorMessage(error)));
       })
@@ -273,6 +313,13 @@ export class AiApiService {
   }
 
   private getErrorMessage(error: any): string {
+    // A structured proxy code is more specific than the HTTP status. In
+    // particular quota exhaustion arrives as HTTP 429 but must remain
+    // `quota_exceeded` so callers can stop retries and explain the limit.
+    if (typeof error?.error?.errorCode === 'string') {
+      return error.error.errorCode;
+    }
+
     switch (error?.status) {
       case 0: return 'ai.error-network';
       case 401:
@@ -287,9 +334,6 @@ export class AiApiService {
       case 503: return 'ai.error-unavailable';
     }
 
-    if (typeof error?.error?.errorCode === 'string') {
-      return error.error.errorCode;
-    }
     if (typeof error?.error?.detail === 'string') {
       return error.error.detail;
     }

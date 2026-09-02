@@ -15,7 +15,7 @@ import { PeriodicalItemChild, PeriodicalItemYear } from '../../modules/models/pe
 import { BreakpointService } from './breakpoint.service';
 import { UserService } from './user.service';
 import { LibraryContextService } from './library-context.service';
-import {getAfterLoginLicenses, getOnlineLicenses, getOpenLicenses, getTerminalLicenses} from '../../core/solr/solr-misc';
+import {getAfterLoginLicenses, getOnlineLicenses, getOpenLicenses, getTerminalLicenses, mergeDocumentLicenses} from '../../core/solr/solr-misc';
 import { isViewerRoutePath } from '../constants/viewer-routes';
 
 @Injectable({
@@ -604,12 +604,13 @@ export class RecordHandlerService {
     if (this.isRecordPublic(licenses)) {
       return false;
     }
+    // Otherwise access depends on the licenses the current user holds.
     return !this.userService.hasAnyLicense(licenses);
   }
 
   /** Merge own + descendant/contains licenses without losing the most open one. */
   getEffectiveRecordLicenses(...licenseSets: Array<string[] | null | undefined>): string[] {
-    return Array.from(new Set(licenseSets.flatMap(set => set || [])));
+    return mergeDocumentLicenses(...licenseSets);
   }
 
   goBackClicked(document: any | null): void {
@@ -708,7 +709,7 @@ export class RecordHandlerService {
    */
   private shouldAnySearchDocumentShowBadge(docs: SearchDocument[]): boolean {
     return docs.some(doc => {
-      const licenses = this.getEffectiveRecordLicenses(doc.licenses, doc.containsLicenses);
+      const licenses = mergeDocumentLicenses(doc.licenses, doc.containsLicenses);
       return this.isRecordLocked(licenses);
     });
   }

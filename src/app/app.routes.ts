@@ -2,7 +2,8 @@ import { Routes } from '@angular/router';
 import { AuthGuard } from './core/auth/auth.guard';
 import { authCallbackGuard } from './core/auth/auth-callback.guard';
 import { legacyRouteGuard } from './core/guards/legacy-route.guard';
-import { libraryPrefixGuard, libraryPrefixMatchGuard } from './core/guards/library-prefix.guard';
+import { libraryPrefixGuard } from './core/guards/library-prefix.guard';
+import { foldersEnabledGuard, librarySwitchGuard, loginEnabledGuard } from './core/guards/feature.guard';
 
 export enum APP_ROUTES_ENUM {
   SEARCH = '',
@@ -61,6 +62,7 @@ function defineMainRoutes(): Routes {
     {
       path: APP_ROUTES_ENUM.SAVED_LISTS,
       loadChildren: () => import('./modules/saved-lists-page/saved-lists-page.module').then(m => m.SavedListsPageModule),
+      canActivate: [foldersEnabledGuard]
     },
     {
       path: APP_ROUTES_ENUM.COLLECTION,
@@ -92,7 +94,7 @@ export const routes: Routes = [
   {
     path: APP_ROUTES_ENUM.AUTH_CALLBACK,
     loadComponent: () => import('./core/auth/auth-callback/auth-callback.component').then(c => c.AuthCallbackComponent),
-    canActivate: [authCallbackGuard]
+    canActivate: [loginEnabledGuard, authCallbackGuard]
   },
   {
     path: APP_ROUTES_ENUM.ABOUT,
@@ -106,7 +108,8 @@ export const routes: Routes = [
   },
   {
     path: APP_ROUTES_ENUM.LIBRARIES,
-    loadComponent: () => import('./core/pages/libraries/libraries.component').then(c => c.LibrariesComponent)
+    loadComponent: () => import('./core/pages/libraries/libraries.component').then(c => c.LibrariesComponent),
+    canActivate: [librarySwitchGuard]
   },
   {
     path: APP_ROUTES_ENUM.DEV_TOOLS,
@@ -122,10 +125,11 @@ export const routes: Routes = [
   },
 
   // Library-prefixed routes (/:libCode/*)
+  // canMatch, not canActivate: an unknown code must leave this route unmatched so
+  // the wildcard below can render the real 404 (see libraryPrefixGuard).
   {
     path: ':libCode',
-    canMatch: [libraryPrefixMatchGuard],
-    canActivate: [libraryPrefixGuard],
+    canMatch: [libraryPrefixGuard],
     children: defineMainRoutes()
   },
 

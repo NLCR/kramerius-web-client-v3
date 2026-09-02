@@ -2,13 +2,14 @@ import { AppConfiguration, HomepageSectionConfig } from './config.interfaces';
 
 export const DEFAULT_CONFIG: AppConfiguration = {
   app: {
-    code: 'cdk',
-    name: 'Czech Digital Library',
-    contactEmail: 'info@ndk.cz'
+    code: '',
+    name: '',
+    contactEmail: ''
   },
   api: {
     baseUrl: '',
-    georefUrl: 'https://api.georeference.trinera.cloud/georefs/latest'
+    georefUrl: 'https://api.georeference.trinera.cloud/georefs/latest',
+    aiProxyUrl: ''
   },
   ai: {
     apiBaseUrl: 'https://api.trinera.cloud/api',
@@ -21,7 +22,7 @@ export const DEFAULT_CONFIG: AppConfiguration = {
   i18n: {
     defaultLanguage: 'cs',
     fallbackLanguage: 'en',
-    supportedLanguages: ['cs', 'en', 'sk', 'pl']
+    supportedLanguages: ['cs', 'en', 'sk', 'pl', 'de']
   },
   features: {
     keycloak: true,

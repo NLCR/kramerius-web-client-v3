@@ -4,6 +4,7 @@ export interface AppConfig {
   name: string | LocalizedLabel;   // e.g., 'Czech Digital Library' or { cs: '...', en: '...' }
   contactEmail: string;            // Contact email
   logo?: string;                   // URL to the app/library logo
+  logoDark?: string;               // URL to the dark-theme variant; falls back to `logo` when omitted
   adminClientUrl?: string;         // URL to admin client app
 }
 
@@ -14,6 +15,7 @@ export interface ApiConfig {
   georefUrl?: string;       // Georeference annotations API base URL (Allmaps annotations)
   /** Optional service that reports and serves pre-generated whole-document PDFs. */
   pdfServer?: string;
+  aiProxyUrl?: string;      // AI proxy API base URL (TTS, translation, summaries)
 }
 
 // AI integrations. TTS and translations continue to use apiBaseUrl, while the
@@ -196,6 +198,7 @@ export interface LicenseWatermarkConfig {
   rowCount?: number;          // grid rows, default 3
   colCount?: number;          // grid columns, default 3
   probability?: number;       // 0–100 chance per cell, default 100
+  rotation?: number;          // degrees, counter-clockwise; default 0 (upright)
   // Image mode
   logo?: string;              // URL to image
   scale?: number;             // image scale factor, default 1.0

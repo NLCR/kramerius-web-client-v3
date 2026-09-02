@@ -10,7 +10,7 @@ Každý dokument v Krameriu má v metadatech přiřazenou jednu nebo více licen
 
 > **Načítání z API.** Tento soubor lze místo z `local-config/` načítat z Kramerius API přes endpoint `/ui-config/licenses`. Lokální soubor, pokud existuje, má přednost. Viz [`guide.md` → Načítání konfigurace z API](../guide.md#načítání-konfigurace-z-api-volitelné).
 
----
+----
 
 ## Kořenová struktura
 
@@ -221,6 +221,10 @@ Tlačítko „?" u licence vždy otevře jeden ze tří textů podle aktuálníh
 | `available` | Uživatel **má přístup** — dokument je pro něj dostupný. Obecné informace o licenci (co licence znamená, za jakých podmínek platí). |
 
 HTML soubory se obvykle ukládají pod `local-config/html/licenses/`.
+
+> **Kde se `unauthenticated` text zobrazí.** Kromě tlačítka „?" u licence se stejný text použije i na obrazovce **nedostupného dokumentu** — po kliknutí na název licence v hlavičce („Dokument je dostupný pod licencí: …"). Když licence `messagePages` s klíčem `unauthenticated` nemá, použije se obecný vestavěný text.
+>
+> U [variant podle knihovny](#varianty-licencí-podle-knihovny-cdk) se i tento text vybírá podle zvoleného zdroje — varianta tedy může mít vlastní `messagePages` stejně jako vlastní `instructionPage`.
 
 ---
 

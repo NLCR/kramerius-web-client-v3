@@ -25,6 +25,7 @@ import { DocumentTypeEnum } from '../../../constants/document-type';
 import { PopupPositioningService, PopupState } from '../../../../shared/services/popup-positioning.service';
 import { normalizeIssueTypeCode } from '../../../../shared/utils/issue-type-code';
 import { PeriodicalDayIssuesPopupComponent } from '../periodical-day-issues-popup/periodical-day-issues-popup.component';
+import { formatLocalDateKey, parseIssueStartDate } from '../../../../shared/utils/periodical-date';
 
 interface CalendarIssue {
   pid: string;
@@ -34,8 +35,7 @@ interface CalendarIssue {
   partNumber?: string;
   issueTypeCode?: string;
   dateStr?: string;
-  dateRangeEndDay?: number;
-  dateRangeEndMonth?: number;
+  startDate?: Date;
 }
 
 @Component({
@@ -120,7 +120,7 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
     const map = new Map<string, CalendarIssue[]>();
 
     for (const item of items) {
-      const date = this.parseDate(item['date.str']);
+      const date = parseIssueStartDate(item);
       if (!date || !item.pid) continue;
 
       const key = this.formatDateKey(date);
@@ -132,8 +132,7 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
         partNumber: item['part.number.str'],
         issueTypeCode: normalizeIssueTypeCode(item['issue.type.code']),
         dateStr: item['date.str'],
-        dateRangeEndDay: item['date_range_end.day'],
-        dateRangeEndMonth: item['date_range_end.month'],
+        startDate: date,
       };
 
       if (map.has(key)) {
@@ -152,36 +151,8 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
     }, 0);
   }
 
-  parseDate(str: string): Date | null {
-    const value = String(str ?? '').trim();
-    let day: number;
-    let month: number;
-    let year: number;
-
-    let match = value.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
-    if (match) {
-      day = Number(match[1]);
-      month = Number(match[2]);
-      year = Number(match[3]);
-    } else {
-      match = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:T.*)?$/);
-      if (!match) return null;
-      year = Number(match[1]);
-      month = Number(match[2]);
-      day = Number(match[3]);
-    }
-
-    const result = new Date(year, month - 1, day);
-    return result.getFullYear() === year && result.getMonth() === month - 1 && result.getDate() === day
-      ? result
-      : null;
-  }
-
   formatDateKey(date: Date): string {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return formatLocalDateKey(date);
   }
 
   dateFilter = (date: Date | null): boolean => {
@@ -283,8 +254,8 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
     const subtitle = subtitleParts.join(' · ');
     if (issue.issueTypeCode) {
       title = this.translate.instant(`${issue.issueTypeCode}-issue`);
-    } else if (issue.dateRangeEndDay && issue.dateRangeEndMonth) {
-      title = `${issue.dateRangeEndDay}.${issue.dateRangeEndMonth}`;
+    } else if (issue.startDate) {
+      title = `${issue.startDate.getDate()}.${issue.startDate.getMonth() + 1}.`;
     } else if (issue.partNumber) {
       title = `${subtitlePrefix} ${issue.partNumber}`;
     }
@@ -316,7 +287,7 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
     const currentMap = new Map(this.issueMap());
 
     for (const item of items) {
-      const date = this.parseDate(item['date.str']);
+      const date = parseIssueStartDate(item);
       if (!date || !item.pid || date.getMonth() !== monthIndex) continue;
 
       const key = this.formatDateKey(date);
@@ -328,8 +299,7 @@ export class PeriodicalYearIssuesCalendarComponent implements OnChanges, OnDestr
         partNumber: item['part.number.str'],
         issueTypeCode: normalizeIssueTypeCode(item['issue.type.code']),
         dateStr: item['date.str'],
-        dateRangeEndDay: item['date_range_end.day'],
-        dateRangeEndMonth: item['date_range_end.month'],
+        startDate: date,
       };
 
       if (currentMap.has(key)) {

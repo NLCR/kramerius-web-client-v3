@@ -5,7 +5,8 @@
       "cs": "Národní knihovna České republiky",
       "en": "National Library of the Czech Republic",
       "sk": "Národná knižnica Českej republiky",
-      "pl": "Biblioteka Narodowa Republiki Czeskiej"
+      "pl": "Biblioteka Narodowa Republiki Czeskiej",
+      "de": "Nationalbibliothek der Tschechischen Republik"
     },
     "contactEmail": "info@ndk.cz",
     "logo": "/img/logo/nk-logo.png",
@@ -15,7 +16,8 @@
     "baseUrl": "https://api.kramerius7.nkp.cz/search/api/client",
     "citationUrl": "https://citace.kramerius7.nkp.cz/api/v1",
     "georefUrl": "https://api.georeference.trinera.cloud/georefs/latest",
-    "pdfServer": "https://new.kramerius7.nkp.cz/pdf"
+    "pdfServer": "https://new.kramerius7.nkp.cz/pdf",
+    "aiProxyUrl": "https://api.trinera.cloud/api"
   },
   "ai": {
    "apiBaseUrl": "https://api.trinera.cloud/api",
@@ -33,7 +35,8 @@
       "cs",
       "en",
       "sk",
-      "pl"
+      "pl",
+      "de"
     ]
   },
   "integrations": {
@@ -121,11 +124,13 @@
         "cs": "O projektu",
         "en": "About",
         "sk": "O projekte",
-        "pl": "O projekcie"
+        "pl": "O projekcie",
+        "de": "Über das Projekt"
       },
       "content": {
         "cs": "local-config/nkp/html/about/about.cs.html",
-        "en": "local-config/nkp/html/about/about.en.html"
+        "en": "local-config/nkp/html/about/about.en.html",
+        "de": "local-config/html/about/about.de.html"
       },
       "showInHeader": true
     },
@@ -139,6 +144,10 @@
         "en": [
           "local-config/nkp/html/terms/terms.en.html",
           "local-config/nkp/html/terms/terms2.en.html"
+        ],
+        "de": [
+          "local-config/html/terms/terms.de.html",
+          "local-config/html/terms/terms2.de.html"
         ]
       }
     },
@@ -146,21 +155,24 @@
       "id": "copyright",
       "content": {
         "cs": "local-config/nkp/html/copyright/copyright.cs.html",
-        "en": "local-config/nkp/html/copyright/copyright.en.html"
+        "en": "local-config/nkp/html/copyright/copyright.en.html",
+        "de": "local-config/html/copyright/copyright.de.html"
       }
     },
     {
       "id": "gdpr",
       "content": {
         "cs": "local-config/nkp/html/gdpr/gdpr.cs.html",
-        "en": "local-config/nkp/html/gdpr/gdpr.en.html"
+        "en": "local-config/nkp/html/gdpr/gdpr.en.html",
+        "de": "local-config/html/gdpr/gdpr.de.html"
       }
     },
     {
       "id": "faq",
       "content": {
         "cs": "local-config/nkp/html/faq/faq.cs.html",
-        "en": "local-config/nkp/html/faq/faq.en.html"
+        "en": "local-config/nkp/html/faq/faq.en.html",
+        "de": "local-config/html/faq/faq.de.html"
       }
     }
   ]

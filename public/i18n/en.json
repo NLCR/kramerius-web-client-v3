@@ -1,4 +1,5 @@
 {
+  "whole-document-legacy": "Whole document (legacy)",
   "model-badge.tooltip.multivolume": "Multivolume",
   "model-badge.tooltip.multivolume-part": "Part of a multivolume",
   "volume": "Volume",
@@ -810,6 +811,7 @@
   "ai.tts-pause": "Pause reading",
   "ai.tts-resume": "Resume reading",
   "ai.tts-stop": "Stop reading",
+  "ai.tts-blocked": "Tap to start reading",
   "ai.loading": "Processing...",
   "ai.loading-translation": "Working on translation",
   "ai.loading-summary": "Working on summary",
@@ -840,6 +842,7 @@
   "ai.error-rate-limit": "The AI service is handling too many requests. Try again later.",
   "ai.error-unavailable": "The AI service is temporarily unavailable. Try again later.",
   "ai.error-unknown": "An unknown error occurred while processing the AI request.",
+  "ai.quota-exceeded": "The monthly AI usage limit has been reached. Please try again later.",
   "settings.tts.language": "Language",
   "settings.tts.voice": "Voice",
   "settings.tts.preview": "Preview",

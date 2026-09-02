@@ -1,5 +1,6 @@
 import {DocumentAccessibilityEnum} from '../constants/document-accessibility';
 import {Metadata} from '../../shared/models/metadata.model';
+import {parseIssueStartDate} from '../../shared/utils/periodical-date';
 
 export interface PeriodicalItem {
   uuid: string;
@@ -29,6 +30,9 @@ export interface PeriodicalItem {
 export interface PeriodicalItemChild {
   'date.str': string;
   'part.number.str': string;
+  'date_range_start.day'?: string;
+  'date_range_start.month'?: string;
+  'date_range_start.year'?: string;
   'date_range_end.day'?: string;
   'date_range_end.month'?: string;
   'date_range_end.year'?: string;
@@ -49,6 +53,9 @@ export interface PeriodicalItemYear {
   licenses: string[];
   'date.str'?: string;
   'part.number.str'?: string;
+  'date_range_start.day'?: number | string;
+  'date_range_start.month'?: number | string;
+  'date_range_start.year'?: number | string;
   'date_range_end.day'?: number | string;
   'date_range_end.month'?: number | string;
   'date_range_end.year'?: number | string;
@@ -58,19 +65,9 @@ export interface PeriodicalItemYear {
   [key: string]: any;
 }
 
-/** Returns true when at least one child has a real day+month suitable for calendar display. */
+/** Returns true when at least one child has a resolvable date suitable for calendar display */
 export function hasCalendarDisplayableChildren(children: PeriodicalItemChild[]): boolean {
-  if (!children?.length) return false;
-
-  return children.some(child => {
-    if (child['date_range_end.day'] && child['date_range_end.month']) return true;
-
-    // Some Kramerius records expose a full issue date only through date.str.
-    // Accept both Czech D.M.YYYY and ISO YYYY-MM-DD representations.
-    const date = (child['date.str'] || '').trim();
-    return /^\d{1,2}\.\s*\d{1,2}\.\s*\d{4}$/.test(date) ||
-      /^\d{4}-\d{1,2}-\d{1,2}(?:T.*)?$/.test(date);
-  });
+  return children?.length > 0 && children.some(child => !!parseIssueStartDate(child));
 }
 
 export function parsePeriodicalItemFromMetadata(metadata: Metadata): PeriodicalItem {

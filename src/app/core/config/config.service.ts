@@ -32,6 +32,7 @@ import { DEFAULT_CONFIG, DEFAULT_HOME_SECTIONS } from './config.defaults';
 import { EnvironmentService } from '../../shared/services/environment.service';
 import { CdkSourceService } from '../../shared/services/cdk-source.service';
 import { splitLicenseVariants, resolveLicenseForSource } from './license-variants';
+import { sanitizeContentHtml } from '../../shared/utils/sanitize-content-html';
 
 const LIBRARIES_API_URL = 'https://api.registr.digitalniknihovna.cz/api/libraries';
 
@@ -319,7 +320,8 @@ export class ConfigService {
         ...neutral.app,
         code,
         name: { cs: activeLib.name, en: activeLib.name_en || activeLib.name },
-        logo: activeLib.logo || neutral.app.logo
+        logo: activeLib.logo || neutral.app.logo,
+        logoDark: undefined
       }
     };
   }
@@ -440,6 +442,28 @@ export class ConfigService {
     return this.features[feature] ?? true;
   }
 
+  /**
+   * Whether user login (Keycloak OAuth/OIDC) is available in this deployment.
+   * When `features.keycloak` is false the whole authenticated surface — login
+   * button, user menu, favorites/folders and login-gated AI and export actions —
+   * is hidden, and `AuthService.login()` refuses to start a flow.
+   *
+   * Read this instead of `features.keycloak` directly so the default (enabled
+   * when omitted) stays in one place.
+   */
+  isLoginEnabled(): boolean {
+    return this.isFeatureEnabled('keycloak');
+  }
+
+  /**
+   * Whether user folders / favorites are available. Requires login: folders are
+   * stored per user account, so they are unusable with `keycloak` off regardless
+   * of the `folders` flag.
+   */
+  isFoldersEnabled(): boolean {
+    return this.isLoginEnabled() && this.isFeatureEnabled('folders');
+  }
+
   // UI config accessors
   get ui(): UiConfig {
     return this.getConfig().ui;
@@ -451,9 +475,50 @@ export class ConfigService {
   }
 
   /**
+   * Library codes whose backend runs the public worker that generates the
+   * whole-document PDF and EPUB exports. Everywhere else those two formats are
+   * unavailable regardless of config, because the request would simply fail.
+   *
+   * Hardcoded deliberately (decision of 2026-08-27): the list tracks worker
+   * rollout, not per-instance preference. Extend it as libraries gain the worker
+   * — and once every library has it, drop this gate and let config decide again.
+   */
+  private static readonly PUBLIC_WORKER_LIBRARIES = ['knav', 'nkp'];
+
+  /** Export formats produced by the public worker. */
+  private static readonly PUBLIC_WORKER_FORMATS: ExportFormat[] = ['pdf', 'epub'];
+
+  /**
+   * True when the library that actually serves the open document runs the public
+   * worker.
+   *
+   * On CDK this is NOT the instance code (`app.code` is always `cdk` there) but the
+   * selected `cdk.collection` member — the library the document's data is being
+   * loaded from, which is also the backend that would have to produce the export.
+   * Off CDK there is no source, so the instance's own code decides.
+   */
+  private hasPublicWorker(): boolean {
+    // Some embedders and older test doubles implement the pre-getKrameriusId
+    // EnvService contract. Keep the worker gate backwards compatible with them.
+    const envId = typeof this.envService.getKrameriusId === 'function'
+      ? this.envService.getKrameriusId()
+      : '';
+    const code = this.cdkSource.getCode() || envId || this.app?.code || '';
+    return ConfigService.PUBLIC_WORKER_LIBRARIES.some(lib => code.includes(lib));
+  }
+
+  /**
    * Check whether a document export format (print/jpeg/pdf/epub/txt) is enabled.
+   *
+   * PDF and EPUB additionally require the serving library's backend to run the
+   * public worker — config alone cannot enable them for a library that has none.
+   * Because that depends on the selected CDK source, callers must re-evaluate this
+   * when the source changes (see `CdkSourceService.code$`).
    */
   isExportFormatEnabled(format: ExportFormat): boolean {
+    if (ConfigService.PUBLIC_WORKER_FORMATS.includes(format) && !this.hasPublicWorker()) {
+      return false;
+    }
     return this.export[format] ?? true;
   }
 
@@ -463,7 +528,10 @@ export class ConfigService {
    */
   isAnyExportFormatEnabled(): boolean {
     const formats: ExportFormat[] = ['print', 'jpeg', 'pdf', 'epub', 'txt'];
-    return formats.some(f => this.export[f]);
+    // Goes through isExportFormatEnabled so the public-worker gate counts here too:
+    // a library whose only configured formats are pdf/epub must not show an empty
+    // export tab.
+    return formats.some(f => this.isExportFormatEnabled(f));
   }
 
   /**
@@ -800,7 +868,10 @@ export class ConfigService {
       const response = await fetch(`${absoluteUrl}?t=${timestamp}`);
       if (!response.ok) return '';
       const buffer = await response.arrayBuffer();
-      return new TextDecoder('utf-8').decode(buffer);
+      const html = new TextDecoder('utf-8').decode(buffer);
+      // Editor-authored HTML often carries pasted inline colours and fonts that
+      // break dark mode and the design system; strip those, keep layout styles.
+      return sanitizeContentHtml(html);
     } catch (err) {
       console.warn(`ConfigService: Failed to load HTML content from ${url}.`, err);
       return '';

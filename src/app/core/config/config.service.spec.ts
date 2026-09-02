@@ -303,3 +303,154 @@ describe('ConfigService source-scoped license resolution — language-chain fall
     expect(service.getMessagePageUrl('onsite', 'unauthenticated', 'cs')).toBe('variant-message-en.html');
   });
 });
+
+/**
+ * Whole-document PDF and EPUB are produced by the backend "public worker", which
+ * currently runs only at KNAV and NKP (decision of 2026-08-27).
+ *
+ * The deciding factor is the library that SERVES the document, not the instance the
+ * user is on: on CDK `app.code` is always `cdk`, and the aggregated document is
+ * fetched from the selected `cdk.collection` member — that member's backend is the
+ * one that would have to produce the export. Off CDK no source is set and the
+ * instance's own code decides.
+ */
+describe('ConfigService public-worker export gate', () => {
+  function serviceFor(
+    opts: { source?: string | null; krameriusId?: string; exportConfig?: Record<string, boolean> },
+  ) {
+    const { source = null, krameriusId = 'cdk' } = opts;
+    const exportConfig = opts.exportConfig ?? { print: true, jpeg: true, pdf: true, epub: true, txt: true };
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        ConfigService,
+        CdkSourceService,
+        {
+          provide: EnvironmentService,
+          useValue: { getKrameriusId: () => krameriusId, isLibrarySwitchEnabled: () => true },
+        },
+      ],
+    });
+    const service = TestBed.inject(ConfigService);
+    TestBed.inject(CdkSourceService).setCode(source);
+    (service as any).config$.next({
+      ...service.getConfig(),
+      app: { ...service.getConfig().app, code: krameriusId },
+      export: exportConfig,
+    });
+    return service;
+  }
+
+  it('allows pdf and epub when the selected CDK source is knav', () => {
+    const service = serviceFor({ source: 'knav' });
+    expect(service.isExportFormatEnabled('pdf')).toBe(true);
+    expect(service.isExportFormatEnabled('epub')).toBe(true);
+  });
+
+  it('allows pdf and epub when the selected CDK source is nkp', () => {
+    const service = serviceFor({ source: 'nkp' });
+    expect(service.isExportFormatEnabled('pdf')).toBe(true);
+    expect(service.isExportFormatEnabled('epub')).toBe(true);
+  });
+
+  it('blocks pdf and epub when the selected CDK source has no public worker', () => {
+    const service = serviceFor({ source: 'mzk' });
+    expect(service.isExportFormatEnabled('pdf')).toBe(false);
+    expect(service.isExportFormatEnabled('epub')).toBe(false);
+  });
+
+  it('reflects a source switch: mzk blocks, switching to knav allows', () => {
+    const service = serviceFor({ source: 'mzk' });
+    expect(service.isExportFormatEnabled('pdf')).toBe(false);
+    TestBed.inject(CdkSourceService).setCode('knav');
+    expect(service.isExportFormatEnabled('pdf')).toBe(true);
+  });
+
+  it('blocks pdf and epub on the cdk aggregator when no source is selected', () => {
+    // app.code is `cdk` there, which is not a public-worker library.
+    const service = serviceFor({ source: null });
+    expect(service.isExportFormatEnabled('pdf')).toBe(false);
+  });
+
+  it('falls back to the instance code off CDK, where no source is ever set', () => {
+    const knav = serviceFor({ source: null, krameriusId: 'knav' });
+    expect(knav.isExportFormatEnabled('pdf')).toBe(true);
+
+    const mzk = serviceFor({ source: null, krameriusId: 'mzk' });
+    expect(mzk.isExportFormatEnabled('pdf')).toBe(false);
+  });
+
+  it('leaves the other export formats untouched by the gate', () => {
+    const service = serviceFor({ source: 'mzk' });
+    expect(service.isExportFormatEnabled('print')).toBe(true);
+    expect(service.isExportFormatEnabled('jpeg')).toBe(true);
+    expect(service.isExportFormatEnabled('txt')).toBe(true);
+  });
+
+  it('still lets config disable pdf on a public-worker library', () => {
+    // The gate only ever subtracts: config remains authoritative for turning off.
+    const service = serviceFor({ source: 'knav', exportConfig: { pdf: false, epub: true, print: true, jpeg: true, txt: true } });
+    expect(service.isExportFormatEnabled('pdf')).toBe(false);
+    expect(service.isExportFormatEnabled('epub')).toBe(true);
+  });
+
+  it('hides the export tab when the gate removes the only configured formats', () => {
+    const service = serviceFor({
+      source: 'mzk',
+      exportConfig: { print: false, jpeg: false, txt: false, pdf: true, epub: true },
+    });
+    expect(service.isAnyExportFormatEnabled()).toBe(false);
+  });
+});
+
+/**
+ * Editor-authored page HTML (public/local-config/html/) is regularly pasted out of a
+ * WYSIWYG and arrives carrying hardcoded light-theme colours and font stacks. Those
+ * must be stripped at load time so every consumer — content pages, footer, license
+ * banners — renders through the design system and stays readable in dark mode.
+ */
+describe('ConfigService HTML content sanitisation', () => {
+  let service: ConfigService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [ConfigService, { provide: EnvironmentService, useValue: {} }],
+    });
+    service = TestBed.inject(ConfigService);
+  });
+
+  function mockHtmlResponse(html: string): void {
+    spyOn(window, 'fetch').and.resolveTo({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new TextEncoder().encode(html).buffer),
+    } as unknown as Response);
+  }
+
+  it('strips pasted colours and fonts from loaded page HTML', async () => {
+    mockHtmlResponse(
+      '<p style="margin: 0px 0px 1rem; color: rgb(38, 51, 64); font-family: &quot;IBM Plex Sans&quot;, sans-serif; font-size: medium;">Přihlášení uživatelé</p>'
+    );
+
+    const html = await service.loadHtmlContent('/local-config/html/about/about.cs.html');
+
+    expect(html).not.toContain('rgb(38, 51, 64)');
+    expect(html).not.toContain('IBM Plex Sans');
+    expect(html).not.toContain('font-size');
+    expect(html).toContain('margin: 0px 0px 1rem');
+    expect(html).toContain('Přihlášení uživatelé');
+  });
+
+  it('leaves well-authored HTML unchanged', async () => {
+    mockHtmlResponse('<p>Text with a <a href="https://sdnnt.nkp.cz">link</a></p>');
+
+    const html = await service.loadHtmlContent('/local-config/html/about/about.cs.html');
+
+    expect(html).toBe('<p>Text with a <a href="https://sdnnt.nkp.cz">link</a></p>');
+  });
+
+  it('returns an empty string when the request fails', async () => {
+    spyOn(window, 'fetch').and.resolveTo({ ok: false } as Response);
+
+    expect(await service.loadHtmlContent('/missing.html')).toBe('');
+  });
+});

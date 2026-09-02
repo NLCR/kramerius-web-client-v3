@@ -1,4 +1,5 @@
 {
+  "whole-document-legacy": "Cały dokument (starsza wersja)",
   "model-badge.tooltip.multivolume": "Wielotomowy",
   "model-badge.tooltip.multivolume-part": "Część wielotomowego",
   "volume": "Rocznik",
@@ -800,6 +801,7 @@
   "ai.tts-pause": "Wstrzymaj czytanie",
   "ai.tts-resume": "Wznów czytanie",
   "ai.tts-stop": "Zatrzymaj czytanie",
+  "ai.tts-blocked": "Dotknij, aby rozpocząć czytanie",
   "ai.loading": "Przetwarzam...",
   "ai.loading-translation": "Pracujemy nad tłumaczeniem",
   "ai.loading-summary": "Pracujemy nad podsumowaniem",
@@ -830,6 +832,7 @@
   "ai.error-rate-limit": "Usługa AI obsługuje teraz zbyt wiele żądań. Spróbuj później.",
   "ai.error-unavailable": "Usługa AI jest tymczasowo niedostępna. Spróbuj później.",
   "ai.error-unknown": "Podczas przetwarzania żądania AI wystąpił nieznany błąd.",
+  "ai.quota-exceeded": "Miesięczny limit funkcji AI został wyczerpany. Spróbuj ponownie później.",
   "settings.tts.language": "Język",
   "settings.tts.voice": "Głos",
   "settings.tts.preview": "Odtwórz",

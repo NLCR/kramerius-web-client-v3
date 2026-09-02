@@ -8,6 +8,7 @@ import {
 import {PeriodicalItem, PeriodicalItemChild, PeriodicalItemYear} from '../../../models/periodical-item';
 import {Metadata} from '../../../../shared/models/metadata.model';
 import {SolrOperators, SolrSortDirections, SolrSortFields} from '../../../../core/solr/solr-helpers';
+import {monthCacheKey} from './periodical-detail.selectors';
 
 export interface PeriodicalDetailState {
   activeUuid: string | null;
@@ -157,14 +158,14 @@ export const periodicalDetailReducer = createReducer(
       : ({ ...state, loading: false, error })
   ),
   on(loadMonthIssues, (state, { parentVolumeUuid, year, month }) => {
-    const key = `${parentVolumeUuid}|${year}-${String(month).padStart(2, '0')}`;
+    const key = monthCacheKey(parentVolumeUuid, year, month);
     return {
       ...state,
       monthLoading: { ...state.monthLoading, [key]: true }
     };
   }),
   on(loadMonthIssuesSuccess, (state, { parentVolumeUuid, year, month, issues }) => {
-    const key = `${parentVolumeUuid}|${year}-${String(month).padStart(2, '0')}`;
+    const key = monthCacheKey(parentVolumeUuid, year, month);
     return {
       ...state,
       monthIssues: { ...state.monthIssues, [key]: issues },
@@ -172,7 +173,7 @@ export const periodicalDetailReducer = createReducer(
     };
   }),
   on(loadMonthIssuesFailure, (state, { parentVolumeUuid, year, month }) => {
-    const key = `${parentVolumeUuid}|${year}-${String(month).padStart(2, '0')}`;
+    const key = monthCacheKey(parentVolumeUuid, year, month);
     return {
       ...state,
       monthLoading: { ...state.monthLoading, [key]: false }
