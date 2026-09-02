@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
+import { SKIP_AUTH_INTERCEPTOR } from '../../core/services/http-context-tokens';
 import { AiApiService } from './ai-api.service';
 
 describe('AiApiService Qwen integration', () => {
@@ -72,6 +73,7 @@ describe('AiApiService Qwen integration', () => {
 
     const request = httpMock.expectOne('https://ai.example.org/v1/chat/completions');
     expect(request.request.headers.has('Authorization')).toBeFalse();
+    expect(request.request.context.get(SKIP_AUTH_INTERCEPTOR)).toBeTrue();
     request.flush({ choices: [{ message: { content: 'Shrnutí' } }] });
   });
 
@@ -98,13 +100,16 @@ describe('AiApiService Qwen integration', () => {
     expect(result).toBe('Page text');
   });
 
-  it('does not manually send an expired access token', () => {
+  it('rejects Kramerius-authenticated calls with an expired access token', () => {
     tokenExpired = true;
-    service.askLLM('Text', 'Shrň').subscribe();
+    let errorMessage = '';
 
-    const request = httpMock.expectOne('https://ai.example.org/v1/chat/completions');
-    expect(request.request.headers.has('Authorization')).toBeFalse();
-    request.flush({ choices: [{ message: { content: 'Shrnutí' } }] });
+    service.askLLM('Text', 'Shrň').subscribe({
+      error: error => errorMessage = error.message
+    });
+
+    expect(errorMessage).toBe('ai.error-unauthorized');
+    httpMock.expectNone('https://ai.example.org/v1/chat/completions');
   });
 
   it('returns a useful message key for a misconfigured endpoint', () => {

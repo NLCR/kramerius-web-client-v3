@@ -5,3 +5,6 @@ import { HttpContextToken } from '@angular/common/http';
  * Use this when you want to handle errors locally in your component.
  */
 export const SKIP_ERROR_INTERCEPTOR = new HttpContextToken<boolean>(() => false);
+
+/** Do not forward the user's Kramerius bearer token to an unauthenticated API. */
+export const SKIP_AUTH_INTERCEPTOR = new HttpContextToken<boolean>(() => false);

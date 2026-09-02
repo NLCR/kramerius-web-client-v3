@@ -1,12 +1,13 @@
 import { inject } from '@angular/core';
 import { HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { AuthService } from './auth.service';
+import { SKIP_AUTH_INTERCEPTOR } from '../services/http-context-tokens';
 
 export const tokenInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
 
   // Skip auth endpoints
-  if (isAuthEndpoint(req.url)) {
+  if (isAuthEndpoint(req.url) || req.context.get(SKIP_AUTH_INTERCEPTOR)) {
     return next(req);
   }
 

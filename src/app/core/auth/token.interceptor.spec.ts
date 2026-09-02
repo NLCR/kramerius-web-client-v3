@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClient, HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AuthService } from './auth.service';
 import { tokenInterceptor } from './token.interceptor';
+import { SKIP_AUTH_INTERCEPTOR } from '../services/http-context-tokens';
 
 describe('tokenInterceptor', () => {
   let http: HttpClient;
@@ -39,6 +40,16 @@ describe('tokenInterceptor', () => {
     const request = httpMock.expectOne('/protected');
     expect(request.request.headers.get('Authorization')).toBe('Bearer current-token');
     request.flush({ ok: true });
+  });
+
+  it('does not leak the Kramerius token to an endpoint configured without authentication', () => {
+    http.post('/ai/v1/chat/completions', {}, {
+      context: new HttpContext().set(SKIP_AUTH_INTERCEPTOR, true),
+    }).subscribe();
+
+    const request = httpMock.expectOne('/ai/v1/chat/completions');
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush({ choices: [] });
   });
 
   it('does not call the code-exchange endpoint or log out for an expired token', () => {

@@ -5,7 +5,7 @@ import { map, catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { AiLlmAuthMode } from '../../core/config/config.interfaces';
-import { SKIP_ERROR_INTERCEPTOR } from '../../core/services/http-context-tokens';
+import { SKIP_AUTH_INTERCEPTOR, SKIP_ERROR_INTERCEPTOR } from '../../core/services/http-context-tokens';
 
 export interface AiModel {
   provider: 'openai' | 'anthropic' | 'google' | 'qwen';
@@ -291,9 +291,14 @@ export class AiApiService {
       headers = headers.set('Authorization', `Bearer ${token}`);
     }
 
+    const context = new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true);
+    if (authMode === 'none') {
+      context.set(SKIP_AUTH_INTERCEPTOR, true);
+    }
+
     return this.http.post<T>(url, body, {
       headers,
-      context: new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true)
+      context,
     }).pipe(
       // The proxy reports quota exhaustion as an `errorCode` body. Some endpoints
       // send it with an error status, others with 200 — in the 200 case it would
