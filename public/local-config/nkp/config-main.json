@@ -3,7 +3,7 @@
     "code": "nkp",
     "name": { "cs": "Národní knihovna", "en": "National library", "sk": "Národná knižnica", "pl": "Biblioteka Narodowa" },
     "contactEmail": "info@ndk.cz",
-    "logo": "/favicon.svg",
+    "logo": "/local-config/nkp/img/favicon.ico",
     "adminClientUrl": "https://admin.kramerius7.nkp.cz"
   },
 

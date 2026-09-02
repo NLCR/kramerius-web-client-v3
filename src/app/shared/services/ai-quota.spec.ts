@@ -97,6 +97,7 @@ describe('AI quota exhaustion', () => {
           getBlocksForReading: () => [{ text: 'first block' }],
         } },
         { provide: AiApiService, useValue: {
+          correctOcrTranscript: (text: string) => of(text),
           detectLanguage: () => throwError(() => new Error(AI_QUOTA_EXCEEDED)),
           translate: (text: string) => of(text),
         } },

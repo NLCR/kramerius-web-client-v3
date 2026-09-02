@@ -14,7 +14,7 @@ describe('TtsService Piper playback', () => {
   let detailViewStub: { pages: { pid: string }[]; goToPage: jasmine.Spy };
   let aiApiStub: {
     detectLanguage: jasmine.Spy;
-    correctOcrText: jasmine.Spy;
+    correctOcrTranscript: jasmine.Spy;
     translate: jasmine.Spy;
     textToSpeech: jasmine.Spy;
   };
@@ -42,7 +42,7 @@ describe('TtsService Piper playback', () => {
     };
     aiApiStub = {
       detectLanguage: jasmine.createSpy('detectLanguage').and.returnValue(of('cs')),
-      correctOcrText: jasmine.createSpy('correctOcrText').and.callFake((text: string) => of(text)),
+      correctOcrTranscript: jasmine.createSpy('correctOcrTranscript').and.callFake((text: string) => of(text)),
       translate: jasmine.createSpy('translate').and.callFake((text: string) => of(text)),
       textToSpeech: jasmine.createSpy('textToSpeech').and.returnValue(of(AUDIO)),
     };
@@ -74,22 +74,26 @@ describe('TtsService Piper playback', () => {
   it('detects language and requests speech from Piper', () => {
     service.startReading('page-1');
 
-    expect(aiApiStub.detectLanguage).toHaveBeenCalledWith('first block');
-    expect(aiApiStub.correctOcrText).toHaveBeenCalledWith('first block', 'cs');
+    const transcript = BLOCKS.map(block => block.text).join('\n');
+    expect(aiApiStub.correctOcrTranscript).toHaveBeenCalledWith(transcript, undefined);
+    expect(aiApiStub.detectLanguage).toHaveBeenCalledWith(transcript);
     expect(aiApiStub.textToSpeech).toHaveBeenCalledWith('first block', 'cs', undefined);
     expect(playSpy).toHaveBeenCalled();
   });
 
-  it('speaks the contextually corrected OCR returned by Qwen', () => {
-    aiApiStub.correctOcrText.and.returnValue(of('zdravý zrak'));
+  it('corrects the complete page before speaking its first block', () => {
+    const correctedBlocks = ['opravený první blok', 'second block', 'third block', 'fourth block'];
+    aiApiStub.correctOcrTranscript.and.returnValue(of(correctedBlocks.join('\n')));
 
     service.startReading('page-1');
 
-    expect(aiApiStub.textToSpeech).toHaveBeenCalledWith('zdravý zrak', 'cs', undefined);
+    expect(aiApiStub.correctOcrTranscript).toHaveBeenCalledTimes(1);
+    expect(aiApiStub.textToSpeech).toHaveBeenCalledWith('opravený první blok', 'cs', undefined);
+    expect(aiApiStub.correctOcrTranscript).toHaveBeenCalledBefore(aiApiStub.textToSpeech);
   });
 
   it('falls back to cleaned source text when contextual OCR correction fails', () => {
-    aiApiStub.correctOcrText.and.returnValue(throwError(() => new Error('temporary failure')));
+    aiApiStub.correctOcrTranscript.and.returnValue(throwError(() => new Error('temporary failure')));
 
     service.startReading('page-1');
 

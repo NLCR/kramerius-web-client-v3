@@ -6,8 +6,8 @@ import { IIIFViewerService } from './iiif-viewer.service';
 import { SettingsService } from '../../modules/settings/settings.service';
 import { DocumentInfoService } from './document-info.service';
 import { ToastService } from './toast.service';
-import { Observable, of, Subscription } from 'rxjs';
-import { catchError, switchMap, take } from 'rxjs/operators';
+import { Observable, of, Subscription, throwError } from 'rxjs';
+import { catchError, map, switchMap, take } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class TtsService {
@@ -21,6 +21,7 @@ export class TtsService {
   private toastService = inject(ToastService);
 
   private readonly audio: HTMLAudioElement | null = typeof Audio === 'undefined' ? null : new Audio();
+  private activePageRequest: Subscription | null = null;
   private activeTtsRequest: Subscription | null = null;
   private currentAudioUrl: string | null = null;
   private audioReady = false;
@@ -139,6 +140,8 @@ export class TtsService {
 
   stop(): void {
     this.isPlayingBlock = false;
+    this.activePageRequest?.unsubscribe();
+    this.activePageRequest = null;
     this.activeTtsRequest?.unsubscribe();
     this.activeTtsRequest = null;
     this.audio?.pause();
@@ -188,46 +191,74 @@ export class TtsService {
   }
 
   private loadPageAndRead(pagePid: string): void {
-    this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
-      next: ({ text, altoXml }) => {
+    this.activePageRequest?.unsubscribe();
+    this.activePageRequest = this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(
+      take(1),
+      switchMap(({ text, altoXml }) => {
         const sourceBlocks = altoXml
           ? this.altoService.getBlocksForReading(altoXml)
           : this.getBlocksForPlainText(text);
-        const blocks = this.splitOversizedBlocks(sourceBlocks);
+
+        if (sourceBlocks.length === 0) {
+          return of({ blocks: [] as AltoTextBlock[], language: this._detectedLanguage() || 'cs' });
+        }
+
+        // Give Qwen the complete text that will be spoken, including the
+        // neighbouring blocks. Correcting each TTS fragment independently loses
+        // precisely the sentence context needed to resolve ambiguous OCR glyphs.
+        const transcript = sourceBlocks.map(block => block.text).join('\n');
+        const knownLanguage = this._detectedLanguage();
+
+        return this.aiApiService.correctOcrTranscript(transcript, knownLanguage || undefined).pipe(
+          catchError(error => {
+            if (isQuotaExceeded(error)) return throwError(() => error);
+            console.warn('Page OCR correction failed; reading cleaned source text:', error);
+            return of(transcript);
+          }),
+          switchMap(correctedTranscript => {
+            const language$ = knownLanguage
+              ? of(knownLanguage)
+              : this.aiApiService.detectLanguage(correctedTranscript).pipe(
+                  catchError(error => {
+                    if (isQuotaExceeded(error)) return throwError(() => error);
+                    return of('cs');
+                  })
+                );
+
+            return language$.pipe(
+              map(language => ({
+                blocks: this.splitOversizedBlocks(
+                  this.applyCorrectedTranscript(sourceBlocks, correctedTranscript)
+                ),
+                language,
+              }))
+            );
+          })
+        );
+      })
+    ).subscribe({
+      next: ({ blocks, language }) => {
+        this.activePageRequest = null;
+        if (!this._isReading() || this._currentPagePid() !== pagePid) return;
 
         if (blocks.length === 0) {
-          // No text on this page, try next page
+          // No text on this page, try next page.
           this.advanceToNextPage();
           return;
         }
 
+        this._detectedLanguage.set(language);
         this._blocks.set(blocks);
         this._currentBlockIndex.set(0);
-
-        // Detect language from first block if not already detected
-        if (!this._detectedLanguage()) {
-          this.aiApiService.detectLanguage(blocks[0].text).pipe(take(1)).subscribe({
-            next: (lang) => {
-              this._detectedLanguage.set(lang);
-              this.readCurrentBlock();
-            },
-            error: (err) => {
-              // Quota is terminal: every TTS call that follows would fail the
-              // same way, so stop here rather than reading on into them.
-              if (isQuotaExceeded(err)) {
-                this.abortWithError('ai.quota-exceeded');
-                return;
-              }
-              // Default to Czech if detection fails for any other reason
-              this._detectedLanguage.set('cs');
-              this.readCurrentBlock();
-            }
-          });
-        } else {
-          this.readCurrentBlock();
-        }
+        this.readCurrentBlock();
       },
       error: (err) => {
+        this.activePageRequest = null;
+        if (!this._isReading() || this._currentPagePid() !== pagePid) return;
+        if (isQuotaExceeded(err)) {
+          this.abortWithError('ai.quota-exceeded');
+          return;
+        }
         console.error('Failed to fetch OCR text for TTS:', err);
         // Try next page on error
         this.advanceToNextPage();
@@ -258,10 +289,10 @@ export class TtsService {
       this.iiifViewerService.clearTtsHighlight();
     }
 
-    // Qwen first repairs context-dependent OCR substitutions and optionally
-    // translates the text; Piper then returns a WAV from the same /ai gateway.
+    // The entire page has already been repaired by Qwen. Translate only when
+    // Piper has no voice for the document language, then synthesize the block.
     this.activeTtsRequest?.unsubscribe();
-    this.activeTtsRequest = this.prepareTextForSpeech(block.text, lang, voiceLangCode).pipe(
+    this.activeTtsRequest = this.maybeTranslate(block.text, lang, voiceLangCode).pipe(
       switchMap(text => this.aiApiService.textToSpeech(text, voiceLangCode || lang, voice)),
       take(1),
     ).subscribe({
@@ -452,6 +483,23 @@ export class TtsService {
     return result;
   }
 
+  /**
+   * Reattaches the corrected page transcript to its original ALTO blocks. The
+   * conservative Qwen correction preserves all whitespace, so the newlines we
+   * insert between blocks remain stable and the coordinates can still be used
+   * for the reading highlight. If a future model violates that contract, keep
+   * the original blocks instead of attaching text to the wrong page region.
+   */
+  private applyCorrectedTranscript(blocks: AltoTextBlock[], transcript: string): AltoTextBlock[] {
+    const correctedBlocks = transcript.split('\n');
+    if (correctedBlocks.length !== blocks.length) {
+      console.warn('Corrected OCR changed block boundaries; keeping the source block layout.');
+      return blocks;
+    }
+
+    return blocks.map((block, index) => ({ ...block, text: correctedBlocks[index] }));
+  }
+
   /** Splits a plain OCR transcript into reasonably sized TTS requests. */
   private getBlocksForPlainText(text: string): AltoTextBlock[] {
     const words = text.trim().split(/\s+/).filter(Boolean);
@@ -522,20 +570,4 @@ export class TtsService {
     return this.aiApiService.translate(text, voiceLangCode);
   }
 
-  /**
-   * Uses the local Qwen model for contextual OCR correction. Correction is an
-   * enhancement, not a prerequisite for speech: if that request fails, Piper
-   * still receives the deterministically cleaned source text. Translation (when
-   * required because Piper has no source-language voice) retains its existing
-   * error semantics.
-   */
-  private prepareTextForSpeech(text: string, documentLang: string, voiceLangCode?: string): Observable<string> {
-    return this.aiApiService.correctOcrText(text, documentLang).pipe(
-      catchError(error => {
-        console.warn('OCR correction failed; reading cleaned source text:', error);
-        return of(text);
-      }),
-      switchMap(corrected => this.maybeTranslate(corrected, documentLang, voiceLangCode))
-    );
-  }
 }
