@@ -37,18 +37,20 @@ describe('AI quota exhaustion', () => {
   describe('AiApiService error normalization', () => {
     let service: AiApiService;
     let httpMock: HttpTestingController;
+    let authService: { getAccessToken: jasmine.Spy; isTokenExpired: jasmine.Spy };
 
     beforeEach(() => {
+      authService = {
+        getAccessToken: jasmine.createSpy('getAccessToken').and.returnValue('test-token'),
+        isTokenExpired: jasmine.createSpy('isTokenExpired').and.returnValue(false),
+      };
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
         providers: [
           provideHttpClient(),
           provideHttpClientTesting(),
           AiApiService,
-          { provide: AuthService, useValue: {
-            getAccessToken: () => 'test-token',
-            isTokenExpired: () => false,
-          } },
+          { provide: AuthService, useValue: authService },
           { provide: ConfigService, useValue: {
             api: { aiProxyUrl: 'https://ai.example.org/api' },
             ai: {},
@@ -95,6 +97,16 @@ describe('AI quota exhaustion', () => {
 
       expect(caught!.message).toBe('ai.error-unauthorized');
       expect(isQuotaExceeded(caught)).toBe(false);
+    });
+
+    it('rejects an expired session locally without starting an AI request', () => {
+      authService.isTokenExpired.and.returnValue(true);
+      let caught: Error | null = null;
+
+      service.openAiTTS('text', 'alloy').subscribe({ error: err => (caught = err) });
+
+      httpMock.expectNone(r => r.url.includes('/openai/tts'));
+      expect(caught!.message).toBe('ai.error-unauthorized');
     });
 
     it('passes a normal successful response through untouched', () => {

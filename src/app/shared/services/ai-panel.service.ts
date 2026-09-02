@@ -12,6 +12,7 @@ const AI_PANEL_FONT_SIZE_KEY = 'ai-panel-font-size';
 const DEFAULT_FONT_SIZE = 16;
 const MIN_FONT_SIZE = 10;
 const MAX_FONT_SIZE = 28;
+const SUMMARY_MAX_TOKENS = 600;
 
 export type AiPanelContentType = 'translation' | 'summary' | 'text' | null;
 export type AiPanelMode = 'split' | 'ai-only';
@@ -136,7 +137,7 @@ export class AiPanelService {
         }
 
         const instructions = this.buildSummaryInstructions(this.summaryLanguage());
-        this.activeSubscription = this.aiApiService.askLLM(text, instructions, this.selectedModel(), 2000).pipe(take(1)).subscribe({
+        this.activeSubscription = this.aiApiService.askLLM(text, instructions, this.selectedModel(), SUMMARY_MAX_TOKENS).pipe(take(1)).subscribe({
           next: (summary) => {
             this.styledHtml.set('');
             this.content.set(summary);

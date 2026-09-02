@@ -52,24 +52,12 @@ describe('AuthService token refresh', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('uses the GET refresh contract exposed by the Kramerius client API', () => {
-    let refreshed: AuthTokens | undefined;
-    service.refreshToken().subscribe(tokens => refreshed = tokens);
+  it('does not misuse the authorization-code endpoint for token refresh', () => {
+    let caught: Error | undefined;
+    service.refreshToken().subscribe({ error: error => caught = error });
 
-    const request = httpMock.expectOne(req =>
-      req.url === 'https://api.example.org/user/auth/token'
-      && req.params.get('refresh_token') === 'refresh-token'
-      && req.params.get('grant_type') === 'refresh_token'
-    );
-    expect(request.request.method).toBe('GET');
-    request.flush({
-      access_token: 'new-access-token',
-      refresh_token: 'new-refresh-token',
-      token_type: 'Bearer',
-      expires_in: 300,
-    });
-
-    expect(refreshed?.accessToken).toBe('new-access-token');
-    expect(storedTokens.accessToken).toBe('new-access-token');
+    httpMock.expectNone('https://api.example.org/user/auth/token');
+    expect(caught?.message).toContain('not supported');
+    expect(storedTokens.accessToken).toBe('expired-access-token');
   });
 });

@@ -1,6 +1,6 @@
 # Authentication System Usage Guide
 
-This authentication system implements OAuth2/OpenID Connect flow with automatic token management.
+This authentication system implements the OAuth2/OpenID Connect login flow and access-token handling.
 
 ## How It Works
 
@@ -11,10 +11,11 @@ This authentication system implements OAuth2/OpenID Connect flow with automatic 
    - Callback component exchanges authorization code for tokens
    - User is redirected back to their original location
 
-2. **Automatic Token Management**:
+2. **Token Management**:
    - Access tokens are automatically attached to all API calls
-   - Tokens are refreshed automatically when they expire
-   - User is logged out if refresh fails
+   - Expired tokens are not attached to requests
+   - The client API currently has no refresh-token endpoint; authorization
+     failures are returned to the caller and never trigger an automatic logout
 
 ## Usage Examples
 
@@ -106,7 +107,7 @@ The callback URL is automatically set to: `${window.location.origin}/auth/callba
 ## Security Notes
 
 - Tokens are stored in localStorage
-- All API calls automatically include Authorization header
-- Expired tokens are automatically refreshed
-- Users are logged out if token refresh fails
+- API calls automatically include the Authorization header while the token is valid
+- Expired tokens are not sent; the caller receives the authorization failure
+- Only an explicit user logout redirects the browser to the Keycloak logout endpoint
 - Auth endpoints are excluded from token attachment

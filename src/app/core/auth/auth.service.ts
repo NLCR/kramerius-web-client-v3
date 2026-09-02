@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
@@ -87,22 +87,11 @@ export class AuthService {
   }
 
   refreshToken(): Observable<AuthTokens> {
-    const tokens = this.getStoredTokens();
-    if (!tokens?.refreshToken) {
-      return throwError(() => new Error('No refresh token available'));
-    }
-
-    const params = new HttpParams()
-      .set('refresh_token', tokens.refreshToken)
-      .set('grant_type', 'refresh_token');
-
-    // Kramerius client API exposes /user/auth/token as GET for both the initial
-    // code exchange and refresh-token grant. POST returns 405 Method Not Allowed,
-    // which used to bubble through AI calls as the misleading ai.error-endpoint.
-    return this.http.get<TokenResponse>(`${this.API_URL}/auth/token`, { params }).pipe(
-      map(response => this.mapTokenResponse(response)),
-      tap(newTokens => this.handleSuccessfulAuth(newTokens))
-    );
+    // The official Kramerius client API currently exposes only authorization-
+    // code exchange on /user/auth/token. It hard-codes grant_type=authorization_code
+    // server-side, so attempting a refresh grant produces `invalid_grant` and
+    // must never be used as evidence that the browser should be logged out.
+    return throwError(() => new Error('Token refresh is not supported by the Kramerius client API'));
   }
 
   logout() {

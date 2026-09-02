@@ -276,7 +276,10 @@ export class AiApiService {
 
   private postAbsolute<T>(url: string, body: any, authMode: AiLlmAuthMode): Observable<T> {
     const token = this.authService.getAccessToken();
-    if (authMode === 'kramerius' && !token) {
+    if (authMode === 'kramerius' && (!token || this.authService.isTokenExpired())) {
+      // Do not start a potentially long request without a usable JWT. In
+      // particular, never rely on the global interceptor to call the Kramerius
+      // code-exchange endpoint as if it supported refresh tokens.
       return throwError(() => new Error('ai.error-unauthorized'));
     }
 
@@ -284,9 +287,7 @@ export class AiApiService {
       .set('X-Tai-Source', location.href)
       .set('X-Tai-Project', 'Kramerius')
       .set('Content-Type', 'application/json');
-    // Do not manually forward a token that is already expired. The global
-    // interceptor will refresh it after the endpoint's 401 and retry once.
-    if (authMode === 'kramerius' && token && !this.authService.isTokenExpired()) {
+    if (authMode === 'kramerius' && token) {
       headers = headers.set('Authorization', `Bearer ${token}`);
     }
 

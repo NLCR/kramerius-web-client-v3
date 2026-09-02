@@ -69,6 +69,13 @@ describe('AiPanelService summary language', () => {
     expect(lastInstructions()).toContain('en');
   });
 
+  it('limits concise summaries so the local model cannot generate 2000 tokens', () => {
+    service = configure('cs');
+    service.showSummary('uuid:page-1');
+
+    expect(askLLM.calls.mostRecent().args[3]).toBe(600);
+  });
+
   it('no longer pins the summary to the language of the original', () => {
     service = configure('en');
     service.showSummary('uuid:page-1');

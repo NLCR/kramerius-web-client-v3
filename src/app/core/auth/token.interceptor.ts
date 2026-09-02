@@ -1,11 +1,6 @@
 import { inject } from '@angular/core';
-import { HttpInterceptorFn, HttpErrorResponse, HttpRequest, HttpHandlerFn, HttpEvent } from '@angular/common/http';
-import { catchError, finalize, shareReplay, switchMap } from 'rxjs/operators';
-import { throwError, Observable } from 'rxjs';
+import { HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { AuthService } from './auth.service';
-import { AuthTokens } from './auth.models';
-
-let refreshRequest$: Observable<AuthTokens> | null = null;
 
 export const tokenInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
@@ -17,34 +12,18 @@ export const tokenInterceptor: HttpInterceptorFn = (req, next) => {
 
   const token = authService.getAccessToken();
 
-  // Do not deliberately send a protected OCR/AI request without authorization
-  // when a refreshable, but expired, session is already known. Kramerius returns
-  // 403 for protected /ocr/text in that case (not 401), so waiting for a 401
-  // response would never start refresh and the UI would incorrectly claim that
-  // no transcript exists. Refresh first and issue the original request once with
-  // the new access token.
-  if (token && authService.isTokenExpired()) {
-    return getOrStartTokenRefresh(authService).pipe(
-      switchMap(tokens => next(addTokenToRequest(req, tokens.accessToken)))
-    );
-  }
-
-  let authReq = req;
-  if (token) {
-    authReq = addTokenToRequest(req, token);
-  }
-
-  return next(authReq).pipe(
-    catchError(error => {
-      // A 401 received without any stored session is an ordinary unauthorized
-      // response (for example a protected OCR stream), not a reason to start a
-      // Keycloak refresh/logout flow.
-      if (error instanceof HttpErrorResponse && error.status === 401 && token) {
-        return handle401Error(req, next, authService);
-      }
-      return throwError(() => error);
-    })
-  );
+  // The Kramerius client endpoint `/user/auth/token` exchanges only an OAuth
+  // authorization code. It does not implement a refresh-token grant: sending a
+  // refresh token there returns a 200 response containing `invalid_grant`. The
+  // old interceptor mistook that response for an expired Keycloak session and
+  // redirected the entire browser through `/auth/logout`, often while a long AI
+  // summary was still running.
+  //
+  // Attach only a currently valid token and let an authorization failure reach
+  // the caller. No HTTP failure is allowed to trigger a browser logout here.
+  return next(token && !authService.isTokenExpired()
+    ? addTokenToRequest(req, token)
+    : req);
 };
 
 function addTokenToRequest(req: HttpRequest<any>, token: string): HttpRequest<any> {
@@ -57,42 +36,4 @@ function addTokenToRequest(req: HttpRequest<any>, token: string): HttpRequest<an
 
 function isAuthEndpoint(url: string): boolean {
   return url.includes('/auth/login') || url.includes('/auth/token');
-}
-
-function handle401Error(req: HttpRequest<any>, next: HttpHandlerFn, authService: AuthService): Observable<HttpEvent<any>> {
-  return getOrStartTokenRefresh(authService).pipe(
-    // Deliberately keep the retried request outside the refresh catchError.
-    // A Qwen/proxy failure after a successful refresh must be returned to the
-    // AI panel, never mistaken for a failed Keycloak refresh and logged out.
-    switchMap(tokens => next(addTokenToRequest(req, tokens.accessToken)))
-  );
-}
-
-function getOrStartTokenRefresh(authService: AuthService): Observable<AuthTokens> {
-  if (refreshRequest$) return refreshRequest$;
-
-  refreshRequest$ = authService.refreshToken().pipe(
-    catchError(error => {
-      // Network outages and server errors are temporary and must not destroy a
-      // valid browser session. Only a definitive rejection of the refresh token
-      // means that the Keycloak session can no longer be recovered.
-      if (isDefinitiveRefreshRejection(error)) {
-        authService.logout();
-      }
-      return throwError(() => error);
-    }),
-    finalize(() => {
-      refreshRequest$ = null;
-    }),
-    shareReplay({ bufferSize: 1, refCount: false })
-  );
-
-  return refreshRequest$;
-}
-
-function isDefinitiveRefreshRejection(error: unknown): boolean {
-  if (error instanceof HttpErrorResponse) {
-    return error.status === 400 || error.status === 401 || error.status === 403;
-  }
-  return error instanceof Error && error.message === 'No refresh token available';
 }
