@@ -63,7 +63,7 @@ export class AltoService {
    * @returns Observable with ALTO XML string
    */
   fetchAltoXml(pid: string): Observable<string> {
-    const url = this.API_URL + this.cdkSource.prefixedItemPath(pid, 'ocr/alto');
+    const url = this.API_URL + this.itemPath(pid, 'ocr/alto');
     return this.http.get(url, {
       responseType: 'text',
       context: new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true)
@@ -72,7 +72,7 @@ export class AltoService {
 
   /** Fetches the plain OCR transcript for a specific page. */
   fetchOcrText(pid: string): Observable<string> {
-    const url = this.API_URL + this.cdkSource.prefixedItemPath(pid, 'ocr/text');
+    const url = this.API_URL + this.itemPath(pid, 'ocr/text');
     return this.http.get(url, {
       // Some older OCR streams are UTF-16LE (usually with a BOM). Asking the
       // browser for text would decode them as UTF-8 before the app can inspect
@@ -83,6 +83,21 @@ export class AltoService {
     }).pipe(
       map(response => this.decodeOcrText(response.body ?? new ArrayBuffer(0), response.headers.get('content-type')))
     );
+  }
+
+  /**
+   * The extra member-library segment belongs only to the CDK aggregator API.
+   * A standalone NKP endpoint accepts /items/{pid}/ocr/text and returns 404 for
+   * /items/nkp/{pid}/ocr/text. Guard here as well as in the UI source selector so
+   * stale source state can never break OCR on a single-library deployment.
+   */
+  private itemPath(pid: string, suffix: string): string {
+    const baseCode = typeof this.env.getBaseKrameriusId === 'function'
+      ? this.env.getBaseKrameriusId()
+      : '';
+    return baseCode.includes('cdk')
+      ? this.cdkSource.prefixedItemPath(pid, suffix)
+      : `/${pid}/${suffix}`;
   }
 
   private decodeOcrText(buffer: ArrayBuffer, contentType: string | null): string {

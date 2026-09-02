@@ -7,8 +7,10 @@ import { CdkSourceService } from './cdk-source.service';
 describe('AltoService OCR loading', () => {
   let service: AltoService;
   let httpMock: HttpTestingController;
+  let baseCode: string;
 
   beforeEach(() => {
+    baseCode = 'cdk';
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [
@@ -16,7 +18,10 @@ describe('AltoService OCR loading', () => {
         CdkSourceService,
         {
           provide: EnvironmentService,
-          useValue: { getApiUrl: () => 'https://api.example.org/items' }
+          useValue: {
+            getApiUrl: () => 'https://api.example.org/items',
+            getBaseKrameriusId: () => baseCode,
+          }
         }
       ]
     });
@@ -66,6 +71,18 @@ describe('AltoService OCR loading', () => {
 
     expect(result).toEqual({ text: 'Prostý OCR text', altoXml: null });
     httpMock.expectNone('https://api.example.org/items/knav/uuid:page/ocr/alto');
+  });
+
+  it('does not prefix OCR paths with a stale source code on standalone NKP', () => {
+    baseCode = 'nkp';
+    let result: OcrPageContent | undefined;
+    service.fetchOcrContent('uuid:page', false).subscribe(value => result = value);
+
+    httpMock.expectOne('https://api.example.org/items/uuid:page/ocr/text')
+      .flush(utf8('OCR z NKP'));
+
+    expect(result?.text).toBe('OCR z NKP');
+    httpMock.expectNone('https://api.example.org/items/knav/uuid:page/ocr/text');
   });
 
   it('falls back to plain OCR when an advertised ALTO request fails', () => {

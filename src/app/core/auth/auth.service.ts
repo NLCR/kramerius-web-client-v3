@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
@@ -96,7 +96,10 @@ export class AuthService {
       .set('refresh_token', tokens.refreshToken)
       .set('grant_type', 'refresh_token');
 
-    return this.http.post<TokenResponse>(`${this.API_URL}/auth/token`, params).pipe(
+    // Kramerius client API exposes /user/auth/token as GET for both the initial
+    // code exchange and refresh-token grant. POST returns 405 Method Not Allowed,
+    // which used to bubble through AI calls as the misleading ai.error-endpoint.
+    return this.http.get<TokenResponse>(`${this.API_URL}/auth/token`, { params }).pipe(
       map(response => this.mapTokenResponse(response)),
       tap(newTokens => this.handleSuccessfulAuth(newTokens))
     );
@@ -159,6 +162,17 @@ export class AuthService {
   }
 
   private mapTokenResponse(response: TokenResponse): AuthTokens {
+    // The Kramerius endpoint reports an invalid/expired refresh token in a 200
+    // JSON body. Convert that semantic failure to 401 so the interceptor can
+    // distinguish definitive session expiry from a temporary network outage.
+    if (!response?.access_token) {
+      const errorResponse = response as TokenResponse & { error?: string; error_description?: string };
+      throw new HttpErrorResponse({
+        status: 401,
+        statusText: errorResponse.error_description || errorResponse.error || 'Token refresh failed',
+        error: response,
+      });
+    }
     console.log('response', response);
     return {
       accessToken: response.access_token,

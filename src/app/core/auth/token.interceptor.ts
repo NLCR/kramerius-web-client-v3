@@ -17,8 +17,20 @@ export const tokenInterceptor: HttpInterceptorFn = (req, next) => {
 
   const token = authService.getAccessToken();
 
+  // Do not deliberately send a protected OCR/AI request without authorization
+  // when a refreshable, but expired, session is already known. Kramerius returns
+  // 403 for protected /ocr/text in that case (not 401), so waiting for a 401
+  // response would never start refresh and the UI would incorrectly claim that
+  // no transcript exists. Refresh first and issue the original request once with
+  // the new access token.
+  if (token && authService.isTokenExpired()) {
+    return getOrStartTokenRefresh(authService).pipe(
+      switchMap(tokens => next(addTokenToRequest(req, tokens.accessToken)))
+    );
+  }
+
   let authReq = req;
-  if (token && !authService.isTokenExpired()) {
+  if (token) {
     authReq = addTokenToRequest(req, token);
   }
 

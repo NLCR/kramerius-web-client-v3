@@ -42,6 +42,23 @@ describe('tokenInterceptor', () => {
     request.flush({ ok: true });
   });
 
+  it('refreshes an expired session before requesting protected OCR text', () => {
+    authService.isTokenExpired.and.returnValue(true);
+    authService.refreshToken.and.returnValue(of({
+      accessToken: 'refreshed-token',
+      refreshToken: 'refresh-token',
+      tokenType: 'Bearer',
+      expiresAt: Date.now() + 60_000,
+    }));
+
+    http.get('/items/uuid:page/ocr/text').subscribe();
+
+    const request = httpMock.expectOne('/items/uuid:page/ocr/text');
+    expect(request.request.headers.get('Authorization')).toBe('Bearer refreshed-token');
+    expect(authService.refreshToken).toHaveBeenCalledTimes(1);
+    request.flush('OCR text');
+  });
+
   it('does not refresh or log out for a 401 when there is no stored session', () => {
     authService.getAccessToken.and.returnValue(null);
 
