@@ -54,6 +54,27 @@ describe('AiApiService Qwen base URL', () => {
     request.flush({ choices: [{ message: { content: 'hello' } }] });
   });
 
+  it('sends speech synthesis to the self-hosted Piper endpoint', () => {
+    const service = setup({
+      llm: { provider: 'qwen', baseUrl: '/ai/v1', model: 'Qwen/Test', auth: 'none' },
+      tts: { baseUrl: 'https://ai.example.org/v1', voice: 'auto', auth: 'none' },
+    });
+
+    service.textToSpeech('Příliš žluťoučký kůň', 'cs').subscribe();
+
+    const request = httpMock.expectOne('https://ai.example.org/v1/audio/speech');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.responseType).toBe('blob');
+    expect(request.request.body).toEqual(jasmine.objectContaining({
+      model: 'piper',
+      input: 'Příliš žluťoučký kůň',
+      language: 'cs',
+      voice: 'auto',
+      response_format: 'wav',
+    }));
+    request.flush(new Blob(['wav'], { type: 'audio/wav' }));
+  });
+
   it('re-reads the Qwen config for each request', () => {
     const ai = {
       llm: { provider: 'qwen', baseUrl: 'https://first.example.org/v1', model: 'Qwen/Test', auth: 'none' }

@@ -17,6 +17,11 @@ export const DEFAULT_CONFIG: AppConfiguration = {
       baseUrl: '/ai/v1',
       model: 'Qwen/Qwen3.5-9B',
       auth: 'none'
+    },
+    tts: {
+      baseUrl: '/ai/v1',
+      voice: 'auto',
+      auth: 'none'
     }
   },
   i18n: {

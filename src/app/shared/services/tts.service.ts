@@ -6,9 +6,8 @@ import { IIIFViewerService } from './iiif-viewer.service';
 import { SettingsService } from '../../modules/settings/settings.service';
 import { DocumentInfoService } from './document-info.service';
 import { ToastService } from './toast.service';
-import { BrowserTtsService } from './browser-tts.service';
-import { Observable, of } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { Observable, of, Subscription } from 'rxjs';
+import { switchMap, take } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class TtsService {
@@ -20,9 +19,12 @@ export class TtsService {
   private settingsService = inject(SettingsService);
   private documentInfoService = inject(DocumentInfoService);
   private toastService = inject(ToastService);
-  private browserTtsService = inject(BrowserTtsService);
 
-  private currentUtterance: SpeechSynthesisUtterance | null = null;
+  private readonly audio: HTMLAudioElement | null = typeof Audio === 'undefined' ? null : new Audio();
+  private activeTtsRequest: Subscription | null = null;
+  private currentAudioUrl: string | null = null;
+  private audioReady = false;
+  private audioUnlocked = false;
   private isPlayingBlock = false;
   /**
    * Consecutive blocks that failed to produce audio. Advancing on failure is what
@@ -31,6 +33,7 @@ export class TtsService {
    */
   private consecutiveFailures = 0;
   private static readonly MAX_CONSECUTIVE_FAILURES = 3;
+  private static readonly PIPER_LANGUAGES = new Set(['cs', 'sk', 'pl', 'de', 'en']);
 
   // --- State signals ---
   private _isReading = signal(false);
@@ -64,9 +67,28 @@ export class TtsService {
     return index >= 0 && index < blocks.length ? blocks[index] : null;
   });
 
-  // Preferred system voice; an unavailable legacy cloud voice falls back to
-  // the first browser voice matching the requested language.
+  // Preferred voice and language from the existing reading settings. Piper
+  // accepts its own voice ids and otherwise chooses a server voice by language.
   private _voice = signal<string | null>(null);
+
+  constructor() {
+    this.audio?.addEventListener('ended', () => {
+      if (!this.isPlayingBlock) return;
+      this.isPlayingBlock = false;
+      this.audioReady = false;
+      this.cleanupBlobUrl();
+      this.consecutiveFailures = 0;
+      this.onBlockEnded();
+    });
+    this.audio?.addEventListener('error', event => {
+      if (!this.isPlayingBlock) return;
+      console.error('TTS audio error:', event);
+      this.isPlayingBlock = false;
+      this.audioReady = false;
+      this.cleanupBlobUrl();
+      this.onBlockFailed();
+    });
+  }
 
   // --- Public API ---
 
@@ -75,11 +97,14 @@ export class TtsService {
     // Cleared here rather than in stop(), so the reason for an aborted run
     // survives the stop() that aborting itself performs.
     this._error.set(null);
-    if (!this.browserTtsService.isSupported()) {
+    if (!this.audio) {
       this._error.set('ai.error-unavailable');
       this.toastService.show('ai.error-unavailable');
       return;
     }
+    // This method is called from the user's click. Prime the reusable audio
+    // element now so mobile browsers allow playback after the HTTP request ends.
+    this.unlockAudio();
     this._currentPagePid.set(pagePid);
     this._documentUuid.set(documentUuid || null);
     this._isReading.set(true);
@@ -90,7 +115,7 @@ export class TtsService {
 
   pause(): void {
     if (this._isReading() && !this._isPaused()) {
-      this.browserTtsService.pause();
+      this.audio?.pause();
       this._isPaused.set(true);
     }
   }
@@ -98,17 +123,10 @@ export class TtsService {
   resume(): void {
     if (!this._isReading() || !this._isPaused()) return;
 
-    // Resuming after a blocked autoplay: the element has no usable source yet,
-    // so re-request the current block rather than playing silence.
-    if (this._playbackBlocked()) {
-      this._playbackBlocked.set(false);
-      this._isPaused.set(false);
-      this.readCurrentBlock();
-      return;
-    }
-
-    this.browserTtsService.resume();
     this._isPaused.set(false);
+    if (this.audioReady) {
+      this.playLoadedAudio();
+    }
   }
 
   togglePlayPause(): void {
@@ -121,8 +139,11 @@ export class TtsService {
 
   stop(): void {
     this.isPlayingBlock = false;
-    this.browserTtsService.cancel(this.currentUtterance);
-    this.currentUtterance = null;
+    this.activeTtsRequest?.unsubscribe();
+    this.activeTtsRequest = null;
+    this.audio?.pause();
+    this.audioReady = false;
+    this.cleanupBlobUrl();
     this.consecutiveFailures = 0;
     this._playbackBlocked.set(false);
 
@@ -150,12 +171,29 @@ export class TtsService {
 
   // --- Private methods ---
 
+  private unlockAudio(): void {
+    if (!this.audio || this.audioUnlocked) return;
+
+    const silentWav = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+    this.audio.src = silentWav;
+    this.audio.play().then(() => {
+      this.audioUnlocked = true;
+      if (!this.audioReady && this.audio?.src === silentWav) {
+        this.audio.pause();
+        this.audio.currentTime = 0;
+      }
+    }).catch(() => {
+      // playLoadedAudio() will expose a blocked autoplay through the UI.
+    });
+  }
+
   private loadPageAndRead(pagePid: string): void {
     this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
       next: ({ text, altoXml }) => {
-        const blocks = altoXml
+        const sourceBlocks = altoXml
           ? this.altoService.getBlocksForReading(altoXml)
           : this.getBlocksForPlainText(text);
+        const blocks = this.splitOversizedBlocks(sourceBlocks);
 
         if (blocks.length === 0) {
           // No text on this page, try next page
@@ -220,53 +258,77 @@ export class TtsService {
       this.iiifViewerService.clearTtsHighlight();
     }
 
-    // Translation/detection uses Qwen; audio is generated locally by the browser.
-    this.maybeTranslate(block.text, lang, voiceLangCode).pipe(take(1)).subscribe({
-      next: text => {
+    // Qwen prepares/optionally translates the text; Piper returns a WAV from
+    // the same self-hosted /ai gateway.
+    this.activeTtsRequest?.unsubscribe();
+    this.activeTtsRequest = this.maybeTranslate(block.text, lang, voiceLangCode).pipe(
+      switchMap(text => this.aiApiService.textToSpeech(text, voiceLangCode || lang, voice)),
+      take(1),
+    ).subscribe({
+      next: audio => {
+        this.activeTtsRequest = null;
         if (!this._isReading()) return;
-        this.speakText(text, voiceLangCode || lang, voice);
+        this.playAudioContent(audio);
       },
       error: err => {
-        console.error('TTS text preparation failed:', err);
+        this.activeTtsRequest = null;
+        console.error('Piper TTS error for block:', err);
         this.onBlockFailed(err);
-      }
+      },
     });
   }
 
-  private speakText(text: string, language: string, voice?: string): void {
-    this.isPlayingBlock = true;
-    let utterance: SpeechSynthesisUtterance | null = null;
-    utterance = this.browserTtsService.speak(text, language, voice, {
-      onStart: () => {
-        if (this.currentUtterance !== utterance) return;
-        this._playbackBlocked.set(false);
-        this.consecutiveFailures = 0;
-      },
-      onEnd: () => {
-        if (!this.isPlayingBlock || this.currentUtterance !== utterance) return;
-        this.isPlayingBlock = false;
-        this.currentUtterance = null;
-        this.consecutiveFailures = 0;
-        this.onBlockEnded();
-      },
-      onError: error => {
-        if (!this.isPlayingBlock || this.currentUtterance !== utterance) return;
-        this.isPlayingBlock = false;
-        this.currentUtterance = null;
-        if (error === 'not-allowed') {
-          this._playbackBlocked.set(true);
-          this._isPaused.set(true);
-          return;
-        }
-        console.error('Browser TTS error:', error);
-        this.onBlockFailed();
-      }
-    });
-    this.currentUtterance = utterance;
-    if (!utterance) {
-      this.isPlayingBlock = false;
-      this.onBlockFailed();
+  private playAudioContent(audioContent: Blob): void {
+    if (!this.audio) {
+      this.onBlockFailed(new Error('ai.error-unavailable'));
+      return;
     }
+
+    this.audio.pause();
+    this.cleanupBlobUrl();
+    this.currentAudioUrl = URL.createObjectURL(audioContent);
+    this.audio.src = this.currentAudioUrl;
+    this.audioReady = true;
+
+    if (!this._isPaused()) {
+      this.playLoadedAudio();
+    }
+  }
+
+  private playLoadedAudio(): void {
+    if (!this.audio || !this.audioReady) return;
+
+    this.isPlayingBlock = true;
+    this.audio.play().then(() => {
+      if (!this.isPlayingBlock) return;
+      this.audioUnlocked = true;
+      this._playbackBlocked.set(false);
+      this._isPaused.set(false);
+      this.consecutiveFailures = 0;
+    }).catch(error => {
+      if (!this.isPlayingBlock) return;
+      this.isPlayingBlock = false;
+      if (this.isAutoplayBlocked(error)) {
+        this._playbackBlocked.set(true);
+        this._isPaused.set(true);
+        return;
+      }
+      console.error('Failed to play Piper TTS audio:', error);
+      this.audioReady = false;
+      this.cleanupBlobUrl();
+      this.onBlockFailed(error);
+    });
+  }
+
+  private cleanupBlobUrl(): void {
+    if (this.currentAudioUrl) {
+      URL.revokeObjectURL(this.currentAudioUrl);
+      this.currentAudioUrl = null;
+    }
+  }
+
+  private isAutoplayBlocked(error: unknown): boolean {
+    return (error as { name?: string } | null)?.name === 'NotAllowedError';
   }
 
   /**
@@ -302,7 +364,8 @@ export class TtsService {
     this.consecutiveFailures++;
     if (this.consecutiveFailures >= TtsService.MAX_CONSECUTIVE_FAILURES) {
       console.error(`TTS: stopping after ${this.consecutiveFailures} consecutive failures`);
-      this.stop();
+      const message = (err as { message?: string } | null)?.message;
+      this.abortWithError(message?.startsWith('ai.') ? message : 'ai.error-unavailable');
       return;
     }
 
@@ -351,6 +414,44 @@ export class TtsService {
     }
   }
 
+  /** Keeps every request below the server-side TTS input limit. */
+  private splitOversizedBlocks(blocks: AltoTextBlock[]): AltoTextBlock[] {
+    const maxLength = 1000;
+    const result: AltoTextBlock[] = [];
+
+    for (const block of blocks) {
+      if (block.text.length <= maxLength) {
+        result.push(block);
+        continue;
+      }
+
+      const words = block.text.trim().split(/\s+/).filter(Boolean);
+      let chunk = '';
+      const flush = (): void => {
+        if (!chunk) return;
+        result.push({ ...block, text: chunk });
+        chunk = '';
+      };
+
+      for (const word of words) {
+        if (word.length > maxLength) {
+          flush();
+          for (let offset = 0; offset < word.length; offset += maxLength) {
+            result.push({ ...block, text: word.slice(offset, offset + maxLength) });
+          }
+          continue;
+        }
+
+        const candidate = chunk ? `${chunk} ${word}` : word;
+        if (candidate.length > maxLength) flush();
+        chunk = chunk ? `${chunk} ${word}` : word;
+      }
+      flush();
+    }
+
+    return result;
+  }
+
   /** Splits a plain OCR transcript into reasonably sized TTS requests. */
   private getBlocksForPlainText(text: string): AltoTextBlock[] {
     const words = text.trim().split(/\s+/).filter(Boolean);
@@ -391,42 +492,23 @@ export class TtsService {
     }));
   }
 
-  /**
-   * Resolves the preferred system voice based on settings.
-   * 1. If user set a voice via _voice signal, use it.
-   * 2. If settings have a voice for the detected language, use that entry.
-   * 3. Otherwise prefer an installed voice for the detected language.
-   * 4. If none exists, fall back to the primary configured voice.
-   * 5. Finally let the browser choose its default voice.
-   *
-   * Also returns voiceLangCode — the language the voice entry is configured for.
-   * When voiceLangCode differs from the detected document language, the text
-   * should be translated before TTS.
-   */
+  /** Chooses a Piper language, translating only when no server voice exists. */
   private resolveVoiceAndProvider(lang: string): { voice?: string; voiceLangCode?: string } {
-    // Explicit override takes priority
     const override = this._voice();
-    if (override) return { voice: override };
-
     const settings = this.settingsService.settings;
     const voices = settings?.ttsVoices;
-    if (!voices?.length) return {};
+    const langEntry = voices?.find(v => v.langCode === lang);
 
-    // Look for exact language match
-    const langEntry = voices.find(v => v.langCode === lang && v.voice);
-    if (langEntry) return { voice: langEntry.voice, voiceLangCode: langEntry.langCode };
+    if (TtsService.PIPER_LANGUAGES.has(lang)) {
+      return { voice: override || langEntry?.voice || undefined, voiceLangCode: lang };
+    }
 
-    // Prefer reading the source as-is with a system voice in its own language.
-    // Only translate to the primary configured language when the device has no
-    // matching voice at all.
-    const systemVoice = this.browserTtsService.voicesForLanguage(lang)[0];
-    if (systemVoice) return { voice: systemVoice.name, voiceLangCode: lang };
+    const primary = voices?.find(v => v.isPrimary && TtsService.PIPER_LANGUAGES.has(v.langCode));
+    if (primary) {
+      return { voice: override || primary.voice || undefined, voiceLangCode: primary.langCode };
+    }
 
-    // Fall back to primary voice
-    const primary = voices.find(v => v.isPrimary && v.voice);
-    if (primary) return { voice: primary.voice, voiceLangCode: primary.langCode };
-
-    return {};
+    return { voice: override || undefined, voiceLangCode: 'cs' };
   }
 
   /**

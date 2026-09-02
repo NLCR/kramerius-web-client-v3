@@ -24,6 +24,11 @@
      "baseUrl": "https://new.kramerius7.nkp.cz/ai/v1",
      "model": "Qwen/Qwen3.5-9B",
      "auth": "none"
+   },
+   "tts": {
+     "baseUrl": "https://new.kramerius7.nkp.cz/ai/v1",
+     "voice": "auto",
+     "auth": "none"
    }
   },
   "i18n": {

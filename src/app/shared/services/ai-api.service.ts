@@ -99,6 +99,30 @@ export class AiApiService {
     );
   }
 
+  // --- Speech synthesis ---
+
+  textToSpeech(input: string, language: string, voice?: string): Observable<Blob> {
+    const ttsConfig = this.configService.ai.tts;
+    const llmConfig = this.configService.ai.llm;
+    const baseUrl = (
+      ttsConfig?.baseUrl ||
+      llmConfig?.baseUrl ||
+      'http://localhost:8010/v1'
+    ).replace(/\/+$/, '');
+    const url = baseUrl.endsWith('/audio/speech')
+      ? baseUrl
+      : `${baseUrl}/audio/speech`;
+    const body = {
+      model: 'piper',
+      input,
+      language,
+      voice: voice || ttsConfig?.voice || 'auto',
+      response_format: 'wav',
+    };
+
+    return this.postBlobAbsolute(url, body, ttsConfig?.auth ?? llmConfig?.auth ?? 'none');
+  }
+
   // --- LLM ---
 
   askLLM(input: string, instructions: string, model?: AiModel, maxTokens: number = 1000): Observable<string> {
@@ -267,6 +291,34 @@ export class AiApiService {
       catchError(error => {
         return throwError(() => new Error(this.getErrorMessage(error)));
       })
+    );
+  }
+
+  private postBlobAbsolute(url: string, body: any, authMode: AiLlmAuthMode): Observable<Blob> {
+    const token = this.authService.getAccessToken();
+    if (authMode === 'kramerius' && (!token || this.authService.isTokenExpired())) {
+      return throwError(() => new Error('ai.error-unauthorized'));
+    }
+
+    let headers = new HttpHeaders()
+      .set('X-Tai-Source', location.href)
+      .set('X-Tai-Project', 'Kramerius')
+      .set('Content-Type', 'application/json');
+    if (authMode === 'kramerius' && token) {
+      headers = headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const context = new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true);
+    if (authMode === 'none') {
+      context.set(SKIP_AUTH_INTERCEPTOR, true);
+    }
+
+    return this.http.post(url, body, {
+      headers,
+      context,
+      responseType: 'blob',
+    }).pipe(
+      catchError(error => throwError(() => new Error(this.getErrorMessage(error))))
     );
   }
 

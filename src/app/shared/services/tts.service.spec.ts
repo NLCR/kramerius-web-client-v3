@@ -1,29 +1,23 @@
-import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
 import { TtsService } from './tts.service';
 import { AltoService } from './alto.service';
 import { AiApiService } from './ai-api.service';
-import { BrowserSpeechHandlers, BrowserTtsService } from './browser-tts.service';
 import { DetailViewService } from '../../modules/detail-view-page/services/detail-view.service';
 import { IIIFViewerService } from './iiif-viewer.service';
 import { SettingsService } from '../../modules/settings/settings.service';
 import { ToastService } from './toast.service';
 import { DocumentInfoService } from './document-info.service';
 
-describe('TtsService browser speech playback', () => {
+describe('TtsService Piper playback', () => {
   let service: TtsService;
   let detailViewStub: { pages: { pid: string }[]; goToPage: jasmine.Spy };
-  let aiApiStub: { detectLanguage: jasmine.Spy; translate: jasmine.Spy };
-  let browserTtsStub: {
-    isSupported: jasmine.Spy;
-    speak: jasmine.Spy;
-    pause: jasmine.Spy;
-    resume: jasmine.Spy;
-    cancel: jasmine.Spy;
-  };
-  let latestHandlers: BrowserSpeechHandlers;
+  let aiApiStub: { detectLanguage: jasmine.Spy; translate: jasmine.Spy; textToSpeech: jasmine.Spy };
   let toastStub: { show: jasmine.Spy };
+  let playSpy: jasmine.Spy;
+  let pauseSpy: jasmine.Spy;
 
+  const AUDIO = new Blob(['wav'], { type: 'audio/wav' });
   const BLOCKS = [
     { text: 'first block' },
     { text: 'second block' },
@@ -32,6 +26,11 @@ describe('TtsService browser speech playback', () => {
   ];
 
   beforeEach(() => {
+    playSpy = spyOn(HTMLMediaElement.prototype, 'play').and.returnValue(Promise.resolve());
+    pauseSpy = spyOn(HTMLMediaElement.prototype, 'pause');
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:tts-test');
+    spyOn(URL, 'revokeObjectURL');
+
     detailViewStub = {
       pages: [{ pid: 'page-1' }, { pid: 'page-2' }],
       goToPage: jasmine.createSpy('goToPage'),
@@ -39,18 +38,7 @@ describe('TtsService browser speech playback', () => {
     aiApiStub = {
       detectLanguage: jasmine.createSpy('detectLanguage').and.returnValue(of('cs')),
       translate: jasmine.createSpy('translate').and.callFake((text: string) => of(text)),
-    };
-    browserTtsStub = {
-      isSupported: jasmine.createSpy('isSupported').and.returnValue(true),
-      speak: jasmine.createSpy('speak').and.callFake(
-        (_text: string, _language: string, _voice: string | undefined, handlers: BrowserSpeechHandlers) => {
-          latestHandlers = handlers;
-          return {} as SpeechSynthesisUtterance;
-        }
-      ),
-      pause: jasmine.createSpy('pause'),
-      resume: jasmine.createSpy('resume'),
-      cancel: jasmine.createSpy('cancel'),
+      textToSpeech: jasmine.createSpy('textToSpeech').and.returnValue(of(AUDIO)),
     };
     toastStub = { show: jasmine.createSpy('show') };
 
@@ -62,7 +50,6 @@ describe('TtsService browser speech playback', () => {
           getBlocksForReading: () => BLOCKS,
         } },
         { provide: AiApiService, useValue: aiApiStub },
-        { provide: BrowserTtsService, useValue: browserTtsStub },
         { provide: DetailViewService, useValue: detailViewStub },
         { provide: IIIFViewerService, useValue: {
           showTtsHighlight: () => {},
@@ -78,70 +65,76 @@ describe('TtsService browser speech playback', () => {
 
   afterEach(() => service.stop());
 
-  it('detects language through AI and speaks the OCR block locally', () => {
+  it('detects language and requests speech from Piper', () => {
     service.startReading('page-1');
 
     expect(aiApiStub.detectLanguage).toHaveBeenCalledWith('first block');
-    expect(browserTtsStub.speak).toHaveBeenCalledWith(
-      'first block', 'cs', undefined, jasmine.any(Object)
-    );
+    expect(aiApiStub.textToSpeech).toHaveBeenCalledWith('first block', 'cs', undefined);
+    expect(playSpy).toHaveBeenCalled();
   });
 
-  it('holds its position when browser speech is blocked', () => {
+  it('holds its position when WAV autoplay is blocked', fakeAsync(() => {
+    playSpy.and.returnValues(
+      Promise.resolve(),
+      Promise.reject({ name: 'NotAllowedError' }),
+    );
+
     service.startReading('page-1');
-    latestHandlers.onError?.('not-allowed');
+    tick();
 
     expect(service.currentBlockIndex()).toBe(0);
     expect(service.playbackBlocked()).toBe(true);
     expect(service.isPaused()).toBe(true);
     expect(detailViewStub.goToPage).not.toHaveBeenCalled();
-  });
+  }));
 
-  it('retries the current block after a user resumes blocked speech', () => {
+  it('resumes the already downloaded WAV after a user gesture', fakeAsync(() => {
+    playSpy.and.returnValues(
+      Promise.resolve(),
+      Promise.reject({ name: 'NotAllowedError' }),
+      Promise.resolve(),
+    );
+
     service.startReading('page-1');
-    latestHandlers.onError?.('not-allowed');
-    const callsBefore = browserTtsStub.speak.calls.count();
-
+    tick();
     service.resume();
+    tick();
 
-    expect(browserTtsStub.speak.calls.count()).toBe(callsBefore + 1);
-    expect(service.currentBlockIndex()).toBe(0);
-  });
+    expect(playSpy.calls.count()).toBe(3);
+    expect(aiApiStub.textToSpeech.calls.count()).toBe(1);
+    expect(service.playbackBlocked()).toBe(false);
+    expect(service.isPaused()).toBe(false);
+  }));
 
-  it('stops after three consecutive browser speech failures', () => {
-    service.startReading('page-1');
-    latestHandlers.onError?.('synthesis-failed');
-    latestHandlers.onError?.('synthesis-failed');
-    latestHandlers.onError?.('synthesis-failed');
-
-    expect(service.isReading()).toBe(false);
-    expect(detailViewStub.goToPage).not.toHaveBeenCalled();
-  });
-
-  it('delegates pause and resume to browser speech', () => {
-    service.startReading('page-1');
-    service.pause();
-    service.resume();
-
-    expect(browserTtsStub.pause).toHaveBeenCalled();
-    expect(browserTtsStub.resume).toHaveBeenCalled();
-  });
-
-  it('cancels local speech when reading stops', () => {
-    service.startReading('page-1');
-    service.stop();
-
-    expect(browserTtsStub.cancel).toHaveBeenCalled();
-    expect(service.isReading()).toBe(false);
-  });
-
-  it('reports when local speech synthesis is unavailable', () => {
-    browserTtsStub.isSupported.and.returnValue(false);
+  it('stops and reports an error after three consecutive Piper failures', () => {
+    aiApiStub.textToSpeech.and.returnValue(throwError(() => new Error('ai.error-unavailable')));
 
     service.startReading('page-1');
 
     expect(service.isReading()).toBe(false);
     expect(service.error()).toBe('ai.error-unavailable');
     expect(toastStub.show).toHaveBeenCalledWith('ai.error-unavailable');
+    expect(detailViewStub.goToPage).not.toHaveBeenCalled();
+  });
+
+  it('pauses and resumes server audio locally without a new request', fakeAsync(() => {
+    service.startReading('page-1');
+    tick();
+    const requestsBefore = aiApiStub.textToSpeech.calls.count();
+
+    service.pause();
+    service.resume();
+    tick();
+
+    expect(pauseSpy).toHaveBeenCalled();
+    expect(aiApiStub.textToSpeech.calls.count()).toBe(requestsBefore);
+  }));
+
+  it('cancels audio playback when reading stops', () => {
+    service.startReading('page-1');
+    service.stop();
+
+    expect(pauseSpy).toHaveBeenCalled();
+    expect(service.isReading()).toBe(false);
   });
 });

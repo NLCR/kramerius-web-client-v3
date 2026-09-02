@@ -19,8 +19,8 @@ export interface ApiConfig {
 }
 
 // AI integrations. Text generation, translation and language detection use the
-// configured OpenAI-compatible Qwen endpoint. Speech is synthesized locally by
-// the browser and therefore needs neither this endpoint nor a bearer token.
+// configured OpenAI-compatible Qwen endpoint. Speech uses the Piper endpoint on
+// the same self-hosted AI gateway.
 export type AiLlmProvider = 'trinera' | 'qwen';
 export type AiLlmAuthMode = 'kramerius' | 'none';
 
@@ -36,10 +36,19 @@ export interface AiLlmConfig {
   auth?: AiLlmAuthMode;
 }
 
+export interface AiTtsConfig {
+  /** OpenAI-compatible API root exposing POST /audio/speech. */
+  baseUrl?: string;
+  /** Piper voice id, or `auto` to choose by detected language. */
+  voice?: string;
+  auth?: AiLlmAuthMode;
+}
+
 export interface AiConfig {
   /** Legacy external AI proxy URL, retained for backwards-compatible configs. */
   apiBaseUrl?: string;
   llm?: AiLlmConfig;
+  tts?: AiTtsConfig;
 }
 
 // Internationalization configuration
