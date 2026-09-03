@@ -824,6 +824,11 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   }
 
   onExport() {
+    // Selecting an area stays allowed under a restricted license — only taking
+    // the image away is blocked. Checked here and not just on the button because
+    // the Enter-key shortcut in `handleEnterPress` calls this directly.
+    if (!this.detailViewService.isActionAllowed('crop')) return;
+
     if (this.currentImageRect && this.imagePid) {
       const rect = {
         x: this.currentImageRect.x,

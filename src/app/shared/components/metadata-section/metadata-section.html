@@ -453,11 +453,13 @@
     </ul>
   </app-metadata-section-item>
 
-  <div class="metadata--actions">
-    <button class="primary link with-icon p-left-0" (click)="openMetadataDialog()">
-      <i class="icon-code-3" aria-hidden="true"></i>
-      {{ 'metadata--button' | translate }}
-    </button>
-  </div>
+  @if (canShowRawMetadata()) {
+    <div class="metadata--actions">
+      <button class="primary link with-icon p-left-0" (click)="openMetadataDialog()">
+        <i class="icon-code-3" aria-hidden="true"></i>
+        {{ 'metadata--button' | translate }}
+      </button>
+    </div>
+  }
 
 </div>

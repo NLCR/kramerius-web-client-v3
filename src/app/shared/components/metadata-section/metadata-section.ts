@@ -1021,7 +1021,18 @@ export class MetadataSection implements OnInit, OnChanges {
     this.searchService.redirectDirectlyToUrl(url);
   };
 
+  /**
+   * Whether the raw MODS/XML metadata dialog may be opened for this document
+   * (`metadata` in the license matrix). Drives the trigger's visibility in the
+   * template as well as the guard in `openMetadataDialog`.
+   */
+  canShowRawMetadata(): boolean {
+    return this.configService.isLicenseActionAllowed(this._data()?.licences, 'metadata');
+  }
+
   openMetadataDialog() {
+    if (!this.canShowRawMetadata()) return;
+
     this.dialog.open(MetadataDialogComponent, {
       data: {
         document: this._solrData() ?? this.data

@@ -301,6 +301,16 @@
           <app-ai-content-panel></app-ai-content-panel>
         }
       </div>
+      <!--
+        Second instance of the protective bar, projected *inside* the fullscreen
+        container. The bar in the `license-bar` slot below is a sibling of
+        <app-fullscreen>, so the browser stops rendering it the moment the
+        content body goes fullscreen — the reader's identification vanished
+        exactly where it matters most. This copy is display:none until the
+        container is actually fullscreen (see .fullscreen-overlay), so only ever
+        one of the two is visible.
+      -->
+      <app-license-bar fullscreen-overlay [overlay]="true"></app-license-bar>
       </app-fullscreen>
     </ng-container>
   </ng-container>

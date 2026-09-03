@@ -68,6 +68,48 @@ Všechna pole jsou `true` / `false`.
 | `selection` | Obdélníkový výběr oblasti na stránce — umožňuje získat text, obrázek nebo OCR z vybrané části. |
 | `crop` | Vytvoření oříznuté IIIF URL z vybrané oblasti. Funguje jen u dokumentů s IIIF tiles. |
 
+Klíčové je, že `false` **neznamená skrýt celou funkci** — znamená zamezit tomu,
+aby se obsah dostal ven. Rozdíl:
+
+- **`text: false`** → OCR text se čtenáři normálně **zobrazí** (panel „Text
+  stránky", výběr textu z výřezu, překlad i sumarizace fungují). Zablokované je
+  jen **označení a kopírování** — přes direktivu `appNoTextCopy`
+  (`user-select: none` + zrušení `copy`/`cut`). Text si tedy lze přečíst, ale ne
+  odnést jako transkript. Skryje se i tlačítko **„Kopírovat do schránky"** v
+  toolbaru AI panelu: zapisuje do schránky přímo, takže by obě poloviny té
+  ochrany obešlo jedním kliknutím.
+- **`crop: false`** → nástroj pro výběr oblasti i vytvoření výřezu zůstávají
+  dostupné; skryje se jen tlačítko pro **stažení** výřezu v selection actions
+  (`showExport`) a zablokuje se `onExport()` včetně klávesy Enter.
+- `text` navíc řídí i export TXT a EPUB — obojí je OCR text dokumentu v souboru,
+  takže tam už jde o odnesení obsahu, ne o zobrazení.
+
+### Jak se `actions` vyhodnocují
+
+Kontrolu provádí `ConfigService.isLicenseActionAllowed(licences, action)`.
+Pravidla:
+
+- **Dokument bez licencí** → povoleno vše. Omezení plyne jen z licence, která je
+  na dokumentu skutečně uvedená.
+- **Více licencí** → vyhrává ta **nejrestriktivnější**: akce musí být povolená
+  ve *všech* známých licencích dokumentu. DNNTO skan, který nese i volnou
+  licenci, tak nesmí mít textovou vrstvu odemčenou tou volnou polovinou.
+- **Neznámé id licence** → nepřispívá ani povolením, ani zákazem (nemá matici,
+  kterou by šlo konzultovat).
+- **Varianty pro zdroj** (`<base>__<source>`) se aplikují i tady — `actions`
+  varianty se vrství na základní licenci, nepřepisují ji celou.
+
+> **Pozor:** backend servíruje ALTO text i IIIF výřez bez ohledu na licenci.
+> Tato matice je tedy jediné vynucení omezení, a je **klientské**. Každé nové
+> místo, které nabízí omezenou akci, musí projít přes `isLicenseActionAllowed` —
+> a to jak u viditelnosti ovládacího prvku, tak v samotném handleru (skrytý
+> prvek neuzavírá cestu v kódu, např. klávesovou zkratku nebo mobilní menu).
+>
+> U `text: false` je navíc blokování kopírování jen **ztížení, ne záruka**: text
+> je v DOM, takže kdo otevře devtools nebo si zobrazí zdroj, dostane ho.
+> Spolehlivé omezení musí přijít z backendu (neservírovat ALTO pro licenci, která
+> na něj nemá právo). Direktiva řeší běžného čtenáře, ne odhodlaného.
+
 ### Jak funguje slučování s per-license `actions`
 
 Per-license `actions` **přepisuje** pole z `_defaults`. Příklad:

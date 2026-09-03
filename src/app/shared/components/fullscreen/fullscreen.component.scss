@@ -80,3 +80,59 @@
   height: 100%;
   width: 100%;
 }
+
+// Overlay slot for content that must remain visible in fullscreen (the license
+// bar identifying the reader). Outside fullscreen it collapses to nothing so the
+// normal layout — where the bar has its own slot in detail-layout — is untouched
+// and the bar is never rendered twice.
+.fullscreen-overlay {
+  display: none;
+}
+
+// Shared by every "is fullscreen" variant below.
+//
+// Each selector gets its OWN rule on purpose. Grouping them into one
+// comma-separated list makes a browser that does not recognise a single prefix
+// (Chrome does not know :-moz-full-screen) drop the WHOLE list — including the
+// standard `:fullscreen` it does support — and the bar silently never appears.
+@mixin fullscreen-overlay-visible {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  // Above the viewer and its controls, below the close button.
+  z-index: z.$fullscreen-overlay;
+  // The bar is informational; never swallow viewer gestures with it.
+  pointer-events: none;
+
+  // The bar sizes itself off the sidebar width, which does not apply in
+  // fullscreen — the viewer fills the screen and no sidebar is visible.
+  --sidebar-right-width: 0px;
+}
+
+// The bar now occupies the top strip, where the close button also sits, so push
+// the button below it. Only when the bar is actually rendered — an unrestricted
+// document projects nothing into the slot and the button keeps its usual spot.
+@mixin fullscreen-close-below-overlay {
+  // license bar height + the button's original 12px breathing room
+  top: calc(var(--license-bar-height) + 12px);
+}
+
+.fullscreen-container:fullscreen .fullscreen-overlay { @include fullscreen-overlay-visible; }
+.fullscreen-container:-webkit-full-screen .fullscreen-overlay { @include fullscreen-overlay-visible; }
+.fullscreen-container:-ms-fullscreen .fullscreen-overlay { @include fullscreen-overlay-visible; }
+.fullscreen-container.fullscreen-fallback .fullscreen-overlay { @include fullscreen-overlay-visible; }
+
+// Scoped on the container, not written as `.fullscreen-overlay ~ .close`: the
+// close button sits BEFORE the overlay in the template, and no sibling
+// combinator reaches backwards.
+//
+// `:has(.fullscreen-overlay *)` and not `:has(app-license-bar)`: the component
+// element is always projected, but it renders nothing when the document carries
+// no bar-configured license, so testing for a rendered descendant inside the
+// overlay is what tells "bar shown" from "slot present but empty" apart.
+.fullscreen-container:fullscreen:has(.fullscreen-overlay *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }
+.fullscreen-container:-webkit-full-screen:has(.fullscreen-overlay *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }
+.fullscreen-container:-ms-fullscreen:has(.fullscreen-overlay *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }
+.fullscreen-container.fullscreen-fallback:has(.fullscreen-overlay *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }

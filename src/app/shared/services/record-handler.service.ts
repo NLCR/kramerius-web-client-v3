@@ -17,6 +17,7 @@ import { UserService } from './user.service';
 import { LibraryContextService } from './library-context.service';
 import {getAfterLoginLicenses, getOnlineLicenses, getOpenLicenses, getTerminalLicenses, mergeDocumentLicenses} from '../../core/solr/solr-misc';
 import { isViewerRoutePath } from '../constants/viewer-routes';
+import { ConfigService } from '../../core/config/config.service';
 
 @Injectable({
   providedIn: 'root'
@@ -29,6 +30,7 @@ export class RecordHandlerService {
   private breakpointService = inject(BreakpointService);
   private userService = inject(UserService);
   private libraryContext = inject(LibraryContextService);
+  private configService = inject(ConfigService);
 
   // Filter keys that should be preserved when navigating to periodicals
   private readonly FILTERS_TO_PRESERVE = ['yearFrom', 'yearTo', 'dateFrom', 'dateTo', 'dateOffset', customDefinedFacetsEnum.accessibility, facetKeysEnum.license];
@@ -192,6 +194,9 @@ export class RecordHandlerService {
       console.warn('No document provided for citation dialog.');
       return;
     }
+    // Gated here rather than at each caller: detail view, music, periodical and
+    // monograph-volumes pages all route their "cite" button through this method.
+    if (!this.configService.isLicenseActionAllowed(document.licences, 'citation')) return;
     const isMobileOrTablet = this.breakpointService.isMobile() || this.breakpointService.isTablet();
     this.dialog.open(CitationDialogComponent, {
       width: isMobileOrTablet ? '100vw' : '60vw',
@@ -205,6 +210,7 @@ export class RecordHandlerService {
       console.warn('No document provided for share dialog.');
       return;
     }
+    if (!this.configService.isLicenseActionAllowed(document.licences, 'share')) return;
     const isMobileOrTablet = this.breakpointService.isMobile() || this.breakpointService.isTablet();
     this.dialog.open(ShareDialogComponent, {
       width: isMobileOrTablet ? '100vw' : '60vw',
