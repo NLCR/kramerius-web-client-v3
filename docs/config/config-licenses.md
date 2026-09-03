@@ -83,6 +83,14 @@ aby se obsah dostal ven. Rozdíl:
   (`showExport`) a zablokuje se `onExport()` včetně klávesy Enter.
 - `text` navíc řídí i export TXT a EPUB — obojí je OCR text dokumentu v souboru,
   takže tam už jde o odnesení obsahu, ne o zobrazení.
+- **`metadata: true` neotevírá všechno v dialogu metadat.** Ten dialog má záložky
+  se surovými zdroji a některé z nich servírují právě to, co jiné akce zakazují:
+  `alto` a `ocr` (endpointy `/ocr/alto` a `/ocr/text`) a `foxml` (surový objekt
+  včetně OCR datastreamů) se řídí `text`; `iiif` (cesta k plnému rozlišení
+  skenu) se řídí `jpeg`. Pod `metadata` zůstávají jen popisné záložky — `mods`,
+  `dc`, `solr`, `item`, `children`. Stejnou podmínkou se řídí i tlačítko „URL",
+  které otevírá surový endpoint v nové kartě. Mapování je v
+  `metadata-dialog-tabs.ts`.
 
 ### Jak se `actions` vyhodnocují
 
