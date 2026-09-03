@@ -1,6 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { AdvancedSearchDialogComponent } from '../dialogs/advanced-search-dialog/advanced-search-dialog.component';
 import { BreakpointService } from './breakpoint.service';
 import {
   ADVANCED_FILTERS,
@@ -307,11 +306,18 @@ export class AdvancedSearchService {
     };
   }
 
-  openDialog(): void {
+  async openDialog(): Promise<void> {
     this.filterGroupsSignal.set(structuredClone(this.appliedGroupsSignal()));
     this.mainOperatorSignal.set(this.appliedMainOperatorSignal());
 
     const isMobileOrTablet = this.breakpointService.isMobile() || this.breakpointService.isTablet();
+
+    // Loaded lazily so this service does not import the dialog component at
+    // module scope: the dialog injects this service back, which closed an import
+    // cycle (see the note in `record-handler.service.dialogSizing`). Only the
+    // component moves — `solr-filters` above is plain data and stays static.
+    const { AdvancedSearchDialogComponent } =
+      await import('../dialogs/advanced-search-dialog/advanced-search-dialog.component');
 
     const dialogRef = this.dialog.open(AdvancedSearchDialogComponent, {
       width: isMobileOrTablet ? '100vw' : '90vw',
