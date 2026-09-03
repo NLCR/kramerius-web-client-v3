@@ -6,7 +6,6 @@ import { shareReplay, tap } from 'rxjs/operators';
 import { EnvironmentService } from './environment.service';
 import { SKIP_ERROR_INTERCEPTOR } from '../../core/services/http-context-tokens';
 import { UserSpaceFile } from '../models/user-space-file.model';
-import { DownloadHistoryDialogComponent } from '../dialogs/download-history-dialog/download-history-dialog.component';
 
 @Injectable({
   providedIn: 'root'
@@ -18,6 +17,8 @@ export class DownloadHistoryService {
   private dialog = inject(MatDialog);
 
   private currentDialogRef: MatDialogRef<unknown> | null = null;
+  /** Set while the lazy dialog module is in flight — see openDialog. */
+  private opening = false;
 
   /** List of bundles stored in the logged-in user's space. */
   listUserFiles(skipErrorHandling = false): Observable<UserSpaceFile[]> {
@@ -58,16 +59,30 @@ export class DownloadHistoryService {
     window.URL.revokeObjectURL(url);
   }
 
-  openDialog(): void {
-    if (this.currentDialogRef) {
+  async openDialog(): Promise<void> {
+    if (this.currentDialogRef || this.opening) {
       return;
     }
+    // The component is loaded lazily to keep this service from importing it at
+    // module scope — the dialog injects this service back, which closed an
+    // import cycle (see the note in `record-handler.service.dialogSizing`).
+    //
+    // That await opens a window in which `currentDialogRef` is still null, so a
+    // second click would slip past the guard above and open a duplicate dialog.
+    // `opening` closes that window; it is the reason the guard is two flags.
+    this.opening = true;
+    try {
+      const { DownloadHistoryDialogComponent } =
+        await import('../dialogs/download-history-dialog/download-history-dialog.component');
 
-    this.currentDialogRef = this.dialog.open(DownloadHistoryDialogComponent, {
-      width: '80vw',
-      maxWidth: '1024px',
-      panelClass: 'download-history-dialog-panel'
-    });
+      this.currentDialogRef = this.dialog.open(DownloadHistoryDialogComponent, {
+        width: '80vw',
+        maxWidth: '1024px',
+        panelClass: 'download-history-dialog-panel'
+      });
+    } finally {
+      this.opening = false;
+    }
 
     this.currentDialogRef.afterClosed().subscribe(() => {
       this.currentDialogRef = null;
