@@ -12,7 +12,7 @@
 
 <!-- Mobile slide-up panel mode -->
 @if (breakpointService.isMobile()) {
-<app-slide-up-panel [title]="'filters' | translate" [(isOpen)]="breakpointService.manualToggle"
+<app-slide-up-panel [title]="mobileTitleKey | translate" [(isOpen)]="breakpointService.manualToggle"
   (closed)="breakpointService.manualToggle.set(false)">
   <ng-container *ngTemplateOutlet="filterContent"></ng-container>
 </app-slide-up-panel>
