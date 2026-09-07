@@ -193,6 +193,15 @@ export class MusicPageComponent implements OnInit, OnDestroy {
     return item ? this.translate.instant(item.label) : '';
   }
 
+  /**
+   * Sidebar toggle: pressed shows the track list, released the page images.
+   * The tab strip it replaces emitted the id directly; this maps the button's
+   * boolean pressed state onto the same two view modes.
+   */
+  onPlaylistToggled(active: boolean) {
+    this.detailViewService.setSoundRecordingViewView(active ? 'records' : 'images');
+  }
+
   onMobileNavChange(id: string) {
     if (this.mobileActivePanel() === id && (this.mobileSlideUpOpen() || this.breakpointService.manualToggle())) {
       // Tapping the active tab closes whichever panel it opened.

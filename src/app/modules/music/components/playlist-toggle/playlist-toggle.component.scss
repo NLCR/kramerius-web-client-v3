@@ -1,0 +1,78 @@
+.playlist-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-x1);
+  width: 100%;
+  min-height: 52px;
+  padding: 0 var(--spacing-x3);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--spacing-x2);
+  background: var(--color-bg-base);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-border-primary-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  // Pressed = the track list is showing. The design marks it with the primary
+  // border; the released state falls back to the neutral light border above.
+  &.playlist-toggle--active {
+    border-color: var(--color-border-primary-default);
+  }
+}
+
+.playlist-toggle--info {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--spacing-x1) 0;
+}
+
+.playlist-toggle--header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-x3);
+  min-width: 0;
+
+  i {
+    flex-shrink: 0;
+    font-size: var(--font-size-base);
+    color: var(--color-text-tertiary);
+  }
+}
+
+.playlist-toggle--title {
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  line-height: var(--line-height-1);
+  color: var(--color-text-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Aligned under the title, clearing the 16px icon plus its 12px gap.
+.playlist-toggle--details {
+  padding-left: 28px;
+  font-size: var(--font-size-base);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-toggle--image {
+  flex-shrink: 0;
+  width: 64px;
+  height: 48px;
+  object-fit: contain;
+}
