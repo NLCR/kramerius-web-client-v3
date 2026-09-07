@@ -41,6 +41,7 @@
   "sources": "Források",
   "licences": "Licencek",
   "genres": "Műfajok",
-  "locations": "Lelőhelyek",
+  "locations": "Lelőhely",
+  "shelf-locator": "Raktári jelzet",
   "geonames": "Földrajzi nevek"
 }

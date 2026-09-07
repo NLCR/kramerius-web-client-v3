@@ -85,15 +85,8 @@ app-collapsible-content {
 
 // Clickable list items
 .clickable-list {
-  li.clickable {
-    cursor: pointer;
-    text-decoration: underline;
+  li {
     color: var(--color-text-primary);
-    transition: color 0.2s ease;
-
-    &:hover {
-      color: var(--color-primary);
-    }
 
     .item-content {
       display: inline-flex;
@@ -102,6 +95,36 @@ app-collapsible-content {
 
       .author-identifier-icon {
         text-decoration: none;
+      }
+    }
+
+    // Secondary line under the item (e.g. the shelf locator under its holding
+    // library). Plain text, so it opts out of the item's underline, hover
+    // color and cursor even while sitting inside a clickable <li>.
+    .item-subtext {
+      display: block;
+      cursor: default;
+      text-decoration: none;
+      color: var(--color-text-secondary);
+    }
+  }
+
+  li.clickable {
+    cursor: pointer;
+    transition: color 0.2s ease;
+
+    // Underline the interactive content only. A decoration set on the <li>
+    // would be inherited by the plain `.item-subtext` line below it, which
+    // descendants cannot cancel.
+    .item-content {
+      text-decoration: underline;
+    }
+
+    &:hover {
+      color: var(--color-primary);
+
+      .item-subtext {
+        color: var(--color-text-secondary);
       }
     }
 

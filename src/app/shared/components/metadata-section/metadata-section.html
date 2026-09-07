@@ -346,6 +346,7 @@
       <!-- Locations -->
       <app-metadata-section-item *ngIf="childData.locations.length" [label]="'locations' | translate"
         type="clickable-list" [items]="childData.locations" [displayFn]="getLocationLabel"
+        [itemSubtextFn]="getLocationSubtext"
         [disableTranslate]="true" [onItemClick]="clickedLocation" [itemHref]="locationHref">
       </app-metadata-section-item>
 
@@ -387,8 +388,8 @@
 
   <!-- Locations -->
   <app-metadata-section-item *ngIf="data.locations.length" [label]="'locations' | translate" type="clickable-list"
-    [items]="data.locations" [displayFn]="getLocationLabel" [disableTranslate]="true"
-    [onItemClick]="clickedLocation" [itemHref]="locationHref">
+    [items]="data.locations" [displayFn]="getLocationLabel" [itemSubtextFn]="getLocationSubtext"
+    [disableTranslate]="true" [onItemClick]="clickedLocation" [itemHref]="locationHref">
   </app-metadata-section-item>
 
   <!-- Keywords -->
