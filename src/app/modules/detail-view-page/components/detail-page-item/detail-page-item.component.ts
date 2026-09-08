@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output } from '@angular/core';
 import { EnvironmentService } from '../../../../shared/services/environment.service';
 import { CdkSourceService } from '../../../../shared/services/cdk-source.service';
 import {LowerCasePipe, NgClass, NgIf} from '@angular/common';
@@ -24,7 +24,12 @@ export interface PreviewClickEvent {
     LowerCasePipe,
   ],
   templateUrl: './detail-page-item.component.html',
-  styleUrl: './detail-page-item.component.scss'
+  styleUrl: './detail-page-item.component.scss',
+  // OnPush: with ~1000 pages this component is the single hottest template in
+  // the app. All of its inputs are plain values recomputed by the parent, and
+  // the two signal reads in the template (cdkSource in getImageUrl(),
+  // adminModeService in isItemSelected()) mark the view dirty on their own.
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DetailPageItemComponent {
   private krameriusBaseUrl: string;

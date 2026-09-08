@@ -1,12 +1,32 @@
-.page--grid {
-  display: grid;
-  gap: 8px;
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
 
-  &.type-page {
+// The viewport owns the scrolling now (the surrounding
+// .sidebar--wrapper--scroll-content still sets overflow-y: auto, which is
+// harmless: the viewport fills it exactly and never overflows it).
+.page--grid--viewport {
+  height: 100%;
+  width: 100%;
+}
+
+.page--grid {
+  // Each row is its own grid so cdkVirtualFor can position rows absolutely.
+  // Column counts must stay in sync with DetailPagesGridComponent.COLUMNS and
+  // the gap with DetailPagesGridComponent.GAP.
+  &__row {
+    display: grid;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  &.type-page &__row {
     grid-template-columns: repeat(3, 1fr);
   }
 
-  &.type-recording {
+  &.type-recording &__row {
     grid-template-columns: repeat(2, 1fr);
   }
 }
