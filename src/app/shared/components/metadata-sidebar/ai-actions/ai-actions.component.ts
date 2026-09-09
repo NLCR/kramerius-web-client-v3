@@ -47,6 +47,11 @@ export class AiActionsComponent {
     return !this.ocrAvailable || !this.textActionAllowed;
   }
 
+  /** Whole-book summary only makes sense with more than the one page already covered by "Summarize". */
+  get hasMultiplePages(): boolean {
+    return this.detailViewService.totalPagesOnly > 1;
+  }
+
   /**
    * Explains why the actions are greyed out (GitHub issue #109) — otherwise
    * a logged-in reader has no way to tell "no OCR" apart from "not allowed
@@ -96,6 +101,13 @@ export class AiActionsComponent {
     const pid = this.detailViewService.currentPagePid;
     if (!pid) return;
     this.aiPanelService.showSummary(pid);
+  }
+
+  onSummarizeBook(): void {
+    if (!this.userService.isLoggedIn || this.actionsDisabled) return;
+    const pids = this.detailViewService.pagesOnly.map(p => p.pid);
+    if (pids.length === 0) return;
+    this.aiPanelService.showBookSummary(pids);
   }
 
   onCorrectTranscript(): void {

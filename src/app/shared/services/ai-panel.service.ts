@@ -5,16 +5,40 @@ import { LocalStorageService } from './local-storage.service';
 import { DocumentInfoService } from './document-info.service';
 import { TranslateService } from '@ngx-translate/core';
 import { TRANSLATION_LANGUAGES } from '../translation/translation-languages';
-import { Subscription } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { Subscription, from, of } from 'rxjs';
+import { take, concatMap, map, catchError, takeWhile } from 'rxjs/operators';
+import { selectBookSummaryPageIndices } from '../utils/book-summary-sampling';
 
 const AI_PANEL_FONT_SIZE_KEY = 'ai-panel-font-size';
 const DEFAULT_FONT_SIZE = 16;
 const MIN_FONT_SIZE = 10;
 const MAX_FONT_SIZE = 28;
 const SUMMARY_MAX_TOKENS = 600;
+const BOOK_SUMMARY_MAX_TOKENS = 1000;
 
-export type AiPanelContentType = 'translation' | 'summary' | 'text' | 'corrected-text' | null;
+/**
+ * The AI proxy's local vLLM instance (Qwen3.5-9B, fp16, Tesla V100S 32GB) has a
+ * shared KV-cache pool of ~68,640 tokens across every concurrent request, not
+ * reserved per call - so a whole-book summary must only ever claim a small
+ * slice of it. A budget derived from that figure via a generic chars-per-token
+ * estimate (~16,000 tokens) still got HTTP 413 (payload too large) in
+ * production; the request-size limit in front of the model is stricter than
+ * the raw token math suggests, likely because Czech OCR text with diacritics
+ * encodes to more bytes per character than the estimate assumed. This value
+ * was found by testing directly against the production endpoint and keeps a
+ * wide margin below the last size that failed.
+ */
+const BOOK_SUMMARY_TOKEN_BUDGET = 6000;
+const BOOK_SUMMARY_INSTRUCTIONS_TOKEN_RESERVE = 400;
+const CHARS_PER_TOKEN_ESTIMATE = 4;
+const BOOK_SUMMARY_INPUT_CHAR_BUDGET =
+  (BOOK_SUMMARY_TOKEN_BUDGET - BOOK_SUMMARY_MAX_TOKENS - BOOK_SUMMARY_INSTRUCTIONS_TOKEN_RESERVE) * CHARS_PER_TOKEN_ESTIMATE;
+// Deliberately low so enough candidate pages are sampled to fill the budget
+// even on a book with sparse OCR text per page; real pages exceeding it just
+// get trimmed or dropped once the running total hits BOOK_SUMMARY_INPUT_CHAR_BUDGET.
+const ASSUMED_CHARS_PER_PAGE = 1200;
+
+export type AiPanelContentType = 'translation' | 'summary' | 'text' | 'corrected-text' | 'book-summary' | null;
 export type AiPanelMode = 'split' | 'ai-only';
 
 @Injectable({ providedIn: 'root' })
@@ -46,6 +70,8 @@ export class AiPanelService {
   readonly showOriginal = signal(true);
   readonly fontSize = signal(this.loadFontSize());
   readonly currentPagePid = signal<string | null>(null);
+  /** Page pids the current whole-book summary was built from, kept for resummarizeBook(). */
+  readonly currentBookPagePids = signal<string[] | null>(null);
 
   // Settings
   readonly selectedModel = signal<AiModel>(this.aiApiService.getDefaultModel());
@@ -156,6 +182,85 @@ export class AiPanelService {
     });
   }
 
+  /**
+   * Summarizes a whole book from a sample of its pages rather than every page's
+   * OCR text, which would not fit a single request's token budget. See
+   * `selectBookSummaryPageIndices` for the sampling strategy.
+   */
+  showBookSummary(pagePids: string[]): void {
+    const isReload = this.panelVisible() && this.contentType() === 'book-summary';
+    this.cancelPending();
+    this.panelVisible.set(true);
+    if (!isReload) {
+      this.panelMode.set(this.showOriginal() ? 'split' : 'ai-only');
+    }
+    this.contentType.set('book-summary');
+    this.content.set('');
+    this.styledHtml.set('');
+    this.isLoading.set(true);
+    this.error.set(null);
+    this.currentPagePid.set(null);
+    this.currentBookPagePids.set(pagePids);
+
+    if (pagePids.length === 0) {
+      this.isLoading.set(false);
+      this.error.set('ai.text-transcript-unavailable');
+      return;
+    }
+
+    const pageBudget = Math.max(1, Math.round(BOOK_SUMMARY_INPUT_CHAR_BUDGET / ASSUMED_CHARS_PER_PAGE));
+    const samplePids = selectBookSummaryPageIndices(pagePids.length, pageBudget).map(i => pagePids[i]);
+
+    // Collected sequentially (not fetched at once) so a page missing OCR can be
+    // skipped without failing the whole request, and fetching stops as soon as
+    // the char budget is filled instead of always requesting every sampled page.
+    let usedChars = 0;
+    const excerpts: string[] = [];
+
+    this.activeSubscription = from(samplePids).pipe(
+      concatMap(pid => this.altoService.fetchOcrContent(pid, true).pipe(
+        map(({ text }) => text || ''),
+        catchError(() => of(''))
+      )),
+      map(text => {
+        const remaining = BOOK_SUMMARY_INPUT_CHAR_BUDGET - usedChars;
+        const trimmed = remaining > 0 ? text.trim().slice(0, remaining) : '';
+        if (trimmed) {
+          excerpts.push(trimmed);
+          usedChars += trimmed.length;
+        }
+        return usedChars < BOOK_SUMMARY_INPUT_CHAR_BUDGET;
+      }),
+      takeWhile(canContinue => canContinue, true)
+    ).subscribe({
+      error: () => {
+        this.isLoading.set(false);
+        this.error.set('ai.text-transcript-unavailable');
+      },
+      complete: () => {
+        const input = excerpts.join('\n\n');
+        if (!input) {
+          this.isLoading.set(false);
+          this.error.set('ai.text-transcript-unavailable');
+          return;
+        }
+
+        const instructions = this.buildBookSummaryInstructions(this.summaryLanguage());
+        this.activeSubscription = this.aiApiService.askLLM(input, instructions, this.selectedModel(), BOOK_SUMMARY_MAX_TOKENS).pipe(take(1)).subscribe({
+          next: (summary) => {
+            this.styledHtml.set('');
+            this.content.set(summary);
+            this.isLoading.set(false);
+          },
+          error: (err) => {
+            this.isLoading.set(false);
+            this.error.set(this.describeError(err, 'Book summary failed'));
+          }
+        });
+      }
+    });
+  }
+
   showCorrectedTranscript(pagePid: string): void {
     const isReload = this.panelVisible() && this.contentType() === 'corrected-text';
     this.cancelPending();
@@ -249,6 +354,13 @@ export class AiPanelService {
     this.showSummary(pid);
   }
 
+  resummarizeBook(language: string): void {
+    const pids = this.currentBookPagePids();
+    if (!pids || pids.length === 0) return;
+    this.summaryLanguage.set(language);
+    this.showBookSummary(pids);
+  }
+
   /**
    * Names the target language for the model. The language is identified by both
    * its endonym and its code, so the model has an unambiguous target without a
@@ -282,6 +394,22 @@ export class AiPanelService {
     ].join(' ');
   }
 
+  /** Like buildSummaryInstructions, but for a set of sampled excerpts rather than one page. */
+  private buildBookSummaryInstructions(languageCode: string): string {
+    const language = TRANSLATION_LANGUAGES.find(l => l.code === languageCode);
+    const target = language
+      ? `Write the summary in ${language.name} (language code: ${language.code}), regardless of the language of the source text.`
+      : 'Keep the summary in the same language as the original text.';
+    return [
+      'You are a helpful assistant. The following text is a set of excerpts sampled from the beginning, middle and end of a book, not its full text - there are gaps between the excerpts.',
+      'Based only on these excerpts, write a coherent overall summary of the whole book: its main topic or storyline, how it develops, and how it concludes.',
+      'Write it as a normal summary of the book. Do not mention that the excerpts are partial or point out the gaps between them.',
+      'The source is an OCR transcription and may contain substituted characters, broken words, missing accents or encoding artifacts.',
+      'Infer the intended reading from context and silently account for obvious OCR errors, but do not invent information or modernize historical wording.',
+      target
+    ].join(' ');
+  }
+
   /** The UI language when it is one we can ask for, otherwise Czech. */
   private defaultSummaryLanguage(): string {
     const uiLang = this.translate.getCurrentLang() || this.translate.getDefaultLang() || '';
@@ -306,6 +434,7 @@ export class AiPanelService {
     this.isLoading.set(false);
     this.error.set(null);
     this.currentPagePid.set(null);
+    this.currentBookPagePids.set(null);
   }
 
   toggleOriginal(): void {

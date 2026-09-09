@@ -17,6 +17,9 @@
            [innerHTML]="aiPanelService.styledHtml()"></div>
     } @else if (aiPanelService.content()) {
       <div class="ai-content-panel__content" [style.font-size.px]="aiPanelService.fontSize()">
+        @if (aiPanelService.contentType() === 'book-summary') {
+          <p class="ai-content-panel__note">{{ 'ai.book-summary-note' | translate }}</p>
+        }
         {{ aiPanelService.content() }}
       </div>
     }

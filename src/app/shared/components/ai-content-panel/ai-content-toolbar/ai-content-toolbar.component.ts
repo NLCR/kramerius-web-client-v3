@@ -30,6 +30,7 @@ export class AiContentToolbarComponent {
     const type = this.aiPanelService.contentType();
     if (type === 'translation') return 'ai.translation-result';
     if (type === 'summary') return 'ai.summary-result';
+    if (type === 'book-summary') return 'ai.book-summary-result';
     if (type === 'corrected-text') return 'ai.corrected-transcript-result';
     if (type === 'text') return 'ai.selected-text';
     return 'ai';
@@ -63,6 +64,12 @@ export class AiContentToolbarComponent {
   onSummaryLangChange(code: string): void {
     if (code !== this.aiPanelService.summaryLanguage()) {
       this.aiPanelService.resummarize(code);
+    }
+  }
+
+  onBookSummaryLangChange(code: string): void {
+    if (code !== this.aiPanelService.summaryLanguage()) {
+      this.aiPanelService.resummarizeBook(code);
     }
   }
 

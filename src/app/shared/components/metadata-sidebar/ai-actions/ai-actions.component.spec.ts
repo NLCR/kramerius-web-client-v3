@@ -22,7 +22,7 @@ describe('AiActionsComponent corrected transcript', () => {
           contentType: () => null,
           showCorrectedTranscript,
         } },
-        { provide: DetailViewService, useValue: { currentPagePid: 'uuid:page-1' } },
+        { provide: DetailViewService, useValue: { currentPagePid: 'uuid:page-1', totalPagesOnly: 1 } },
         { provide: UserService, useValue: { isLoggedIn: true } },
         { provide: AuthService, useValue: {} },
         { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
@@ -40,9 +40,50 @@ describe('AiActionsComponent corrected transcript', () => {
     fixture.detectChanges();
     const buttons = fixture.nativeElement.querySelectorAll('.ai-actions__item') as NodeListOf<HTMLButtonElement>;
 
+    // A single-page document has no separate "whole book" action.
     expect(buttons.length).toBe(4);
     expect(buttons[3].textContent).toContain('ai.correct-transcript');
     buttons[3].click();
     expect(showCorrectedTranscript).toHaveBeenCalledOnceWith('uuid:page-1');
+  });
+});
+
+describe('AiActionsComponent whole-book summary', () => {
+  it('offers a whole-book summary only for a multi-page document, over all its pages', () => {
+    const showBookSummary = jasmine.createSpy('showBookSummary');
+    TestBed.configureTestingModule({
+      imports: [AiActionsComponent, TranslateModule.forRoot()],
+      providers: [
+        { provide: TtsService, useValue: { isReading: () => false } },
+        { provide: AiPanelService, useValue: {
+          contentType: () => null,
+          showBookSummary,
+        } },
+        { provide: DetailViewService, useValue: {
+          currentPagePid: 'uuid:page-1',
+          totalPagesOnly: 2,
+          pagesOnly: [{ pid: 'uuid:page-1' }, { pid: 'uuid:page-2' }],
+        } },
+        { provide: UserService, useValue: { isLoggedIn: true } },
+        { provide: AuthService, useValue: {} },
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
+        { provide: SettingsService, useValue: { openSettingsDialog: () => {} } },
+        { provide: DocumentInfoService, useValue: {
+          hasAlto: () => true,
+          hasOcrText: () => true,
+          getRuntimeLicenses: () => [],
+        } },
+        { provide: ConfigService, useValue: { getLicenseConfig: () => null } },
+      ]
+    });
+
+    const fixture = TestBed.createComponent(AiActionsComponent);
+    fixture.detectChanges();
+    const buttons = fixture.nativeElement.querySelectorAll('.ai-actions__item') as NodeListOf<HTMLButtonElement>;
+
+    expect(buttons.length).toBe(5);
+    expect(buttons[3].textContent).toContain('ai.summarize-book');
+    buttons[3].click();
+    expect(showBookSummary).toHaveBeenCalledOnceWith(['uuid:page-1', 'uuid:page-2']);
   });
 });

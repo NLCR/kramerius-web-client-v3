@@ -32,6 +32,15 @@
       </div>
     </button>
 
+    @if (hasMultiplePages) {
+    <button class="ai-actions__item" (click)="onSummarizeBook()" [class.active]="aiPanelService.contentType() === 'book-summary'" [disabled]="actionsDisabled">
+      <div class="ai-actions__item-left">
+        <i class="icon-book-square" aria-hidden="true"></i>
+        <span>{{ 'ai.summarize-book' | translate }}</span>
+      </div>
+    </button>
+    }
+
     <button class="ai-actions__item" (click)="onCorrectTranscript()"
       [class.active]="aiPanelService.contentType() === 'corrected-text'" [disabled]="actionsDisabled">
       <div class="ai-actions__item-left">

@@ -54,6 +54,14 @@
     }
   }
 
+  &__note {
+    display: block;
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-xxsmall);
+    font-style: italic;
+    margin: 0 0 0.8em;
+  }
+
   &__error {
     color: var(--color-error, #ef4444);
     font-size: var(--font-size-small);

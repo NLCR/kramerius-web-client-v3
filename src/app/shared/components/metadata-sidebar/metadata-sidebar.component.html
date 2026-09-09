@@ -27,6 +27,12 @@
             <i class="icon-close" aria-hidden="true"></i>
           </button>
         }
+        @if (aiPanelService.panelVisible() && aiPanelService.contentType() === 'book-summary') {
+          <button class="button primary with-icon" (click)="aiPanelService.close()">
+            {{ 'ai.cancel-book-summary' | translate }}
+            <i class="icon-close" aria-hidden="true"></i>
+          </button>
+        }
 
         <button class="button outlined tertiary sm with-icon" (click)="closeMetadataSidebar()">
           {{ 'hide--metadata-sidebar' | translate}}

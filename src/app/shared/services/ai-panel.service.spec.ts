@@ -165,4 +165,60 @@ describe('AiPanelService summary language', () => {
     expect(service.isLoading()).toBeFalse();
   });
 
+  describe('whole-book summary', () => {
+    it('summarizes a sample of pages in a single model call', () => {
+      service = configure('cs');
+      const pids = Array.from({ length: 10 }, (_, i) => `uuid:page-${i}`);
+
+      service.showBookSummary(pids);
+
+      expect(fetchOcrContent).toHaveBeenCalledWith('uuid:page-0', true);
+      expect(askLLM).toHaveBeenCalledTimes(1);
+      expect(askLLM.calls.mostRecent().args[3]).toBe(1000);
+      expect(service.contentType()).toBe('book-summary');
+      expect(service.content()).toBe('a summary');
+      expect(service.error()).toBeNull();
+    });
+
+    it('tells the model the excerpts are a partial, sampled selection', () => {
+      service = configure('cs');
+
+      service.showBookSummary(['uuid:page-0', 'uuid:page-1', 'uuid:page-2']);
+
+      expect(lastInstructions()).toContain('excerpts sampled from the beginning, middle and end of a book');
+      expect(lastInstructions()).toContain('do not invent information');
+    });
+
+    it('re-runs the book summary when a different language is picked', () => {
+      service = configure('cs');
+      const pids = ['uuid:page-0', 'uuid:page-1', 'uuid:page-2'];
+      service.showBookSummary(pids);
+      const before = askLLM.calls.count();
+
+      service.resummarizeBook('de');
+
+      expect(service.summaryLanguage()).toBe('de');
+      expect(askLLM.calls.count()).toBeGreaterThan(before);
+      expect(lastInstructions()).toContain('Deutsch');
+    });
+
+    it('ignores a book-summary language change when no book is open', () => {
+      service = configure('cs');
+      const before = askLLM.calls.count();
+
+      service.resummarizeBook('de');
+
+      expect(askLLM.calls.count()).toBe(before);
+    });
+
+    it('reports an error instead of calling the model when no pages are given', () => {
+      service = configure('cs');
+
+      service.showBookSummary([]);
+
+      expect(askLLM).not.toHaveBeenCalled();
+      expect(service.error()).toBe('ai.text-transcript-unavailable');
+    });
+  });
+
 });
