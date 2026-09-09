@@ -150,10 +150,6 @@
         "title": { "cs": "Moravské národní písně s nápěvy do textu vřaděnými", "en": "Moravské národní písně s nápěvy do textu vřaděnými", "sk": "Moravské národní písně s nápěvy do textu vřaděnými", "pl": "Moravské národní písně s nápěvy do textu vřaděnými" }
       },
       {
-        "id": "uuid:6d962368-9ce3-11e0-9ad4-0050569d679d",
-        "title": { "cs": "Album representantů všech oborů veřejného života československého", "en": "Album representantů všech oborů veřejného života československého", "sk": "Album representantů všech oborů veřejného života československého", "pl": "Album representantů všech oborů veřejného života československého" }
-      },
-      {
         "id": "uuid:d7ab55a0-8445-11e8-9588-5ef3fc9bb22f",
         "title": { "cs": "Sčítání lidu v republice Československé ze dne 15. února 1921", "en": "Sčítání lidu v republice Československé ze dne 15. února 1921", "sk": "Sčítání lidu v republice Československé ze dne 15. února 1921", "pl": "Sčítání lidu v republice Československé ze dne 15. února 1921" }
       },
@@ -655,227 +651,223 @@
     ]
   },
   {
-    "type": "featured-documents",
-    "title": { "cs": "Vybrané sbírky", "en": "Selected collections", "sk": "Vybrané zbierky", "pl": "Wybrane kolekcje" },
-    "buttonText": { "cs": "Více sbírek", "en": "More collections", "sk": "Viac zbierok", "pl": "Więcej kolekcji" },
-    "sectionUrl": "/search?query=&page=1&pageSize=60&sortBy=created&sortDirection=desc&customSearch=custom-root-model:collection",
-    "items": [
-      {
-        "id": "uuid:f09c9d62-f367-44c3-a17d-8ed4569d77d2",
-        "title": { "cs": "České národní obrození", "en": "Czech National Revival", "sk": "České národné obrodenie", "pl": "Czeskie odrodzenie narodowe" }
-      },
-      {
-        "id": "uuid:23b918f8-785c-4159-a34f-38efdb69e9f2",
-        "title": { "cs": "Povinná četba", "en": "Required reading", "sk": "Povinná četba", "pl": "Lektury obowiązkowe" }
-      },
-      {
-        "id": "uuid:fdf7d531-47b0-49c6-baa4-9b253d19de62",
-        "title": { "cs": "Knížky pro děti", "en": "Books for children", "sk": "Knižky pre deti", "pl": "Książki dla dzieci" }
-      },
-      {
-        "id": "uuid:b2c76ed4-59ba-4c35-8373-bed6e8318871",
-        "title": { "cs": "Akce K", "en": "Akce K", "sk": "Akce K", "pl": "Akce K" }
-      },
-      {
-        "id": "uuid:a1e89368-8680-4144-b230-ed40859512f8",
-        "title": { "cs": "První světová válka", "en": "World War I", "sk": "Prvá svetová vojna", "pl": "Pierwsza wojna światowa" }
-      },
-      {
-        "id": "uuid:e08065ca-25c4-47c4-a3e8-711d2d1b5c95",
-        "title": { "cs": "Horolezectví a alpinismus", "en": "Mountaineering and alpinism", "sk": "Horolezectvo a alpinizmus", "pl": "Wspinaczka i alpinizm" }
-      },
-      {
-        "id": "uuid:f834840a-c5af-4d7a-a08a-6a7c7de5127a",
-        "title": { "cs": "Černobyl", "en": "Chernobyl", "sk": "Černobyľ", "pl": "Czarnobyl" }
-      },
-      {
-        "id": "uuid:31f58e06-4b5b-47d7-b9b4-5affe6ddfee9",
-        "title": { "cs": "Kuchařky", "en": "Cookbooks", "sk": "Kuchárky", "pl": "Książki kucharskie" }
-      },
-      {
-        "id": "uuid:860fd7f9-c563-470b-be43-f6ed89a2500e",
-        "title": { "cs": "Řemesla a dovednosti", "en": "Crafts and skills", "sk": "Remeslá a zručnosti", "pl": "Rzemiosło i umiejętności" }
-      },
-      {
-        "id": "uuid:2bf647ac-8ae8-4b20-a3c0-419057a7977e",
-        "title": { "cs": "Všeobecné encyklopedie", "en": "General encyclopedias", "sk": "Všeobecné encyklopédie", "pl": "Encyklopedie ogólne" }
-      },
-      {
-        "id": "uuid:60351375-ef62-4f5e-8989-3a612591a998",
-        "title": { "cs": "Houbařské příručky", "en": "Mushroom hunting guides", "sk": "Hubárske príručky", "pl": "Poradniki grzybiarskie" }
-      },
-      {
-        "id": "uuid:c9a50baf-a1cc-4c5d-b5f4-67559612c0dc",
-        "title": { "cs": "Fauna a flóra", "en": "Fauna and flora", "sk": "Fauna a flóra", "pl": "Fauna i flora" }
-      },
-      {
-        "id": "uuid:81f05a88-282d-4ed2-a965-0883cdac97be",
-        "title": { "cs": "Česká science-fiction", "en": "Czech science fiction", "sk": "Česká science-fiction", "pl": "Czeska fantastyka naukowa" }
-      },
-      {
-        "id": "uuid:0827295f-e951-4f3f-a1f7-71e2048e4676",
-        "title": { "cs": "Archeologie", "en": "Archaeology", "sk": "Archeológia", "pl": "Archeologia" }
-      },
-      {
-        "id": "uuid:2d49ee14-ba11-4c0b-b8ba-4c094d35bbd1",
-        "title": { "cs": "Kanonická díla japonské literatury v českém překladu", "en": "Canonical works of Japanese literature in Czech translation", "sk": "Kanonické diela japonskej literatúry v českom preklade", "pl": "Kanoniczne dzieła literatury japońskiej w czeskim przekładzie" }
-      },
-      {
-        "id": "uuid:93b8bd87-e32a-4884-86f8-3fa6e1411a34",
-        "title": { "cs": "Cestopisy a průvodce", "en": "Travelogues and guides", "sk": "Cestopisy a sprievodcovia", "pl": "Relacje z podróży i przewodniki" }
-      },
-      {
-        "id": "uuid:1ee5ef55-d6e0-4d01-93fd-41609d7ec36f",
-        "title": { "cs": "Divadelní hry", "en": "Theatre plays", "sk": "Divadelné hry", "pl": "Sztuki teatralne" }
-      },
-      {
-        "id": "uuid:71174c16-98ca-4d39-8893-543b6fd2af74",
-        "title": { "cs": "Proměny života na přelomu 19. a 20. století", "en": "Transformations of life at the turn of the 19th and 20th centuries", "sk": "Premeny života na prelome 19. a 20. storočia", "pl": "Przemiany życia na przełomie XIX i XX wieku" }
-      },
-      {
-        "id": "uuid:3a1c8ae5-6c3e-40e1-9d02-f210bc52cf06",
-        "title": { "cs": "Cestovatelé z českých zemí", "en": "Travellers from the Czech lands", "sk": "Cestovatelia z českých krajín", "pl": "Podróżnicy z Czech" }
-      },
-      {
-        "id": "uuid:f746dc83-25a6-4041-a64f-9d29fdde9a09",
-        "title": { "cs": "Druhá světová válka", "en": "World War II", "sk": "Druhá svetová vojna", "pl": "Druga wojna światowa" }
-      },
-      {
-        "id": "uuid:9faa8971-480d-4917-9379-215943187605",
-        "title": { "cs": "Železnice", "en": "Railways", "sk": "Železnice", "pl": "Koleje" }
-      },
-      {
-        "id": "uuid:7c9f1409-0318-4e6d-9bbb-a2438e9e600b",
-        "title": { "cs": "Knihovna lásky", "en": "Library of love", "sk": "Knižnica lásky", "pl": "Biblioteka miłości" }
-      },
-      {
-        "id": "uuid:a52dbbb2-c1b3-4097-8717-0db1ca002dfc",
-        "title": { "cs": "Autobiografie, paměti a deníky", "en": "Autobiographies, memoirs and diaries", "sk": "Autobiografie, pamäti a denníky", "pl": "Autobiografie, pamiętniki i dzienniki" }
-      },
-      {
-        "id": "uuid:2bf5e3b7-3323-4cb5-932e-eec9d7958a71",
-        "title": { "cs": "Ruční práce", "en": "Handicrafts", "sk": "Ručné práce", "pl": "Rękodzieło" }
-      },
-      {
-        "id": "uuid:a8c2fd9a-d79c-4870-b5f4-f28c29bb2ac9",
-        "title": { "cs": "Zlatý věk ruské literatury", "en": "Golden age of Russian literature", "sk": "Zlatý vek ruskej literatúry", "pl": "Złoty wiek literatury rosyjskiej" }
-      },
-      {
-        "id": "uuid:3da71bd7-1c8a-4dd4-8fa4-caa3d0f292a7",
-        "title": { "cs": "Slavistická sbírka", "en": "Slavic studies collection", "sk": "Slavistická zbierka", "pl": "Kolekcja slawistyczna" }
-      },
-      {
-        "id": "uuid:2ee97752-3c40-4f96-b1f3-8916d242b0b7",
-        "title": { "cs": "Právo", "en": "Law", "sk": "Právo", "pl": "Prawo" }
-      },
-      {
-        "id": "uuid:7317838b-061f-4b22-b527-ea14b877379e",
-        "title": { "cs": "Bohemistická sbírka", "en": "Bohemian studies collection", "sk": "Bohemistická zbierka", "pl": "Kolekcja bohemistyczna" }
-      },
-      {
-        "id": "uuid:d854c832-582e-4c95-8f45-7fdc1a4e3746",
-        "title": { "cs": "Národopisná sbírka", "en": "Ethnographic collection", "sk": "Národopisná zbierka", "pl": "Kolekcja etnograficzna" }
-      },
-      {
-        "id": "uuid:71174c16-98ca-4d39-8893-543b6fd2af74",
-        "title": { "cs": "Proměny života na přelomu 19. a 20. století", "en": "Transformations of life at the turn of the 19th and 20th centuries", "sk": "Premeny života na prelome 19. a 20. storočia", "pl": "Przemiany życia na przełomie XIX i XX wieku" }
-      },
-      {
-        "id": "uuid:94e3b29b-b1f9-4d16-b3e2-42747c112997",
-        "title": { "cs": "Staré učebnice", "en": "Old textbooks", "sk": "Staré učebnice", "pl": "Stare podręczniki" }
-      }
-    ]
-  },
-  {
-    "type": "featured-documents",
-    "title": { "cs": "Sbírky periodik", "en": "Periodical collections", "sk": "Zbierky periodík", "pl": "Kolekcje periodyków" },
-    "items": [
-      {
-        "id": "uuid:e8f61172-5e38-43bc-88ed-8737fc210bfc",
-        "title": { "cs": "Denní tisk", "en": "Daily press", "sk": "Denná tlač", "pl": "Prasa codzienna" }
-      },
-      {
-        "id": "uuid:30a42a54-97be-47a7-af8f-40d3deec42bf",
-        "title": { "cs": "Časopisy", "en": "Magazines", "sk": "Časopisy", "pl": "Czasopisma" }
-      },
-      {
-        "id": "uuid:b071950b-d139-4c40-82db-8ca9de787904",
-        "title": { "cs": "Humoristická periodika", "en": "Humorous periodicals", "sk": "Humoristické periodiká", "pl": "Periodyki humorystyczne" }
-      },
-      {
-        "id": "uuid:9df7d62c-b572-4338-a0d1-b9c63e07a26e",
-        "title": { "cs": "Regionální tisk", "en": "Regional press", "sk": "Regionálna tlač", "pl": "Prasa regionalna" }
-      },
-      {
-        "id": "uuid:2fde41b3-b534-46ae-b0cd-6836ad9e1e7d",
-        "title": { "cs": "Specializovaná periodika", "en": "Specialized periodicals", "sk": "Špecializované periodiká", "pl": "Specjalistyczne periodyki" }
-      },
-      {
-        "id": "uuid:fd4aae83-d8cc-4615-a779-ff151fc61040",
-        "title": { "cs": "Týdeníky a měsíčníky", "en": "Weeklies and monthlies", "sk": "Týždenníky a mesačníky", "pl": "Tygodniki i miesięczniki" }
-      },
-      {
-        "id": "uuid:f5353b65-c8ee-4dcf-815e-338dc0a76b05",
-        "title": { "cs": "Periodika a publikace zaměřené na kulturu a výtvarné umění", "en": "Periodicals and publications focused on culture and fine arts", "sk": "Periodiká a publikácie zamerané na kultúru a výtvarné umenie", "pl": "Periodyki i publikacje poświęcone kulturze i sztuce" }
-      },
-      {
-        "id": "uuid:b7372c27-2d77-4511-b31f-5d87dec08f81",
-        "title": { "cs": "Výroční zprávy škol", "en": "School annual reports", "sk": "Výročné správy škôl", "pl": "Sprawozdania roczne szkół" }
-      },
-      {
-        "id": "uuid:aef875a0-aa10-4a8c-88bf-89cc787d5098",
-        "title": { "cs": "Brněnský tisk", "en": "Brno press", "sk": "Brnianská tlač", "pl": "Prasa brneńska" }
-      },
-      {
-        "id": "uuid:ddbb2e5e-c56b-4fca-98da-d52534ee7825",
-        "title": { "cs": "Kalendáře", "en": "Calendars", "sk": "Kalendáre", "pl": "Kalendarze" }
-      }
-    ]
-  },
-  {
-    "type": "featured-documents",
-    "title": { "cs": "Rukopisy, staré tisky, mapy a grafiky", "en": "Manuscripts, old prints, maps and graphics", "sk": "Rukopisy, staré tlače, mapy a grafiky", "pl": "Rękopisy, stare druki, mapy i grafiki" },
-    "items": [
-      {
-        "id": "uuid:0177299b-783b-417c-a686-87de93eb625f",
-        "title": { "cs": "Komeniana", "en": "Komeniana", "sk": "Komeniana", "pl": "Komeniana" }
-      },
-      {
-        "id": "uuid:9b190c71-5a2c-44fa-bc8a-b6c5b056c01a",
-        "title": { "cs": "Mollova mapová sbírka", "en": "Moll's map collection", "sk": "Mollova mapová zbierka", "pl": "Zbiór map Molla" }
-      },
-      {
-        "id": "uuid:69847da9-e7c7-4288-b87e-9f9d53a04543",
-        "title": { "cs": "Zednářská literatura", "en": "Masonic literature", "sk": "Slobodomurárska literatúra", "pl": "Literatura masońska" }
-      },
-      {
-        "id": "uuid:0ad7b989-2d93-4af9-ae47-151508bc038f",
-        "title": { "cs": "Čechy na starých vyobrazeních", "en": "Bohemia in old depictions", "sk": "Čechy na starých vyobrazeniach", "pl": "Czechy na starych przedstawieniach" }
-      },
-      {
-        "id": "uuid:a80bba1b-562b-4083-a656-bfd8c991ce0e",
-        "title": { "cs": "Morava a Slezsko na starých vyobrazeních", "en": "Moravia and Silesia in old depictions", "sk": "Morava a Sliezsko na starých vyobrazeniach", "pl": "Morawy i Śląsk na starych przedstawieniach" }
-      },
-      {
-        "id": "uuid:d4e47795-446e-47d3-9fbb-d4a79a7dbacc",
-        "title": { "cs": "Staré mapy českých zemí", "en": "Old maps of the Czech lands", "sk": "Staré mapy českých krajín", "pl": "Stare mapy ziem czeskich" }
-      },
-      {
-        "id": "uuid:4f160bc6-65c0-46e7-ae0b-d7d817e19af5",
-        "title": { "cs": "Sbírka prvotisků Moravské zemské knihovny", "en": "Incunabula collection of the Moravian Library", "sk": "Zbierka prvotlačí Moravskej zemskej knižnice", "pl": "Kolekcja inkunabułów Biblioteki Morawskiej" }
-      },
-      {
-        "id": "uuid:874a4ef8-2407-4fd9-a9f7-468504964513",
-        "title": { "cs": "Brněnské grafiky", "en": "Brno graphics", "sk": "Brnianská grafika", "pl": "Grafiki brneńskie" }
-      },
-      {
-        "id": "uuid:cd65ed4c-13ab-4572-bd36-0659b766b147",
-        "title": { "cs": "Rukopisy mikulovské dietrichštejnské knihovny", "en": "Manuscripts of the Mikulov Dietrichstein library", "sk": "Rukopisy mikulovskej dietrichštajnskej knižnice", "pl": "Rękopisy biblioteki mikulowskiej Dietrichsteinów" }
-      },
-      {
-        "id": "uuid:f731cfe4-dbee-421c-9868-574f311b833f",
-        "title": { "cs": "Hudební fond nkp", "en": "Music collection of nkp", "sk": "Hudobný fond nkp", "pl": "Kolekcja muzyczna nkp" }
-      }
+  "type": "featured-documents",
+  "title": { "cs": "Vybrané sbírky", "en": "Selected collections", "sk": "Vybrané zbierky", "pl": "Wybrane kolekcje" },
+  "buttonText": { "cs": "Více sbírek", "en": "More collections", "sk": "Viac zbierok", "pl": "Więcej kolekcji" },
+  "sectionUrl": "/search?query=&page=1&pageSize=60&sortBy=created&sortDirection=desc&customSearch=custom-root-model:collection",
+  "items": [
+    {
+      "id": "uuid:ca4bedb1-5490-4aa3-9d7b-76862586fb26",
+      "title": { "cs": "Kuchařky", "en": "Cookbooks", "sk": "Kuchárky", "pl": "Książki kucharskie" }
+    },
+    {
+      "id": "uuid:7f778475-4e9f-4bae-80aa-5be1d7bfeefa",
+      "title": { "cs": "Pohádky", "en": "Fairy Tales", "sk": "Rozprávky", "pl": "Baśnie" }
+    },
+    {
+      "id": "uuid:a3f6c03c-ea4e-43e4-8f03-9cacd81ea862",
+      "title": { "cs": "Knihy pro děti", "en": "Children's Books", "sk": "Knihy pre deti", "pl": "Książki dla dzieci" }
+    },
+    {
+      "id": "uuid:262db113-c19f-4523-ba51-842c7f3844fc",
+      "title": { "cs": "Detektivky", "en": "Detective Fiction", "sk": "Detektívky", "pl": "Powieści detektywistyczne" }
+    },
+    {
+      "id": "uuid:46a305ff-0971-481d-acfd-fc76022aed8b",
+      "title": { "cs": "Dobrodružná literatura", "en": "Adventure Literature", "sk": "Dobrodružná literatúra", "pl": "Literatura przygodowa" }
+    },
+    {
+      "id": "uuid:7f583962-9e71-456d-87a8-54c66250f132",
+      "title": { "cs": "Dětské obrázkové knížky", "en": "Children's Picture Books", "sk": "Detské obrázkové knižky", "pl": "Książki obrazkowe dla dzieci" }
+    },
+    {
+      "id": "uuid:865d5493-bdf9-47fd-bd52-43d26b9c127a",
+      "title": { "cs": "Cestopisy", "en": "Travelogues", "sk": "Cestopisy", "pl": "Relacje z podróży" }
+    },
+    {
+      "id": "uuid:0d336956-0384-4f57-bb95-67dc3fb18997",
+      "title": { "cs": "Vlaky a železnice", "en": "Trains and Railways", "sk": "Vlaky a železnice", "pl": "Pociągi i koleje" }
+    },
+    {
+      "id": "uuid:1bc46e7c-18b6-4b39-8070-25eca57376dd",
+      "title": { "cs": "Operace Anthropoid", "en": "Operation Anthropoid", "sk": "Operácia Anthropoid", "pl": "Operacja Anthropoid" }
+    },
+    {
+      "id": "uuid:34fac059-4e25-4473-b545-79287b264c1f",
+      "title": { "cs": "Červená knihovna", "en": "256 Shades of Grey", "sk": "Červená knižnica", "pl": "Romanse" }
+    },
+    {
+      "id": "uuid:0829c04a-bfe6-4c72-83fd-700517768073",
+      "title": { "cs": "Zdravověda", "en": "Health Education", "sk": "Zdravoveda", "pl": "Poradniki zdrowotne" }
+    },
+    {
+      "id": "uuid:37faa964-91b5-4176-a0f2-67825bcc3dd2",
+      "title": { "cs": "Domácí rádci", "en": "Household Advisers", "sk": "Domáci radcovia", "pl": "Poradniki domowe" }
+    },
+    {
+      "id": "uuid:ec49a205-1132-4a2b-a6f4-623d9902b77c",
+      "title": { "cs": "Vznik Československa – okolnosti a události", "en": "The Birth of Czechoslovakia – Circumstances and Events", "sk": "Vznik Československa – okolnosti a udalosti", "pl": "Powstanie Czechosłowacji – okoliczności i wydarzenia" }
+    },
+    {
+      "id": "uuid:9a529f7f-6051-4838-b094-a91804adba5c",
+      "title": { "cs": "Včelařství", "en": "Beekeeping", "sk": "Včelárstvo", "pl": "Pszczelarstwo" }
+    },
+    {
+      "id": "uuid:098e9155-e4df-4c7c-a6b7-d42b43d4b1bc",
+      "title": { "cs": "Šachy", "en": "Chess", "sk": "Šach", "pl": "Szachy" }
+    },
+    {
+      "id": "uuid:e6d07fc1-cd15-4661-ba34-db1a8108c6b4",
+      "title": { "cs": "Adresáře a telefonní seznamy", "en": "Address and Telephone Directories", "sk": "Adresáre a telefónne zoznamy", "pl": "Książki adresowe i telefoniczne" }
+    },
+    {
+      "id": "uuid:ea82d276-8fc0-4155-866f-fc886e2b65f2",
+      "title": { "cs": "Občanská genealogie: prameny a zdroje", "en": "Civil Genealogy: Sources and Resources", "sk": "Občianska genealógia: pramene a zdroje", "pl": "Genealogia obywatelska: źródła i zasoby" }
+    },
+    {
+      "id": "uuid:9ec559f9-a246-404c-9016-5a9fa93bd036",
+      "title": { "cs": "Památky ČR na starých vyobrazeních", "en": "Czech Monuments in Old Depictions", "sk": "Pamiatky ČR na starých vyobrazeniach", "pl": "Zabytki Czech na dawnych wizerunkach" }
+    },
+    {
+      "id": "uuid:82327486-08e9-43ff-8f99-0e80f202b189",
+      "title": { "cs": "Staré ilustrované atlasy", "en": "Old Illustrated Atlases", "sk": "Staré ilustrované atlasy", "pl": "Stare atlasy ilustrowane" }
+    },
+    {
+      "id": "uuid:4d23ddb1-2a21-4908-8904-edfec593b610",
+      "title": { "cs": "Historická topografie: vyhledávání obcí a míst", "en": "Historical Topography: Searching for Towns and Settlements", "sk": "Historická topografia: vyhľadávanie obcí a miest", "pl": "Topografia historyczna: wyszukiwanie miejscowości" }
+    },
+    {
+      "id": "uuid:e2531e60-e155-4be2-b1e0-44ba501b99f1",
+      "title": { "cs": "Tělovýchova a sport", "en": "Physical Education and Sport", "sk": "Telovýchova a šport", "pl": "Wychowanie fizyczne i sport" }
+    },
+    {
+      "id": "uuid:5600e387-f13f-4549-a474-07e3c1d0b720",
+      "title": { "cs": "Pěstitelství a chovatelství", "en": "Gardening and Animal Husbandry", "sk": "Pestovateľstvo a chovateľstvo", "pl": "Uprawa roślin i hodowla zwierząt" }
+    },
+    {
+      "id": "uuid:05e5c8d7-540b-4a8b-849c-6547602b2f19",
+      "title": { "cs": "Český místopis", "en": "Czech Topography", "sk": "Český miestopis", "pl": "Czeska topografia" }
+    },
+    {
+      "id": "uuid:eab4a7f1-7bd1-4b62-ac08-a2f3968acb3f",
+      "title": { "cs": "Česká esoterická literatura", "en": "Czech Esoteric Literature", "sk": "Česká ezoterická literatúra", "pl": "Czeska literatura ezoteryczna" }
+    },
+    {
+      "id": "uuid:c995b8db-46bf-4702-a079-1d2897253c50",
+      "title": { "cs": "Uliční a domovní schematismy: orientace v městech a obcích", "en": "Street- and House-directories: Finding Places in Cities and Towns", "sk": "Uličné a domové schematizmy: orientácia v mestách a obciach", "pl": "Skorowidze ulic i domów: orientacja w miastach i gminach" }
+    },
+    {
+      "id": "uuid:9da99253-ed57-43c9-a16c-6c82d363dd98",
+      "title": { "cs": "Vznik Československa – armáda a legie", "en": "The Birth of Czechoslovakia – Army and Legions", "sk": "Vznik Československa – armáda a légie", "pl": "Powstanie Czechosłowacji – armia i legiony" }
+    },
+    {
+      "id": "uuid:eff27419-f080-452f-b6ef-bcafefcc173f",
+      "title": { "cs": "Čeští hudební skladatelé", "en": "Czech Composers", "sk": "Českí hudobní skladatelia", "pl": "Czescy kompozytorzy" }
+    },
+    {
+      "id": "uuid:185cb021-dcfa-4c28-982f-2b753b2127a2",
+      "title": { "cs": "Chov koní", "en": "Horse Breeding", "sk": "Chov koní", "pl": "Hodowla koni" }
+    },
+    {
+      "id": "uuid:bdfe0de9-9389-4838-ada2-265526a82d71",
+      "title": { "cs": "Lesnictví", "en": "Forestry", "sk": "Lesníctvo", "pl": "Leśnictwo" }
+    },
+    {
+      "id": "uuid:0f6a2d1e-4f7a-4308-b215-b16e4976c5f7",
+      "title": { "cs": "Aristokratická genealogie", "en": "Aristocratic Genealogy", "sk": "Aristokratická genealógia", "pl": "Genealogia arystokratyczna" }
+    },
+    {
+      "id": "uuid:2276f460-0198-4546-91c7-413fa1c78e58",
+      "title": { "cs": "Občanská genealogie: příručky a studie", "en": "Civil Genealogy: Handbooks and Studies", "sk": "Občianska genealógia: príručky a štúdie", "pl": "Genealogia obywatelska: poradniki i studia" }
+    },
+    {
+      "id": "uuid:329f67b2-73cd-4706-800b-1bdaf7126e09",
+      "title": { "cs": "Spiritistická literatura v Čechách", "en": "Spiritualist Literature in Bohemia", "sk": "Špiritistická literatúra v Čechách", "pl": "Literatura spirytystyczna w Czechach" }
+    },
+    {
+      "id": "uuid:cdb066d4-55eb-4e59-95f0-732478fa04da",
+      "title": { "cs": "Zednářská literatura v Čechách", "en": "Masonic Literature in Bohemia", "sk": "Slobodomurárska literatúra v Čechách", "pl": "Literatura masońska w Czechach" }
+    },
+    {
+      "id": "uuid:1a706158-f3a1-4d34-bae4-abda439289cc",
+      "title": { "cs": "Vznik Československa – Muži 28. října a další osobnosti", "en": "The Birth of Czechoslovakia – The Men of 28 October and Other Figures", "sk": "Vznik Československa – Muži 28. októbra a ďalšie osobnosti", "pl": "Powstanie Czechosłowacji – Mężowie 28 października i inne postacie" }
+    },
+    {
+      "id": "uuid:e04df137-5ca1-47b2-857f-2d73254ed687",
+      "title": { "cs": "Země a lidé", "en": "Lands and Peoples", "sk": "Zem a ľudia", "pl": "Ziemie i ludzie" }
+    },
+    {
+      "id": "uuid:90b866be-0cdc-4c4e-af22-f839330ed065",
+      "title": { "cs": "Mineralogie", "en": "Mineralogy", "sk": "Mineralógia", "pl": "Mineralogia" }
+    },
+    {
+      "id": "uuid:fc132b2b-295f-4e5f-ae14-0439388aa19d",
+      "title": { "cs": "Vojenské příručky", "en": "Military Manuals", "sk": "Vojenské príručky", "pl": "Podręczniki wojskowe" }
+    },
+    {
+      "id": "uuid:999c4f34-c041-47d7-b02d-8be8ed917c7e",
+      "title": { "cs": "Hry pro loutkové divadlo", "en": "Puppet Plays", "sk": "Hry pre bábkové divadlo", "pl": "Sztuki dla teatru lalek" }
+    },
+    {
+      "id": "uuid:2eca95d4-1abb-4787-97b1-d01fa6c96a86",
+      "title": { "cs": "Divadelní představení pro děti", "en": "Theatre Performances for Children", "sk": "Divadelné predstavenia pre deti", "pl": "Przedstawienia teatralne dla dzieci" }
+    },
+    {
+      "id": "uuid:28dad9db-738f-46f2-b560-3e515ee45f05",
+      "title": { "cs": "Vznik Československa – odboj", "en": "The Birth of Czechoslovakia – Resistance", "sk": "Vznik Československa – odboj", "pl": "Powstanie Czechosłowacji – ruch oporu" }
+    },
+    {
+      "id": "uuid:47b90880-b909-471b-b4db-c498e5dcab00",
+      "title": { "cs": "Tomáš Garrigue Masaryk – projevy", "en": "Tomáš Garrigue Masaryk – Speeches", "sk": "Tomáš Garrigue Masaryk – prejavy", "pl": "Tomáš Garrigue Masaryk – przemówienia" }
+    },
+    {
+      "id": "uuid:97369733-ee00-443e-824b-4f493eff99ba",
+      "title": { "cs": "Domácí průvodci", "en": "Home Guides", "sk": "Domáci sprievodcovia", "pl": "Przewodniki domowe" }
+    },
+    {
+      "id": "uuid:a23eda04-037c-49d3-ade7-f1fa096fdef5",
+      "title": { "cs": "Občanská genealogie: badatelské pomůcky", "en": "Civil Genealogy: Researcher's Aids", "sk": "Občianska genealógia: bádateľské pomôcky", "pl": "Genealogia obywatelska: pomoce badawcze" }
+    },
+    {
+      "id": "uuid:fb7f757a-4d9b-4a2c-9873-7f6b1316064f",
+      "title": { "cs": "Úřední schematismy: seznamy veřejných osob", "en": "Official Schematisms: Lists of Public Servants", "sk": "Úradné schematizmy: zoznamy verejných osôb", "pl": "Schematyzmy urzędowe: wykazy osób publicznych" }
+    },
+    {
+      "id": "uuid:196df604-937a-4911-96e6-3dedcc07016a",
+      "title": { "cs": "Vznik Československa – dokumenty a instituce", "en": "The Birth of Czechoslovakia – Documents and Institutions", "sk": "Vznik Československa – dokumenty a inštitúcie", "pl": "Powstanie Czechosłowacji – dokumenty i instytucje" }
+    },
+    {
+      "id": "uuid:cac6e9a8-b02d-4c70-a95a-036acf42a7b6",
+      "title": { "cs": "Archivní průvodci: kde co najít", "en": "Archive Guides: Where to Find It", "sk": "Archívni sprievodcovia: kde čo nájsť", "pl": "Przewodniki archiwalne: gdzie czego szukać" }
+    },
+    {
+      "id": "uuid:486d0565-d7a7-4bc5-a4ab-cd1ad5298849",
+      "title": { "cs": "Archivní inventáře, katalogy a rejstříky", "en": "Archive Inventories, Catalogues and Indexes", "sk": "Archívne inventáre, katalógy a registre", "pl": "Inwentarze, katalogi i indeksy archiwalne" }
+    },
+    {
+      "id": "uuid:8aeb5d66-c14b-4106-9798-24cccc4d2f7b",
+      "title": { "cs": "Irsko", "en": "Ireland", "sk": "Írsko", "pl": "Irlandia" }
+    },
+    {
+      "id": "uuid:f25522d0-2471-42f6-a3ed-5f78f529a633",
+      "title": { "cs": "Bibliotéka zábavných spisů", "en": "Library of Entertaining Writings", "sk": "Bibliotéka zábavných spisov", "pl": "Biblioteka pism rozrywkowych" }
+    },
+    {
+      "id": "uuid:4b87514d-6e33-4fba-a4a8-0576ab304dbe",
+      "title": { "cs": "Knihovnictví", "en": "Librarianship", "sk": "Knihovníctvo", "pl": "Bibliotekarstwo" }
+    },
+    {
+      "id": "uuid:371e1e27-3f2f-4b31-a5d5-07f81f2aafe1",
+      "title": { "cs": "Práce Slovanské knihovny", "en": "Works of the Slavonic Library", "sk": "Práce Slovanskej knižnice", "pl": "Prace Biblioteki Słowiańskiej" }
+    },
+    {
+      "id": "uuid:d6b67ac0-fb8a-40f0-9a81-74a138f31a8f",
+      "title": { "cs": "Alois Musil (1868–1944)", "en": "Alois Musil (1868–1944)", "sk": "Alois Musil (1868–1944)", "pl": "Alois Musil (1868–1944)" }
+    },
+    {
+      "id": "uuid:8ca46566-3090-48ce-a0e9-59c010aeb4e7",
+      "title": { "cs": "Systême silurien du centre de la Bohême", "en": "Systême silurien du centre de la Bohême", "sk": "Systême silurien du centre de la Bohême", "pl": "Systême silurien du centre de la Bohême" }
+    }
     ]
   },
   {

@@ -454,3 +454,80 @@ describe('ConfigService HTML content sanitisation', () => {
     expect(await service.loadHtmlContent('/missing.html')).toBe('');
   });
 });
+
+/**
+ * A single flat deployment can host several libraries' config under
+ * local-config/<code>/ once the flat config-main.json announces the code.
+ * The flat file must stay resolvable on its own (it is the only file whose
+ * location is knowable before the code is read from it), and a deployment
+ * with no subfolder must behave exactly as before.
+ */
+describe('ConfigService per-library subfolder resolution', () => {
+  let service: ConfigService;
+
+  function mockFetchResponses(responses: Record<string, unknown>): void {
+    spyOn(window, 'fetch').and.callFake(((url: string) => {
+      const path = url.split('?')[0];
+      const body = responses[path];
+      if (body === undefined) {
+        return Promise.resolve({ ok: false, status: 404 } as Response);
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(body) } as Response);
+    }) as typeof fetch);
+  }
+
+  function configure(): ConfigService {
+    TestBed.configureTestingModule({
+      providers: [
+        ConfigService,
+        { provide: EnvironmentService, useValue: {
+          applyAppConfig: () => {},
+          isApiConfigForced: () => false,
+          getApiConfigBaseUrl: () => '',
+        } },
+      ],
+    });
+    return TestBed.inject(ConfigService);
+  }
+
+  it('prefers the per-library subfolder files once the flat file announces the code', async () => {
+    mockFetchResponses({
+      '/local-config/config-main.json': { app: { code: 'nkp', name: 'flat' }, features: {} },
+      '/local-config/nkp/config-main.json': { app: { code: 'nkp', name: 'subfolder' }, features: {} },
+      '/local-config/nkp/config-licenses.json': { licenses: [] },
+      '/local-config/nkp/config-homepage.json': { sections: [] },
+    });
+    service = configure();
+
+    await service.load();
+
+    expect(service.getConfig().app.name).toBe('subfolder');
+  });
+
+  it('falls back to the flat files when the deployment has no subfolder', async () => {
+    mockFetchResponses({
+      '/local-config/config-main.json': { app: { code: 'nkp', name: 'flat' }, features: {} },
+      '/local-config/config-licenses.json': { licenses: [] },
+      '/local-config/config-homepage.json': { sections: [] },
+    });
+    service = configure();
+
+    await service.load();
+
+    expect(service.getConfig().app.name).toBe('flat');
+  });
+
+  it('never requests a subfolder when the flat file announces no code', async () => {
+    mockFetchResponses({
+      '/local-config/config-main.json': { app: { code: '', name: 'flat' }, features: {} },
+      '/local-config/config-licenses.json': { licenses: [] },
+      '/local-config/config-homepage.json': { sections: [] },
+    });
+    service = configure();
+
+    await service.load();
+
+    const requestedUrls = (window.fetch as jasmine.Spy).calls.allArgs().map(args => String(args[0]));
+    expect(requestedUrls.some(url => url.includes('/local-config//'))).toBe(false);
+  });
+});

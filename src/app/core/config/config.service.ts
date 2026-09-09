@@ -104,25 +104,39 @@ export class ConfigService {
   /**
    * Single seam for fetching a config file. Resolution rules:
    *
-   *   forceApiConfig on               → API only (local-config skipped entirely)
-   *   API enabled  + local file present → local file (overrides API)
-   *   API enabled  + no local file      → API
-   *   API disabled + local file present → local file
-   *   API disabled + no local file      → not found → caller uses defaults /
-   *                                        (for config-main) fails to boot
+   *   forceApiConfig on                    → API only (local-config skipped entirely)
+   *   per-library subfolder file present   → that file (highest priority)
+   *   API enabled  + flat local file present → flat local file (overrides API)
+   *   API enabled  + no local file at all    → API
+   *   API disabled + flat local file present → flat local file
+   *   API disabled + no local file at all    → not found → caller uses defaults /
+   *                                             (for config-main) fails to boot
+   *
+   * `libraryCode` (`app.code`, e.g. "nkp") lets one flat deployment host several
+   * libraries' worth of config under `local-config/<code>/`: the flat
+   * `config-main.json` always stays put — it is the only file whose location
+   * is knowable before the code itself has been read from it — but once the
+   * code is known, config-main/licenses/homepage are re-resolved from that
+   * subfolder first, falling back to the flat file when the deployment does
+   * not use one.
    *
    * API loading is enabled simply by setting apiConfigBaseUrl (no separate
    * on/off flag), so the default deployment — with no base URL — behaves
    * exactly as before (local-config only). forceApiConfig additionally bypasses
    * the local override, for deployments that ship no local-config at all.
    */
-  private async resolveConfigFile(name: ConfigFileName): Promise<Response> {
+  private async resolveConfigFile(name: ConfigFileName, libraryCode?: string): Promise<Response> {
     // Force mode: read only from the API, never touch local-config.
     if (this.isApiConfigForced()) {
       const apiResponse = await this.fetchApiConfig(name);
       // Return a synthetic 404 when the API has nothing, so callers keep their
       // existing not-found handling (config-main → boot error).
       return apiResponse ?? new Response(null, { status: 404 });
+    }
+
+    if (libraryCode) {
+      const subfolderLocal = await this.fetchLocalConfig(name, libraryCode);
+      if (subfolderLocal.ok) return subfolderLocal;
     }
 
     const local = await this.fetchLocalConfig(name);
@@ -138,14 +152,15 @@ export class ConfigService {
     return local;
   }
 
-  private fetchLocalConfig(name: ConfigFileName): Promise<Response> {
+  private fetchLocalConfig(name: ConfigFileName, libraryCode?: string): Promise<Response> {
     const timestamp = Date.now();
     // Leading slash matters: without it this is relative to the current route,
     // not the site root. A hard refresh on any deep route (e.g. /view/uuid:...)
     // would then request .../view/local-config/config-main.json — a 404 — so
     // config never loads and every API call falls back to a same-origin
     // relative URL (see EnvironmentService.getApiUrl).
-    return fetch(`/local-config/${name}.json?t=${timestamp}`);
+    const path = libraryCode ? `${libraryCode}/${name}` : name;
+    return fetch(`/local-config/${path}.json?t=${timestamp}`);
   }
 
   /**
@@ -244,13 +259,23 @@ export class ConfigService {
    */
   private async fetchLibraryConfig(): Promise<AppConfiguration | null> {
     try {
-      const configResponse = await this.resolveConfigFile('config-main');
-      if (!configResponse.ok) return null;
-      const configData = await configResponse.json();
+      const bootstrapResponse = await this.resolveConfigFile('config-main');
+      if (!bootstrapResponse.ok) return null;
+      let configData = await bootstrapResponse.json();
+      const code: string = configData.app?.code ?? '';
+
+      // A per-library subfolder, once its code is known, is authoritative for
+      // config-main too - the flat file's only remaining job was announcing it.
+      if (code) {
+        const subfolderConfigResponse = await this.resolveConfigFile('config-main', code);
+        if (subfolderConfigResponse.ok) {
+          configData = await subfolderConfigResponse.json();
+        }
+      }
 
       const [licensesResponse, homeSectionsResponse] = await Promise.all([
-        this.resolveConfigFile('config-licenses'),
-        this.resolveConfigFile('config-homepage')
+        this.resolveConfigFile('config-licenses', code),
+        this.resolveConfigFile('config-homepage', code)
       ]);
 
       const licensesData = await this.safeParseJson(licensesResponse, 'config-licenses.json');

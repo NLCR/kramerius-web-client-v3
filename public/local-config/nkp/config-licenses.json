@@ -13,7 +13,6 @@
       "crop": false
     }
   },
-
   "licenses": [
     {
       "id": "public",
@@ -22,7 +21,8 @@
         "cs": "Volná díla",
         "en": "Public domain",
         "sk": "Voľné diela",
-        "pl": "Domena publiczna"
+        "pl": "Domena publiczna",
+        "de": "Gemeinfreie Werke"
       },
       "actions": {
         "pdf": true,
@@ -31,9 +31,21 @@
         "text": true,
         "selection": true,
         "crop": true
+      },
+      "messagePages": [
+        {
+          "key": "unauthenticated",
+          "page": {
+            "cs": "local-config/nkp/html/licenses/public.cs.html",
+            "en": "local-config/nkp/html/licenses/public.en.html",
+            "de": "local-config/html/licenses/public.de.html"
+          }
+        }
+      ],
+      "providedBy": {
+        "display": true
       }
     },
-
     {
       "id": "mzk_public-contract",
       "accessType": "open",
@@ -41,7 +53,8 @@
         "cs": "Smluvně zveřejněná díla",
         "en": "Contractually published works",
         "sk": "Zmluvne zverejnené diela",
-        "pl": "Utwory opublikowane na podstawie umowy"
+        "pl": "Utwory opublikowane na podstawie umowy",
+        "de": "Vertraglich veröffentlichte Werke"
       },
       "actions": {
         "pdf": true,
@@ -50,9 +63,18 @@
         "text": true,
         "selection": true,
         "crop": true
-      }
+      },
+      "messagePages": [
+        {
+          "key": "unauthenticated",
+          "page": {
+            "cs": "local-config/nkp/html/licenses/public-contract.cs.html",
+            "en": "local-config/nkp/html/licenses/public-contract.en.html",
+            "de": "local-config/html/licenses/public-contract.de.html"
+          }
+        }
+      ]
     },
-
     {
       "id": "mzk_public-muo",
       "accessType": "open",
@@ -60,7 +82,8 @@
         "cs": "Hudebniny Kromeříž",
         "en": "Sheetmusic Kromeříž",
         "sk": "Hudobniny Kromeříž",
-        "pl": "Nutowe rękopisy Kromieryż"
+        "pl": "Nutowe rękopisy Kromieryż",
+        "de": "Notenmaterial Kroměříž"
       },
       "actions": {
         "pdf": true,
@@ -69,15 +92,33 @@
         "text": true,
         "selection": true,
         "crop": true
+      },
+      "messagePages": [
+        {
+          "key": "unauthenticated",
+          "page": {
+            "cs": "local-config/nkp/html/licenses/public-muo.cs.html",
+            "en": "local-config/nkp/html/licenses/public-muo.en.html",
+            "de": "local-config/html/licenses/public-muo.de.html"
+          }
+        }
+      ],
+      "watermark": {
+        "type": "image",
+        "logo": "/img/logo/licenses/muo.png",
+        "rowCount": 1,
+        "colCount": 1,
+        "scale": 1.0,
+        "opacity": 1
       }
     },
-
     {
       "id": "knav_public_contract",
       "accessType": "open",
       "label": {
         "cs": "KNAV verejna smlouva",
-        "en": "KNAV public contract"
+        "en": "KNAV public contract",
+        "de": "KNAV öffentlicher Vertrag"
       },
       "actions": {
         "pdf": true,
@@ -88,7 +129,6 @@
         "crop": true
       }
     },
-
     {
       "id": "dnnto",
       "accessType": "login",
@@ -96,29 +136,67 @@
         "cs": "Díla nedostupná na trhu - online",
         "en": "Out of Commerce Works - online",
         "sk": "Diela nedostupná na trhu - online",
-        "pl": "Utwory niedostępne w handlu – online"
+        "pl": "Utwory niedostępne w handlu – online",
+        "de": "Vergriffene Werke – online"
       },
       "bar": {
-        "licenses": ["dnnto"],
+        "licenses": [
+          "dnnto"
+        ],
         "text": {
           "cs": "Díla nedostupná na trhu - online",
           "en": "Out of Commerce Works - online",
           "sk": "Diela nedostupná na trhu - online",
-          "pl": "Utwory niedostępne w handlu – online"
+          "pl": "Utwory niedostępne w handlu – online",
+          "de": "Vergriffene Werke – online"
         },
         "logo": "/img/logo/dnnt-white.png"
       },
       "messagePages": [
-        { "key": "unauthenticated", "page": { "cs": "local-config/mzk/html/licenses/dnnto.cs.html", "en": "local-config/mzk/html/licenses/dnnto.en.html" } },
-        { "key": "unauthorized", "page": { "cs": "local-config/mzk/html/licenses/dnnto2.cs.html", "en": "local-config/mzk/html/licenses/dnnto2.en.html" } },
-        { "key": "available", "page": { "cs": "local-config/mzk/html/licenses/dnnto3.cs.html", "en": "local-config/mzk/html/licenses/dnnto3.en.html" } }
+        {
+          "key": "unauthenticated",
+          "page": {
+            "cs": "local-config/mzk/html/licenses/dnnto.cs.html",
+            "en": "local-config/mzk/html/licenses/dnnto.en.html",
+            "de": "local-config/html/licenses/dnnto.de.html"
+          }
+        },
+        {
+          "key": "unauthorized",
+          "page": {
+            "cs": "local-config/mzk/html/licenses/dnnto2.cs.html",
+            "en": "local-config/mzk/html/licenses/dnnto2.en.html",
+            "de": "local-config/html/licenses/dnnto2.de.html"
+          }
+        },
+        {
+          "key": "available",
+          "page": {
+            "cs": "local-config/mzk/html/licenses/dnnto3.cs.html",
+            "en": "local-config/mzk/html/licenses/dnnto3.en.html",
+            "de": "local-config/html/licenses/dnnto3.de.html"
+          }
+        }
       ],
       "instructionPage": {
         "cs": "local-config/mzk/html/licenses/dnnto.instruction.cs.html",
-        "en": "local-config/mzk/html/licenses/dnnto.instruction.en.html"
+        "en": "local-config/mzk/html/licenses/dnnto.instruction.en.html",
+        "de": "local-config/html/licenses/dnnto.instruction.de.html"
+      },
+      "actions": {
+        "pdf": false,
+        "print": false,
+        "jpeg": false,
+        "text": false,
+        "selection": false,
+        "crop": false
+      },
+      "providedBy": {
+        "display": true,
+        "imageUrl": "/img/logo/provided-by-licenses/dnnto-logo.png",
+        "url": "https://dnnt.cz/"
       }
     },
-
     {
       "id": "dnntt",
       "accessType": "terminal",
@@ -126,21 +204,29 @@
         "cs": "Díla nedostupná na trhu - studovna",
         "en": "Out of Commerce Works - library terminal",
         "sk": "Diela nedostupná na trhu - študovňa",
-        "pl": "Utwory niedostępné w handlu – terminal biblioteczny"
+        "pl": "Utwory niedostępné w handlu – terminal biblioteczny",
+        "de": "Vergriffene Werke – Lesesaal"
       },
       "messagePages": [
-        { "key": "unauthenticated", "page": { "cs": "local-config/mzk/html/licenses/dnntt.cs.html", "en": "local-config/mzk/html/licenses/dnntt.en.html" } }
+        {
+          "key": "unauthenticated",
+          "page": {
+            "cs": "local-config/mzk/html/licenses/dnntt.cs.html",
+            "en": "local-config/mzk/html/licenses/dnntt.en.html",
+            "de": "local-config/html/licenses/dnntt.de.html"
+          }
+        }
       ],
       "instructionPage": {
         "cs": "local-config/mzk/html/licenses/dnntt.instruction.cs.html",
-        "en": "local-config/mzk/html/licenses/dnntt.instruction.en.html"
+        "en": "local-config/mzk/html/licenses/dnntt.instruction.en.html",
+        "de": "local-config/html/licenses/dnntt.instruction.de.html"
       },
       "actions": {
         "print": true,
         "text": true
       }
     },
-
     {
       "id": "onsite",
       "accessType": "terminal",
@@ -148,21 +234,29 @@
         "cs": "Studovna",
         "en": "Studovna",
         "sk": "Študovňa",
-        "pl": "Czytelnia"
+        "pl": "Czytelnia",
+        "de": "Studovna"
       },
       "messagePages": [
-        { "key": "unauthenticated", "page": { "cs": "local-config/mzk/html/licenses/onsite.cs.html", "en": "local-config/mzk/html/licenses/onsite.en.html" } }
+        {
+          "key": "unauthenticated",
+          "page": {
+            "cs": "local-config/mzk/html/licenses/onsite.cs.html",
+            "en": "local-config/mzk/html/licenses/onsite.en.html",
+            "de": "local-config/html/licenses/onsite.de.html"
+          }
+        }
       ],
       "instructionPage": {
         "cs": "local-config/mzk/html/licenses/onsite.instruction.cs.html",
-        "en": "local-config/mzk/html/licenses/onsite.instruction.en.html"
+        "en": "local-config/mzk/html/licenses/onsite.instruction.en.html",
+        "de": "local-config/html/licenses/onsite.instruction.de.html"
       },
       "actions": {
         "print": true,
         "text": true
       }
     },
-
     {
       "id": "onsite-sheetmusic",
       "accessType": "terminal",
@@ -170,18 +264,56 @@
         "cs": "Studovna - hudebniny",
         "en": "Studovna - hudebniny",
         "sk": "Študovňa - hudobniny",
-        "pl": "Czytelnia – nuty"
+        "pl": "Czytelnia – nuty",
+        "de": "Studovna - hudebniny"
       },
       "messagePages": [
-        { "key": "unauthenticated", "page": { "cs": "local-config/mzk/html/licenses/onsite-sheetmusic.cs.html", "en": "local-config/mzk/html/licenses/onsite-sheetmusic.en.html" } }
+        {
+          "key": "unauthenticated",
+          "page": {
+            "cs": "local-config/mzk/html/licenses/onsite-sheetmusic.cs.html",
+            "en": "local-config/mzk/html/licenses/onsite-sheetmusic.en.html",
+            "de": "local-config/html/licenses/onsite-sheetmusic.de.html"
+          }
+        }
       ],
       "instructionPage": {
         "cs": "local-config/mzk/html/licenses/onsite-sheetmusic.instruction.cs.html",
-        "en": "local-config/mzk/html/licenses/onsite-sheetmusic.instruction.en.html"
+        "en": "local-config/mzk/html/licenses/onsite-sheetmusic.instruction.en.html",
+        "de": "local-config/html/licenses/onsite-sheetmusic.instruction.de.html"
       },
       "actions": {
         "print": true,
         "text": true
+      }
+    },
+    {
+      "id": "orphan",
+      "accessType": "open",
+      "label": {
+        "cs": "Osiřelá díla",
+        "en": "Orphan works",
+        "sk": "Osirelé diela",
+        "pl": "Utwory osierocone",
+        "de": "Verwaiste Werke"
+      },
+      "messagePages": [
+        {
+          "key": "unauthenticated",
+          "page": {
+            "cs": "local-config/nkp/html/licenses/orphan.cs.html",
+            "en": "local-config/nkp/html/licenses/orphan.en.html",
+            "de": "local-config/html/licenses/orphan.de.html"
+          }
+        }
+      ],
+      "actions": {
+        "pdf": true,
+        "print": true,
+        "jpeg": true,
+        "text": true,
+        "selection": true,
+        "crop": true
       }
     }
   ]
