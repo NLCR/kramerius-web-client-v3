@@ -1,3 +1,4 @@
+@use "mixins";
 @use "_z-index.scss" as z;
 
 .playback-bar {
@@ -20,9 +21,9 @@
     align-items: center;
     gap: 12px;
     flex: 1;
-    // Let text truncate instead of overflowing the fixed-height bar — a flex
-    // item's min-width defaults to its content size, which otherwise defeats
-    // text-overflow:ellipsis on the children below.
+    // A flex item's min-width defaults to its content size, which defeats
+    // text-overflow on the children below and lets a long track title push
+    // past the bar's fixed height (GitHub issue #172).
     min-width: 0;
 
     .cover {
@@ -104,11 +105,11 @@
   }
 }
 
-// Mobile: the desktop layout (cover + title + play controls + timeline +
-// volume + queue + close, all in one row) has no room to fit the close
-// button on screen. Drop the timeline and volume slider and let the info
-// column shrink so play/queue/close stay reachable (GitHub issue #172).
-@media (max-width: 603px) {
+// Mobile: the desktop row (cover + title + controls + timeline + volume +
+// queue + close) has no room to fit the close button on screen, so playback
+// could not be stopped at all. Drop the timeline and the volume slider and
+// let the info column shrink so play/queue/close stay reachable (issue #172).
+@include mixins.respond(mobile-sm) {
   .playback-bar {
     gap: var(--spacing-x2);
     padding: var(--spacing-x2) var(--spacing-x3);
@@ -125,7 +126,9 @@
       flex-shrink: 0;
       gap: 4px;
 
-      .volume {
+      // Volume lives in its own component here, so the host is what must be
+      // hidden - the inner .volume class is out of reach from this stylesheet.
+      app-volume-control {
         display: none;
       }
     }

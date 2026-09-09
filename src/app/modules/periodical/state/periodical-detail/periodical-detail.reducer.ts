@@ -17,6 +17,14 @@ export interface PeriodicalDetailState {
   metadata: Metadata | null;
   years: PeriodicalItemYear[];
   availableYears: PeriodicalItemYear[];
+  /**
+   * Root periodical the cached `availableYears` were loaded for. The list is
+   * reused across navigations to avoid re-requesting the volumes, so it must be
+   * possible to tell whose volumes are being held: without this, opening another
+   * title kept the previous periodical's volumes and the calendar resolved dates
+   * against the wrong title (issue #169).
+   */
+  availableYearsRootPid: string | null;
   children: PeriodicalItemChild[];
   loading: boolean;
   error: any;
@@ -40,6 +48,7 @@ export const initialState: PeriodicalDetailState = {
   metadata: null,
   years: [],
   availableYears: [],
+  availableYearsRootPid: null,
   children: [],
   loading: false,
   error: null,
@@ -102,7 +111,7 @@ export const periodicalDetailReducer = createReducer(
       }
     };
   }),
-  on(loadPeriodicalSuccess, (state, { document, metadata, years, availableYears, children, facets }) => {
+  on(loadPeriodicalSuccess, (state, { document, metadata, years, availableYears, availableYearsRootPid, children, facets }) => {
     // Ignore a late response belonging to a title that is no longer active.
     if (state.activeUuid && metadata?.uuid && metadata.uuid !== state.activeUuid) {
       return state;
@@ -115,6 +124,7 @@ export const periodicalDetailReducer = createReducer(
       metadata,
       years,
       availableYears: availableYears ?? state.availableYears,
+      availableYearsRootPid: availableYears ? (availableYearsRootPid ?? null) : state.availableYearsRootPid,
       children: children || []
     };
   }),
@@ -136,12 +146,13 @@ export const periodicalDetailReducer = createReducer(
       ...(volumeChanged ? {
         years: [],
         availableYears: [],
+        availableYearsRootPid: null,
         monthIssues: {},
         monthLoading: {},
       } : {}),
     };
   }),
-  on(loadPeriodicalItemsSuccess, (state, { parentVolumeUuid, children, availableYears }) => {
+  on(loadPeriodicalItemsSuccess, (state, { parentVolumeUuid, children, availableYears, availableYearsRootPid }) => {
     if (state.activeItemsParentUuid && state.activeItemsParentUuid !== parentVolumeUuid) {
       return state;
     }
@@ -150,6 +161,7 @@ export const periodicalDetailReducer = createReducer(
       loading: false,
       children: children || [],
       availableYears: availableYears ?? state.availableYears,
+      availableYearsRootPid: availableYears ? (availableYearsRootPid ?? null) : state.availableYearsRootPid,
     };
   }),
   on(loadPeriodicalItemsFailure, (state, { parentVolumeUuid, error }) =>

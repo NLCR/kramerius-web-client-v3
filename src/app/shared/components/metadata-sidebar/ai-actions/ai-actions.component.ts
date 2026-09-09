@@ -5,7 +5,6 @@ import { TtsService } from '../../../services/tts.service';
 import { AiPanelService } from '../../../services/ai-panel.service';
 import { DetailViewService } from '../../../../modules/detail-view-page/services/detail-view.service';
 import { UserService } from '../../../services/user.service';
-import { AuthService } from '../../../../core/auth/auth.service';
 import { SettingsService } from '../../../../modules/settings/settings.service';
 import { DocumentInfoService } from '../../../services/document-info.service';
 import { ConfigService } from '../../../../core/config/config.service';
@@ -24,7 +23,6 @@ export class AiActionsComponent {
   aiPanelService = inject(AiPanelService);
   private detailViewService = inject(DetailViewService);
   userService = inject(UserService);
-  private authService = inject(AuthService);
   private router = inject(Router);
   private settingsService = inject(SettingsService);
   documentInfoService = inject(DocumentInfoService);
@@ -67,10 +65,10 @@ export class AiActionsComponent {
 
   login(): void {
     // Same flow as the header's login button: go through the terms/GDPR
-    // consent page first, and preserve the full path (incl. ?page=...) so the
+    // consent page first, and carry the full router URL (incl. ?page=) so the
     // reader returns to the exact page they were on, not the document's first
     // page (see GitHub issue #164).
-    const returnUrl = window.location.pathname + window.location.search;
+    const returnUrl = this.router.url;
     this.router.navigate(['pages/terms'], { queryParams: { returnUrl } });
   }
 

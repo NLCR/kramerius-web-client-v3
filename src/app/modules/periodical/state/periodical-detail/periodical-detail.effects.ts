@@ -14,7 +14,7 @@ import {
 import { Store } from '@ngrx/store';
 import { SolrService } from '../../../../core/solr/solr.service';
 import {
-  selectAvailableYears,
+  selectCachedAvailableYears,
   selectPeriodicalFacetOperators,
   selectPeriodicalSearchParams,
 } from './periodical-detail.selectors';
@@ -177,6 +177,7 @@ export class PeriodicalDetailEffects {
                 metadata: data,
                 years,
                 availableYears,
+                availableYearsRootPid: data.uuid,
                 facets: {} // Facets will load separately
               });
             }),
@@ -219,8 +220,8 @@ export class PeriodicalDetailEffects {
           );
 
           const processChildren$ = children$.pipe(
-            withLatestFrom(this.store.select(selectAvailableYears)),
-            switchMap(([children, previousAvailableYears]) => {
+            withLatestFrom(this.store.select(selectCachedAvailableYears)),
+            switchMap(([children, cachedYears]) => {
 
               children.map(i => {
                 if (!i['licenses'] || i['licenses'].length === 0 && i['licenses.facet']) {
@@ -232,20 +233,26 @@ export class PeriodicalDetailEffects {
               // pointing to the volume so the detail view loads the pages correctly
               const processedChildren = this.createVirtualIssueIfNeeded(children, data.uuid);
 
-              if (previousAvailableYears?.length > 0) {
+              const rootPid = data.rootPid;
+              if (!rootPid) {
+                return of(loadPeriodicalFailure({ error: 'Missing rootPid for periodicalvolume' }));
+              }
+
+              // Reuse the cached volumes only when they belong to this very
+              // periodical. They used to be reused whenever the list was
+              // non-empty, so moving to another title kept the previous one's
+              // volumes and the calendar resolved its dates against them
+              // (issue #169).
+              if (cachedYears.years.length > 0 && cachedYears.rootPid === rootPid) {
                 return of(loadPeriodicalSuccess({
                   document: periodical,
                   metadata: data,
                   years: [],
-                  availableYears: previousAvailableYears,
+                  availableYears: cachedYears.years,
+                  availableYearsRootPid: rootPid,
                   children: processedChildren,
                   facets: {}
                 }));
-              }
-
-              const rootPid = data.rootPid;
-              if (!rootPid) {
-                return of(loadPeriodicalFailure({ error: 'Missing rootPid for periodicalvolume' }));
               }
 
               return this.solr.getPeriodicalVolumes(rootPid).pipe(
@@ -256,6 +263,7 @@ export class PeriodicalDetailEffects {
                     metadata: data,
                     years: [],
                     availableYears,
+                    availableYearsRootPid: rootPid,
                     children: processedChildren,
                     facets: {}
                   });
@@ -409,8 +417,8 @@ export class PeriodicalDetailEffects {
           SolrSortDirections.asc, // sortDirection
           '' // no advanced query
         ).pipe(
-          withLatestFrom(this.store.select(selectAvailableYears)),
-          switchMap(([children, previousAvailableYears]) => {
+          withLatestFrom(this.store.select(selectCachedAvailableYears)),
+          switchMap(([children, cachedYears]) => {
             // Keep every access signal. Some indexes expose `public` in
             // `licenses` and DNNT/onsite in `licenses.facet` (or vice versa);
             // preferring either field can therefore render the wrong lock.
@@ -424,38 +432,42 @@ export class PeriodicalDetailEffects {
             // If all children are pages (no issues), create a virtual issue
             const processedChildren = this.createVirtualIssueIfNeeded(children, parentVolumeUuid);
 
-            console.log('previousAvailableYears:', previousAvailableYears);
+            // The root periodical these items belong to; the cached volumes are
+            // only usable when they were loaded for the same one.
+            const rootPid = children[0]?.['root.pid'];
 
-            // If we already have availableYears, use them
-            if (previousAvailableYears?.length > 0) {
+            if (!rootPid) {
+              console.warn('No rootPid found in children, cannot load availableYears');
+              // Nothing identifies the title, so the cache cannot be trusted
+              // either - drop it rather than let another periodical's volumes
+              // stand in for this one (issue #169).
               return of(loadPeriodicalItemsSuccess({
                 parentVolumeUuid,
                 children: processedChildren,
-                availableYears: previousAvailableYears
+                availableYears: [],
+                availableYearsRootPid: null
               }));
             }
 
-            // If no availableYears, we need to load them from the root periodical
-            // We'll need to get the rootPid from one of the children
-            const firstChild = children[0];
-            console.log('First child:', firstChild);
-            if (!firstChild?.['root.pid']) {
-              console.warn('No rootPid found in children, cannot load availableYears');
+            // Reuse the cached volumes only when they belong to this periodical.
+            if (cachedYears.years.length > 0 && cachedYears.rootPid === rootPid) {
               return of(loadPeriodicalItemsSuccess({
                 parentVolumeUuid,
                 children: processedChildren,
-                availableYears: []
+                availableYears: cachedYears.years,
+                availableYearsRootPid: rootPid
               }));
             }
 
             // Load volumes to get availableYears
-            return this.solr.getPeriodicalVolumes(firstChild['root.pid']).pipe(
+            return this.solr.getPeriodicalVolumes(rootPid).pipe(
               map(volumes => {
                 const availableYears = this.mapAvailableYears(volumes);
                 return loadPeriodicalItemsSuccess({
                   parentVolumeUuid,
                   children: processedChildren,
-                  availableYears
+                  availableYears,
+                  availableYearsRootPid: rootPid
                 });
               }),
               catchError(error => {
@@ -464,7 +476,8 @@ export class PeriodicalDetailEffects {
                 return of(loadPeriodicalItemsSuccess({
                   parentVolumeUuid,
                   children: processedChildren,
-                  availableYears: []
+                  availableYears: [],
+                  availableYearsRootPid: null
                 }));
               })
             );

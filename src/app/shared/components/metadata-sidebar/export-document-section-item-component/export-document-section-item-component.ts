@@ -47,6 +47,8 @@ export class ExportDocumentSectionItemComponent implements OnChanges, OnDestroy 
   @Input() loading = false;
   @Input() loginRequired = false;
   @Input() directPdfPid: string | null = null;
+  /** Optional translation key rendered as an informational note below the options. */
+  @Input() note = '';
   @Input() set expanded(value: boolean) { this._expanded.set(value); }
 
   @Output() submit = new EventEmitter<string>();

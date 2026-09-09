@@ -63,7 +63,7 @@
     border: none;
     cursor: pointer;
     color: var(--color-primary);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-small);
 
     &:hover,
     &:focus-visible {
@@ -87,10 +87,14 @@
   // Mirrors the collapsible-content action so both read the same.
   .alternative-titles--toggle {
     gap: var(--spacing-x2);
-    line-height: var(--line-height-2);
+    // Mirrors app-collapsible-content's toggle: 14px like the rest of the panel
+    // (the .md class it carries is 16px; .small would also pull in a padding
+    // that overrides .no-padding).
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-1);
 
     i {
-      font-size: var(--font-size-xlarge);
+      font-size: var(--font-size-base);
       transition: transform 0.2s ease;
 
       &.rotated {
@@ -104,9 +108,9 @@
 
     &--label {
       color: var(--color-text-secondary);
-      font-weight: 600;
-      font-size: var(--font-size-base);
-      line-height: var(--line-height-2);
+      font-weight: var(--font-weight-semi-bold);
+      font-size: var(--font-size-small);
+      line-height: var(--line-height-1);
       margin: 0 0 var(--spacing-x0-5);
       font-family: var(--font-family-body);
     }
@@ -115,8 +119,8 @@
       list-style: none;
       margin: 0;
       padding-left: 0;
-      font-size: var(--font-size-base);
-      line-height: var(--line-height-2);
+      font-size: var(--font-size-small);
+      line-height: var(--line-height-1);
 
       &.with-bullets {
         list-style: disc;
@@ -139,8 +143,8 @@
     list-style: none;
     margin: 0;
     padding-left: 0;
-    font-size: var(--font-size-base);
-    line-height: var(--line-height-2);
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-1);
 
     &.with-bullets {
       list-style: disc;
@@ -155,9 +159,9 @@
   .cartographic-data {
     h3 {
       color: var(--color-text-secondary);
-      font-weight: 600;
-      font-size: var(--font-size-base);
-      line-height: var(--line-height-2);
+      font-weight: var(--font-weight-semi-bold);
+      font-size: var(--font-size-small);
+      line-height: var(--line-height-1);
       margin: 0 0 var(--spacing-x0-5);
       font-family: var(--font-family-body);
     }
@@ -212,8 +216,8 @@
       align-items: center;
 
       .label {
-        font-weight: 600;
-        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-semi-bold);
+        font-size: var(--font-size-small);
         color: var(--color-text-secondary);
       }
 
@@ -259,7 +263,7 @@
         min-width: 0;
 
         .detail-label {
-          font-weight: 600;
+          font-weight: var(--font-weight-semi-bold);
           font-size: var(--font-size-small);
           color: #333;
         }
@@ -305,8 +309,8 @@
     gap: var(--spacing-x1);
 
     &__title {
-      font-size: var(--font-size-base);
-      font-weight: 600;
+      font-size: var(--font-size-small);
+      font-weight: var(--font-weight-semi-bold);
       margin: 0;
     }
 
@@ -320,7 +324,7 @@
     &__link {
       color: var(--color-text-link, var(--color-primary));
       text-decoration: none;
-      font-size: var(--font-size-base);
+      font-size: var(--font-size-small);
 
       &:hover,
       &:focus-visible {
@@ -361,8 +365,8 @@
     gap: var(--spacing-x1);
 
     &__title {
-      font-size: var(--font-size-base);
-      font-weight: 400;
+      font-size: var(--font-size-small);
+      font-weight: var(--font-weight-semi-bold);
       margin: 0;
     }
 
