@@ -1,4 +1,9 @@
   <span class="badge model" [ngClass]="model"
         [appCdkTooltip]="getTooltipKey() ? (getTooltipKey() | translate) : ''">
+    @if (hasDoubleBookIcon()) {
+      <i class="icon-book-2" aria-hidden="true"></i>
+    } @else if (getModelIcon(model, monographUnitCount); as modelIcon) {
+      <i [class]="modelIcon" aria-hidden="true"></i>
+    }
     {{ getLabelKey() | translate }}@if (hasUnitPartNumber()) { ({{ getUnitCountLabel() }})}@else if (!isMonographUnit() && shouldShowCount()) { ({{ monographUnitCount }})}
   </span>

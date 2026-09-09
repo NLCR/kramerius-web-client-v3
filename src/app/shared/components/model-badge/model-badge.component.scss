@@ -10,6 +10,11 @@
   white-space: nowrap;
   color: var(--color-text-on-color);
 
+  i {
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
   &.monograph { background-color: var(--color-bg-tag-monograph); }
   &.monograph-multivolume { background-color: var(--color-bg-tag-monograph-multivolume); }
   &.monographunit { background-color: var(--color-bg-tag-monographunit); }
