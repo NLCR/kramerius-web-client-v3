@@ -62,21 +62,33 @@
   cursor: not-allowed;
 }
 
+// The viewport now owns the scrolling that .page-selection-grid used to do.
+.page-selection-grid__viewport {
+  height: 60vh;
+  width: 100%;
+}
+
 .page-selection-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 16px;
-  max-height: 60vh;
-  overflow-y: auto;
+  row-gap: 16px;
 
-  // At 1440px width, cards will be approximately 124px
-  @media (min-width: 1024px) {
-    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
-  }
+  // Each row is its own grid so cdkVirtualFor can position rows absolutely.
+  // The column template lives on the row; the component measures the resulting
+  // column count from the DOM rather than duplicating these breakpoints in TS.
+  &__row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 16px;
+    padding-bottom: 16px;
 
-  // On larger screens, allow cards to grow a bit more
-  @media (min-width: 1600px) {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    // At 1440px width, cards will be approximately 124px
+    @media (min-width: 1024px) {
+      grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+    }
+
+    // On larger screens, allow cards to grow a bit more
+    @media (min-width: 1600px) {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
   }
 }
 
