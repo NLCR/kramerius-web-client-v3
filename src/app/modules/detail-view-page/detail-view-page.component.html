@@ -213,8 +213,7 @@
           <!-- Show access denied after access check completes and fails -->
           @if (checkState === 'LOADED' && !recordHandler.isRecordPublic(document.licences) &&
           !documentInfoService.canAccessDocument() && !userService.hasAnyLicense(document.licences)) {
-            <app-document-access-denied [metadata]="document"
-                                        [requiredLicenses]="documentInfoService.getRuntimeLicenses().length ? documentInfoService.getRuntimeLicenses() : document.licences">
+            <app-document-access-denied [metadata]="document">
             </app-document-access-denied>
           } @else if (checkState === 'INITIAL' || checkState === 'LOADING') {
             <!-- Show loader while access is being (re)checked. This keeps the

@@ -116,8 +116,7 @@
 
               <!-- Images view: access denied replaces content -->
               @if (accessDenied) {
-                <app-document-access-denied [metadata]="document"
-                  [requiredLicenses]="documentInfoService.getRuntimeLicenses().length ? documentInfoService.getRuntimeLicenses() : document.licences">
+                <app-document-access-denied [metadata]="document">
                 </app-document-access-denied>
               } @else {
 
@@ -165,8 +164,7 @@
 
               @if (accessDenied) {
                 <div id="music-access-denied-section">
-                  <app-document-access-denied [metadata]="document"
-                    [requiredLicenses]="documentInfoService.getRuntimeLicenses().length ? documentInfoService.getRuntimeLicenses() : document.licences">
+                  <app-document-access-denied [metadata]="document">
                   </app-document-access-denied>
                 </div>
               }
