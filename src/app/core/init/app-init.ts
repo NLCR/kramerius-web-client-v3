@@ -4,6 +4,37 @@ import { UserService } from '../../shared/services/user.service';
 import { initLicenseConfig } from '../solr/solr-misc';
 import { SolrQueryBuilder } from '../solr/solr-query-builder';
 
+/** Uses the configured application logo as the browser-tab icon. */
+export function updateFaviconFromLogo(logo: string | undefined, targetDocument?: Document): void {
+  if (!logo) return;
+
+  const doc = targetDocument ?? (typeof document !== 'undefined' ? document : null);
+  if (!doc) return;
+
+  let link = doc.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  if (!link) {
+    link = doc.createElement('link');
+    link.rel = 'icon';
+    doc.head.appendChild(link);
+  }
+
+  link.setAttribute('href', logo);
+  const path = logo.split(/[?#]/, 1)[0].toLowerCase();
+  if (path.endsWith('.ico')) {
+    link.type = 'image/x-icon';
+  } else if (path.endsWith('.svg')) {
+    link.type = 'image/svg+xml';
+  } else if (path.endsWith('.png')) {
+    link.type = 'image/png';
+  } else if (/\.jpe?g$/u.test(path)) {
+    link.type = 'image/jpeg';
+  } else if (path.endsWith('.webp')) {
+    link.type = 'image/webp';
+  } else {
+    link.removeAttribute('type');
+  }
+}
+
 /**
  * APP_INITIALIZER factory.
  * Library routing is handled by the :libCode route prefix and libraryPrefixGuard.
@@ -20,6 +51,7 @@ export function initApp(envService: EnvironmentService, configService: ConfigSer
         '</div>';
       throw err;
     }
+    updateFaviconFromLogo(configService.app.logo);
     initLicenseConfig(configService);
     SolrQueryBuilder.setConfiguredModels(configService.getConfig().search?.doctypes || []);
 
