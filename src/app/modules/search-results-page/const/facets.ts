@@ -207,12 +207,6 @@ export function getCustomDefinedFacets() {
           label: 'custom-accessibility--all',
           count: 0,
           type: FacetElementType.radio,
-          icons: [
-            FacetIcons.onsite,
-            FacetIcons.locked,
-            FacetIcons.unlocked,
-            FacetIcons.public,
-          ],
           tooltipIcon: 'icon-question',
           tooltipText: 'custom-accessibility--all-tooltip',
         },
