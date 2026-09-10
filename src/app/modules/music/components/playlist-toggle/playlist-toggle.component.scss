@@ -5,15 +5,19 @@
   width: 100%;
   min-height: 52px;
   padding: 0 var(--spacing-x3);
-  border: 1px solid var(--color-border-light);
+  border: 1px solid var(--color-border-bright);
   border-radius: var(--spacing-x2);
   background: var(--color-bg-base);
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease, filter 0.2s ease;
 
+  // Hover keeps the primary border of the pressed state but shifts the surface
+  // and lifts the card, so it reads as distinct from "active" in both states.
   &:hover {
-    border-color: var(--color-border-primary-hover);
+    border-color: var(--color-border-primary-default);
+    background: var(--color-bg-light);
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.12));
   }
 
   &:focus-visible {
@@ -22,7 +26,8 @@
   }
 
   // Pressed = the track list is showing. The design marks it with the primary
-  // border; the released state falls back to the neutral light border above.
+  // border against the base surface; released falls back to the neutral
+  // "bright" border above, which is dark enough to read as clearly off.
   &.playlist-toggle--active {
     border-color: var(--color-border-primary-default);
   }
