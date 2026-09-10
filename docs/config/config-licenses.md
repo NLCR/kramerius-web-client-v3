@@ -405,9 +405,18 @@ Sekce se v UI ukáže jen tehdy, když dokument má alespoň jednu runtime licen
 
 ## `watermark` — vodoznak v prohlížeči
 
-Vodoznak se vykresluje jako překryv nad obrazem stránky. Používá se u licencí, které umožňují prohlížení, ale chtějí obraz chránit proti nekontrolovanému pořizování kopií.
+Vodoznak se vykresluje **do obrazu stránky**. Používá se u licencí, které umožňují prohlížení, ale chtějí obraz chránit proti nekontrolovanému pořizování kopií.
 
 Dva režimy — textový nebo obrázkový.
+
+### Vodoznak je přilepený na stránku
+
+Vodoznak není překryv nad oknem prohlížeče, ale patří ke skenu:
+
+- **drží své místo na stránce** — při posunu obrazu se posouvá s ním,
+- **zvětšuje se a zmenšuje se skenem** — při přiblížení roste stejně jako obraz, jako by byl na stránce vytištěný,
+- **je omezen na plochu stránky** — při oddálení zůstává šedé okolí skenu čisté,
+- **mřížka se neposouvá** — u `probability` menší než `100` se rozmístění vylosuje jednou pro danou stránku, takže vodoznaky při posunu a přiblížení neposkakují.
 
 ### Textový vodoznak
 
@@ -422,10 +431,15 @@ Dva režimy — textový nebo obrázkový.
 "cs": "Nekopírovat",
 "en": "Do not copy"
 },
-"fontSize": 14,
+"scale": 0.8,
+"rotation": 45,
 "color": "rgba(0,0,0,0.5)"
 }
 ```
+
+Mřížka 3×3 rozmístí devět textů po stránce, `scale: 0.8` udělá každý z nich
+osmi desetinami šířky své buňky (tedy asi 27 % šířky stránky) a `rotation: 45`
+je postaví diagonálně.
 
 ### Obrázkový vodoznak
 
@@ -437,9 +451,11 @@ Dva režimy — textový nebo obrázkový.
 "colCount": 2,
 "probability": 100,
 "logo": "/local-config/img/watermark.png",
-"scale": 1.0
+"scale": 0.5
 }
 ```
+
+Mřížka 2×2 rozdělí stránku na čtyři buňky (každá je poloviční šířky stránky) a `scale: 0.5` udělá každý vodoznak poloviční vůči své buňce — tedy čtvrtinu šířky stránky.
 
 ### Společná pole
 
@@ -449,22 +465,56 @@ Dva režimy — textový nebo obrázkový.
 | `opacity` | ne | Průhlednost 0 až 1. | `0.15` |
 | `rowCount` | ne | Počet řádků mřížky vodoznaku přes stránku. | `3` |
 | `colCount` | ne | Počet sloupců mřížky. | `3` |
-| `probability` | ne | Pravděpodobnost 0 až 100, že se vodoznak v dané buňce mřížky vykreslí. `100` = vždy, `50` = zhruba polovina buněk. | `100` |
+| `probability` | ne | Pravděpodobnost 0 až 100, že se vodoznak v dané buňce mřížky vykreslí. `100` = vždy, `50` = zhruba polovina buněk. Losuje se jednou pro danou stránku. | `100` |
+| `scale` | ne | **Jak velkou část šířky své buňky vodoznak zabírá.** Viz níže. | `1.0` |
+| `rotation` | ne | Otočení ve stupních proti směru hodinových ručiček. `0` = nakřivo neotočený, `45` = diagonálně. | `0` |
+
+### `scale` — jak se určuje velikost
+
+`rowCount` × `colCount` rozdělí **stránku** na stejné buňky a do středu každé se
+vykreslí jeden vodoznak. **`scale` pak říká, jakou část šířky své buňky vodoznak
+zabírá:**
+
+| `scale` | Velikost vodoznaku |
+|---|---|
+| `1.0` | přes celou šířku buňky |
+| `0.5` | přes polovinu šířky buňky |
+| `0.25` | přes čtvrtinu šířky buňky |
+
+Při výchozí mřížce `1×1` je buňkou celá stránka, takže:
+
+- `scale: 1.0` → vodoznak přes **celou šířku stránky**
+- `scale: 0.5` → vodoznak přes **polovinu šířky stránky**
+- `scale: 0.33` → vodoznak přes **třetinu šířky stránky**
+
+Při mřížce `3×3` je každá buňka třetinou stránky, takže `scale: 1.0` udělá z
+každého z devíti vodoznaků třetinu šířky stránky (buňky se dotýkají) a
+`scale: 0.5` šestinu (mezi vodoznaky zůstane mezera).
+
+> **Velikost nezávisí ani na rozlišení skenu, ani na velikosti souboru s logem.**
+> Stejná konfigurace tedy vykreslí stejně velký vodoznak na každém dokumentu a
+> velikost lze při psaní konfigurace odhadnout dopředu. Nezáleží na tom, jestli
+> je logo 200 px nebo 4000 px široké — `scale` se vztahuje ke stránce, ne k
+> souboru.
+
+U obrázku se zachová poměr stran a výška je zastropovaná na stejnou část výšky
+buňky, aby vysoké logo nepřeteklo svou buňku. U textu se velikost fontu spočítá
+tak, aby text zabral `scale` šířky buňky — delší text tedy vyjde menším písmem
+než krátký, protože oba mají zabrat stejnou šířku.
 
 ### Jen pro `type: "image"`
 
 | Pole | Povinné | Popis | Výchozí |
 |---|---|---|---|
 | `logo` | ano | Cesta k obrázku vodoznaku. | — |
-| `scale` | ne | Měřítko obrázku (`1.0` = původní velikost). | `1.0` |
 
 ### Jen pro `type: "text"`
 
 | Pole | Povinné | Popis | Výchozí |
 |---|---|---|---|
 | `staticText` | ano | Lokalizovaný text vodoznaku. | — |
-| `fontSize` | ne | Velikost fontu v pixelech. | `14` |
 | `color` | ne | Barva textu v CSS formátu. | `rgba(0,0,0,0.5)` |
+| `fontSize` | ne | Zastaralé. Velikost fontu v pixelech obrazu, použije se **jen když chybí `scale`**. Doporučuje se místo něj `scale`, jehož výsledek je předvídatelný. | — |
 
 ---
 
