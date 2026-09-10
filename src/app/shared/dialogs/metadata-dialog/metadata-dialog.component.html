@@ -22,8 +22,7 @@
                     </div>
                 </div>
 
-                <ng-container
-                    *ngFor="let tab of ['mods', 'dc', 'solr', 'foxml', 'alto', 'ocr', 'item', 'children', 'iiif']">
+                <ng-container *ngFor="let tab of visibleTabs">
                     <app-tab-item [label]="tab">
                         <div class="tab-item--content" [class.loading]="isLoading">
                             <div *ngIf="isLoading" class="loader">Loading...</div>

@@ -71,6 +71,12 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   private subscriptions: Subscription[] = [];
 
   private viewer: OpenSeadragon.Viewer | null = null;
+  /**
+   * Exposed to the template so the watermark overlay can bind to the live
+   * viewer: it draws in image coordinates and needs the viewport to project
+   * them onto the screen.
+   */
+  public readonly osdViewer = signal<OpenSeadragon.Viewer | null>(null);
   private updateViewer$ = new Subject<void>();
   private failedPids = new Set<string>();
   private directImageFailedPids = new Set<string>();
@@ -261,6 +267,8 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     }
 
     if (this.viewer) {
+      // Detach the watermark's viewport handlers before the viewer goes away.
+      this.osdViewer.set(null);
       this.viewer.destroy();
     }
     // Disable test mode when component is destroyed
@@ -380,6 +388,7 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
 
   private createViewer(tileSource: any): void {
     if (this.viewer) {
+      this.osdViewer.set(null);
       this.viewer.destroy();
     }
 
@@ -423,6 +432,10 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       visibilityRatio: 1,
       constrainDuringPan: false
     });
+
+    // Hand the new viewer to the watermark overlay, which projects its image
+    // coordinates through this viewport.
+    this.osdViewer.set(this.viewer);
 
     // Reset fallback state when image source opens, then wait for all tiles to render
     this.viewer.addHandler('open', () => {
@@ -824,6 +837,11 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   }
 
   onExport() {
+    // Selecting an area stays allowed under a restricted license — only taking
+    // the image away is blocked. Checked here and not just on the button because
+    // the Enter-key shortcut in `handleEnterPress` calls this directly.
+    if (!this.detailViewService.isActionAllowed('crop')) return;
+
     if (this.currentImageRect && this.imagePid) {
       const rect = {
         x: this.currentImageRect.x,

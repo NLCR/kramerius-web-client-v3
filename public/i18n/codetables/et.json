@@ -41,6 +41,7 @@
   "sources": "Allikad",
   "licences": "Litsentsid",
   "genres": "Žanrid",
-  "locations": "Asukohad",
+  "locations": "Asukoht",
+  "shelf-locator": "Kohaviit",
   "geonames": "Geograafilised nimed"
 }

@@ -14,9 +14,11 @@
       </div>
     } @else if (aiPanelService.styledHtml()) {
       <div class="ai-content-panel__content" [style.font-size.px]="aiPanelService.fontSize()"
+           [appNoTextCopy]="textCopyBlocked()"
            [innerHTML]="aiPanelService.styledHtml()"></div>
     } @else if (aiPanelService.content()) {
-      <div class="ai-content-panel__content" [style.font-size.px]="aiPanelService.fontSize()">
+      <div class="ai-content-panel__content" [style.font-size.px]="aiPanelService.fontSize()"
+           [appNoTextCopy]="textCopyBlocked()">
         {{ aiPanelService.content() }}
       </div>
     }

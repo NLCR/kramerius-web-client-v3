@@ -13,6 +13,8 @@ export class PageNavigatorComponent {
 
   @Input() currentPage = 1;
   @Input() totalPages = 1;
+  /** Translation key for the leading label; "Strana" unless overridden. */
+  @Input() label = 'page';
 
   @Output() prev = new EventEmitter<void>();
   @Output() next = new EventEmitter<void>();

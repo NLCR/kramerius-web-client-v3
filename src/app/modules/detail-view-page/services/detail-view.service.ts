@@ -41,6 +41,7 @@ import { PdfService } from '../../../shared/services/pdf.service';
 import { UserService } from '../../../shared/services/user.service';
 import { RecordHandlerService } from '../../../shared/services/record-handler.service';
 import { ConfigService } from '../../../core/config/config.service';
+import { LicenseActionsConfig } from '../../../core/config/config.interfaces';
 import { CdkSourceService } from '../../../shared/services/cdk-source.service';
 import { parseIssueStartDate } from '../../../shared/utils/periodical-date';
 
@@ -318,6 +319,24 @@ export class DetailViewService {
     if (doc.licences.some(l => terminalLicenses.includes(l))) return 'terminal';
     return 'default';
   });
+
+  /**
+   * Whether the current document's licenses permit `action`.
+   *
+   * The single place components ask "may this reader do X to *this* document".
+   * Before this existed the permission matrix was configured but never read, so
+   * every restricted action (text selection, area crop, JPEG/PDF/print export)
+   * was offered on DNNTO documents. See `ConfigService.isLicenseActionAllowed`
+   * for the most-restrictive-wins semantics.
+   *
+   * Reads `documentSignal()`, so calling this from a template or a `computed`
+   * registers a dependency on the document and re-evaluates when it changes.
+   * Callers that cache the result in a plain field instead would go stale on the
+   * next document.
+   */
+  isActionAllowed(action: keyof LicenseActionsConfig): boolean {
+    return this.configService.isLicenseActionAllowed(this.documentSignal()?.licences, action);
+  }
 
   /**
    * Computed: true when a license bar is shown — document has a bar-configured license (non-public)

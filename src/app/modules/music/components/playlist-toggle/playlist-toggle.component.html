@@ -1,0 +1,18 @@
+<button
+  type="button"
+  class="playlist-toggle"
+  [class.playlist-toggle--active]="active"
+  [attr.aria-pressed]="active"
+  (click)="toggled.emit(!active)">
+
+  <span class="playlist-toggle--info">
+    <span class="playlist-toggle--header">
+      <i class="icon-music-filter" aria-hidden="true"></i>
+      <span class="playlist-toggle--title">{{ 'sound-records--playlist-title' | translate }}</span>
+    </span>
+
+    <span class="playlist-toggle--details">{{ trackCountLabel | translate: { count: trackCount } }}</span>
+  </span>
+
+  <img class="playlist-toggle--image" src="/img/playlist-folder.png" alt="" aria-hidden="true" />
+</button>

@@ -42,9 +42,11 @@
       <i class="icon-maximize-3"></i>
     </button>
 
-    <button class="button square-button tertiary outlined" (click)="copyContent()" [title]="'ai.copy' | translate">
-      <i class="icon-copy"></i>
-    </button>
+    @if (canCopyContent) {
+      <button class="button square-button tertiary outlined" (click)="copyContent()" [title]="'ai.copy' | translate">
+        <i class="icon-copy"></i>
+      </button>
+    }
 
     @if (ttsService.isReading()) {
       <button class="button square-button primary" (click)="onTtsPlayPause()"

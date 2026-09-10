@@ -41,6 +41,7 @@
   "sources": "Fontes",
   "licences": "Licenças",
   "genres": "Géneros",
-  "locations": "Localizações",
+  "locations": "Localização",
+  "shelf-locator": "Cota",
   "geonames": "Nomes geográficos"
 }

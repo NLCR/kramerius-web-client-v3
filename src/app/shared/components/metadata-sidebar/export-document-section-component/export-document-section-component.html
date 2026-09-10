@@ -1,6 +1,6 @@
 <div class="export-document--container">
 
-  @if (printEnabled && !detailViewService.isPdf) {
+  @if (printEnabled() && !detailViewService.isPdf) {
   <app-export-document-section-item-component
     [title]="'export-print-title'"
     [icon]="'icon-printer'"
@@ -14,7 +14,7 @@
   </app-export-document-section-item-component>
   }
 
-  @if (jpegEnabled && !detailViewService.isPdf) {
+  @if (jpegEnabled() && !detailViewService.isPdf) {
   <app-export-document-section-item-component [title]="'export-jpeg-title'" [icon]="'icon-gallery-import'"
                                               [options]="jpegOptions()" [groupName]="'jpeg-export'"
                                               [selectedOption]="selectedJpegOption" [collapsible]="true"
@@ -54,7 +54,7 @@
   </app-export-document-section-item-component>
   }
 
-  @if (txtEnabled && !detailViewService.isPdf) {
+  @if (txtEnabled() && !detailViewService.isPdf) {
   <app-export-document-section-item-component
     [title]="'export-text-title'"
     [icon]="'icon-document-text'"

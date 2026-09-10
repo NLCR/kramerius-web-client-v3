@@ -29,6 +29,12 @@ export class FilterSidebarComponent implements OnInit, OnDestroy {
   @Input() toggleButtonIcon: string = 'icon-filter';
   @Input() hideToggleButton = false;
   /**
+   * Translation key for the mobile slide-up header. Defaults to "Filtry",
+   * which fits the search pages; hosts whose left panel is not a filter list
+   * (e.g. the sound-recording track list) override it to match their nav item.
+   */
+  @Input() mobileTitleKey = 'filters';
+  /**
    * Extra bottom offset (px) for the fixed toggle button, so it can be lifted
    * clear of a peeking slide-up panel that would otherwise overlap it.
    */

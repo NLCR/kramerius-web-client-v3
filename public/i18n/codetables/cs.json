@@ -42,6 +42,7 @@
   "sources": "Zdroje",
   "licences": "Licence",
   "genres": "Žánry",
-  "locations": "Místa uložení",
+  "locations": "Místo uložení",
+  "shelf-locator": "Signatura",
   "geonames": "Geografické názvy"
 }

@@ -41,6 +41,7 @@
   "sources": "Sources",
   "licences": "Licences",
   "genres": "Genres",
-  "locations": "Locations",
+  "locations": "Location",
+  "shelf-locator": "Shelfmark",
   "geonames": "Geographic names"
 }

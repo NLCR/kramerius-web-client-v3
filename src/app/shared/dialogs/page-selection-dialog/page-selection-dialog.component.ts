@@ -1,4 +1,5 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Page } from '../../models/page.model';
@@ -24,6 +25,7 @@ export interface PageSelectionDialogResult {
     selector: 'app-page-selection-dialog',
     imports: [
         TranslatePipe,
+        ScrollingModule,
         DetailPageItemComponent,
         MatSlideToggle,
         FormsModule,
@@ -32,21 +34,37 @@ export interface PageSelectionDialogResult {
     templateUrl: './page-selection-dialog.component.html',
     styleUrls: ['./page-selection-dialog.component.scss', '../generic-dialog.scss'],
 })
-export class PageSelectionDialogComponent {
+export class PageSelectionDialogComponent implements AfterViewInit, OnDestroy {
     private dialogRef = inject(MatDialogRef<PageSelectionDialogComponent>);
     private envService = inject(EnvironmentService);
     private imagePreviewService = inject(ImagePreviewService);
     public breakpointService = inject(BreakpointService);
     data = inject<PageSelectionDialogData>(MAT_DIALOG_DATA);
 
-    pages: Page[] = [];
+    /** Page pid -> its 1-based position, so the label survives row chunking. */
+    private pageNumbers = new Map<string, number>();
+
+    /**
+     * Signal-backed because `pageRows` is a computed over it. Set once from the
+     * dialog data in the constructor; the plain `pages` accessor is kept so the
+     * rest of the component (and its tests) read unchanged.
+     */
+    private readonly pagesSignal = signal<Page[]>([]);
+    get pages(): Page[] {
+        return this.pagesSignal();
+    }
+    set pages(value: Page[]) {
+        this.pagesSignal.set(value ?? []);
+        this.pageNumbers = new Map((value ?? []).map((p, i) => [p.pid, i + 1]));
+    }
+
     dialogTitle: string = 'page-selection-dialog--header';
     maxSelectionCount: number | undefined;
 
     selectedPagePids = signal<Set<string>>(new Set());
     selectedCount = computed(() => this.selectedPagePids().size);
     allSelected = computed(() => {
-        return this.selectedPagePids().size === this.pages.length && this.pages.length > 0;
+        return this.selectedPagePids().size === this.pagesSignal().length && this.pagesSignal().length > 0;
     });
 
     isLimitReached = computed(() => {
@@ -54,6 +72,34 @@ export class PageSelectionDialogComponent {
     });
 
     private lastSelectedPid: string | null = null;
+
+    @ViewChild(CdkVirtualScrollViewport) viewport?: CdkVirtualScrollViewport;
+    @ViewChild('gridMeasure') gridMeasure?: ElementRef<HTMLElement>;
+
+    /** Fallback geometry until the first measurement lands (see measureGrid). */
+    private static readonly FALLBACK_COLUMNS = 4;
+    private static readonly FALLBACK_ROW_HEIGHT = 200;
+
+    /**
+     * Column count and row height are measured from the live grid rather than
+     * hardcoded: the CSS uses `repeat(auto-fill, minmax(...))` with 1024px and
+     * 1600px breakpoints, so both depend on the dialog's actual width.
+     */
+    columns = signal(PageSelectionDialogComponent.FALLBACK_COLUMNS);
+    rowHeight = signal(PageSelectionDialogComponent.FALLBACK_ROW_HEIGHT);
+
+    /** Pages chunked into rows — the unit cdkVirtualFor virtualizes. */
+    pageRows = computed<Page[][]>(() => {
+        const columns = this.columns();
+        const pages = this.pagesSignal();
+        const rows: Page[][] = [];
+        for (let i = 0; i < pages.length; i += columns) {
+            rows.push(pages.slice(i, i + columns));
+        }
+        return rows;
+    });
+
+    private resizeObserver?: ResizeObserver;
 
     pageRangeInput = signal<string>('');
     private lastUpdateSource: 'input' | 'programmatic' = 'programmatic';
@@ -283,6 +329,48 @@ export class PageSelectionDialogComponent {
     isPageSelected(pid: string): boolean {
         return this.selectedPagePids().has(pid);
     }
+
+    ngAfterViewInit(): void {
+        const grid = this.gridMeasure?.nativeElement;
+        if (!grid || typeof ResizeObserver === 'undefined') return;
+
+        // The grid is `auto-fill` with responsive breakpoints, so both the column
+        // count and the row height follow the dialog's width. Measure instead of
+        // assuming, and re-measure when the dialog is resized.
+        this.resizeObserver = new ResizeObserver(() => this.measureGrid());
+        this.resizeObserver.observe(grid);
+        this.measureGrid();
+    }
+
+    ngOnDestroy(): void {
+        this.resizeObserver?.disconnect();
+    }
+
+    private measureGrid(): void {
+        const grid = this.gridMeasure?.nativeElement;
+        const row = grid?.querySelector('.page-selection-grid__row') as HTMLElement | null;
+        if (!grid || !row) return;
+
+        const styles = getComputedStyle(row);
+        const columnCount = styles.gridTemplateColumns.split(' ').filter(Boolean).length;
+        if (columnCount > 0 && columnCount !== this.columns()) {
+            this.columns.set(columnCount);
+        }
+
+        const gap = parseFloat(getComputedStyle(grid).rowGap) || 0;
+        const height = row.getBoundingClientRect().height;
+        const next = Math.round(height + gap);
+        if (next > 0 && next !== this.rowHeight()) {
+            this.rowHeight.set(next);
+        }
+    }
+
+    /** 1-based position of a page in the full list (the label shown on the card). */
+    pageNumber(page: Page): number {
+        return this.pageNumbers.get(page.pid) ?? 0;
+    }
+
+    trackByRow = (index: number, row: Page[]): string => row[0]?.pid ?? `${index}`;
 
     /**
      * Toggle select all / deselect all

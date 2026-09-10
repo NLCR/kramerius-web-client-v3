@@ -16,6 +16,7 @@ import { Router } from '@angular/router';
 import { ToastService } from '../../../services/toast.service';
 import { AppConfigService } from '../../../services/app-config.service';
 import { ConfigService } from '../../../../core/config';
+import { LicenseActionsConfig } from '../../../../core/config/config.interfaces';
 import { PdfService } from '../../../services/pdf.service';
 import { CdkSourceService } from '../../../services/cdk-source.service';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -65,7 +66,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
     });
 
     this.cropSubscription = this.iiifViewerService.selectedArea$.subscribe(rect => {
-      if (rect && this.activeCropSession && this.pagePid) {
+      if (rect && this.activeCropSession && this.pagePid && this.isActionAllowed('crop')) {
         this.exportService.exportJpegCrop(this.pagePid, rect);
         this.iiifViewerService.setSelectionMode(false);
         this.activeCropSession = false;
@@ -140,18 +141,33 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   private cdkSourceCode = toSignal(this.cdkSource.code$, { initialValue: this.cdkSource.getCode() });
 
   // Per-format visibility driven by the instance's export config (config-main.json),
-  // plus — for pdf/epub — the serving library's public-worker support.
-  printEnabled = this.configService.isExportFormatEnabled('print');
-  jpegEnabled = this.configService.isExportFormatEnabled('jpeg');
-  txtEnabled = this.configService.isExportFormatEnabled('txt');
+  // plus — for pdf/epub — the serving library's public-worker support, plus the
+  // current document's license permission matrix.
+  //
+  // All of these are computed rather than plain fields: the license gate depends
+  // on the loaded document, so a value sampled once at construction would be
+  // wrong for every document loaded afterwards.
+  //
+  // `txt` has no matrix flag of its own — a TXT export is the page's OCR text in
+  // a file, so it follows the `text` action that governs showing that same text
+  // on screen. Without this a DNNTO reader could download what the UI refuses
+  // to display.
+  printEnabled = computed(() => this.configService.isExportFormatEnabled('print') && this.isActionAllowed('print'));
+  jpegEnabled = computed(() => this.configService.isExportFormatEnabled('jpeg') && this.isActionAllowed('jpeg'));
+  txtEnabled = computed(() => this.configService.isExportFormatEnabled('txt') && this.isActionAllowed('text'));
   pdfEnabled = computed(() => {
     this.cdkSourceCode();
-    return this.configService.isExportFormatEnabled('pdf');
+    return this.configService.isExportFormatEnabled('pdf') && this.isActionAllowed('pdf');
   });
   epubEnabled = computed(() => {
     this.cdkSourceCode();
-    return this.configService.isExportFormatEnabled('epub');
+    // EPUB is a full-text rendition of the document, so it follows `text` too.
+    return this.configService.isExportFormatEnabled('epub') && this.isActionAllowed('text');
   });
+
+  private isActionAllowed(action: keyof LicenseActionsConfig): boolean {
+    return this.detailViewService.isActionAllowed(action);
+  }
 
   epubOptions = computed(() => {
     const hasPages = this.detailViewService.pages?.length > 0;
@@ -240,6 +256,13 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onJpegSubmit(value: string) {
+    // The panel hides the JPEG section when the license forbids it, but this
+    // handler is the one that actually opens the full-resolution IIIF URL, so it
+    // re-checks rather than trusting the UI state it was rendered from.
+    if (!this.isActionAllowed('jpeg')) return;
+    // A crop is a separate permission from a whole-page JPEG.
+    if (value === 'crop-page' && !this.isActionAllowed('crop')) return;
+
     if (value === 'current-page' && this.pagePid) {
       this.exportService.exportJpeg(this.pagePid);
     } else if (value === 'current-left-page') {
@@ -274,6 +297,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onPdfSubmit(value: string) {
+    if (!this.isActionAllowed('pdf')) return;
     // When the current document is itself a PDF, it is already loaded in the
     // viewer — just download that file directly instead of opening any dialog
     // or triggering a server-side export. No login required in this case.
@@ -311,6 +335,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onPrintSubmit(value: string) {
+    if (!this.isActionAllowed('print')) return;
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();
       return;
@@ -382,6 +407,8 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onEpubSubmit(value: string): void {
+    // EPUB and TXT both ship the document's OCR text, so both follow `text`.
+    if (!this.isActionAllowed('text')) return;
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();
       return;
@@ -393,6 +420,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onTextSubmit(value: string): void {
+    if (!this.isActionAllowed('text')) return;
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();
       return;

@@ -166,20 +166,67 @@ export interface LicenseMessagePage {
   page: LocalizedLabel;
 }
 
-// Watermark configuration — overlay drawn on top of the IIIF viewer for licensed content
+/**
+ * Watermark configuration — drawn *onto* the scanned page in the IIIF viewer.
+ *
+ * The watermark is anchored to the image, not to the viewer window: it keeps its
+ * place on the page and grows and shrinks with it as the reader zooms, the way a
+ * stamp printed on the scan would. It is also clipped to the page, so the grey
+ * area around a zoomed-out scan stays clean.
+ *
+ * ## Layout
+ *
+ * `rowCount` × `colCount` divide the **page itself** into equal cells, and one
+ * watermark is centred in each. With the default 1×1 there is a single
+ * watermark in the middle of the page.
+ *
+ * ## Sizing: what `scale` means
+ *
+ * **`scale` is the fraction of its cell's width that the watermark spans.**
+ *
+ *   - `scale: 1.0` — spans the full width of its cell
+ *   - `scale: 0.5` — spans half the width of its cell
+ *   - `scale: 0.25` — spans a quarter of the width of its cell
+ *
+ * With the default 1×1 grid a cell *is* the whole page, so `scale: 1.0` stretches
+ * the watermark across the entire page width and `scale: 0.5` across half of it.
+ * On a 3×3 grid each cell is a third of the page, so `scale: 1.0` makes each of
+ * the nine watermarks a third of the page wide (they touch), and `scale: 0.5` a
+ * sixth (they sit apart).
+ *
+ * This is deliberately independent of both the scan's resolution and the logo
+ * file's pixel dimensions, so the same config renders the same relative size on
+ * every document and the result can be predicted while writing the config.
+ * (The previous client sized watermarks relative to a hard-coded 2000px
+ * reference height, which made identical configs render at different sizes
+ * depending on how large the scan happened to be.)
+ *
+ * For images the aspect ratio is preserved, with the height capped at the same
+ * fraction of the cell height so a tall logo cannot outgrow its cell. For text,
+ * the font is sized so the string spans `scale` of the cell width — so a long
+ * string is set smaller than a short one in order to occupy the same width.
+ */
 export interface LicenseWatermarkConfig {
   type: 'image' | 'text';
   opacity?: number;           // 0–1, default 0.15
-  rowCount?: number;          // grid rows, default 3
-  colCount?: number;          // grid columns, default 3
-  probability?: number;       // 0–100 chance per cell, default 100
+  rowCount?: number;          // grid rows over the page, default 3
+  colCount?: number;          // grid columns over the page, default 3
+  probability?: number;       // 0–100 chance per cell, default 100; rolled once per page
   rotation?: number;          // degrees, counter-clockwise; default 0 (upright)
+  /**
+   * Fraction of the cell width the watermark spans; default 1.0 (full cell width).
+   * See the sizing notes above — applies to both image and text watermarks.
+   */
+  scale?: number;
   // Image mode
   logo?: string;              // URL to image
-  scale?: number;             // image scale factor, default 1.0
   // Text mode
   staticText?: string | LocalizedLabel; // localized text to display
-  fontSize?: number;          // px, default 14
+  /**
+   * Legacy text sizing in image pixels, used only when `scale` is absent.
+   * Prefer `scale`, whose size is predictable across documents.
+   */
+  fontSize?: number;
   color?: string;             // CSS color, default 'rgba(0,0,0,0.5)'
 }
 

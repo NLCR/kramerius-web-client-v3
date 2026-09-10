@@ -1,7 +1,20 @@
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+// The viewport owns the scrolling; the surrounding sidebar scroll container
+// still sets overflow-y: auto, which is harmless since this fills it exactly.
+.search-results-list__viewport {
+  height: 100%;
+  width: 100%;
+}
+
 .search-results-list {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-x3);
+  row-gap: var(--spacing-x3);
 }
 
 .search-result-item {
@@ -13,6 +26,11 @@
   gap: var(--spacing-x2);
   border-radius: var(--Spacing-x2, 8px);
   width: 100%;
+  // Fixed height keeps the viewport's itemSize honest. The thumbnail already
+  // pins the row at 104px; making it explicit stops a long highlighted snippet
+  // from growing one row and desyncing every offset below it.
+  height: 104px;
+  box-sizing: border-box;
 
   &:not(.with-content) {
     gap: 0;
@@ -48,6 +66,11 @@
   color: var(--color-text-base);
   line-height: var(--line-height-1);
   overflow: hidden;
+  // Rows are a fixed height for virtualization, so a long snippet has to clamp
+  // instead of pushing the row taller.
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
 }
 
 .no-content--placeholder {

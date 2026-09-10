@@ -3,6 +3,7 @@
   [constrainBottomToolbar]="true"
   [showRightSidebar]="true"
   [hideFilterToggle]="breakpointService.isMobile()"
+  [leftSidebarMobileTitleKey]="'sound-records--toggle'"
   [rightSidebarCollapsed]="!detailViewService.metadataSidebarVisible">
 
   <ng-container left-sidebar>
@@ -10,51 +11,39 @@
     <div class="sidebar--container" *ngIf="detailViewService.document$ | async as document">
 
       @if (document.model === DocumentTypeEnum.soundrecording) {
-        <app-tabs
-          [noPadding]="true"
-          [initialTab]="detailViewService.soundRecordingViewMode()"
-          (tabChanged)="detailViewService.setSoundRecordingViewView($event)">
+        <div class="sidebar--wrapper">
 
-          <app-tab-item id="records" [label]="'sound-records--toggle' | translate">
-            <div class="sidebar--wrapper">
-              <app-input
-                [placeholder]="'search-in-document--placeholder' | translate"
-                [theme]="'dark'"
-                [size]="'sm'"
-                [showMicButton]="true"
-              ></app-input>
+          <!-- Stateful toggle replacing the old records/images tab strip:
+               pressed = track list, released = page images. The rest of the
+               sidebar (search, image pagination, page grid) is the same in
+               both views, so it lives outside the toggle. -->
+          <app-playlist-toggle
+            [active]="detailViewService.soundRecordingViewMode() === 'records'"
+            [trackCount]="musicService.tracks.length"
+            (toggled)="onPlaylistToggled($event)">
+          </app-playlist-toggle>
 
-              <div class="sidebar--wrapper--scroll-content">
-                <app-detail-pages-grid [type]="'recording'"></app-detail-pages-grid>
-              </div>
-            </div>
-          </app-tab-item>
+          <app-input
+            [placeholder]="'search-in-document--placeholder' | translate"
+            [theme]="'dark'"
+            [size]="'sm'"
+            [showMicButton]="true"
+          ></app-input>
 
-          <app-tab-item id="images" [label]="'images--toggle' | translate">
-            <div class="sidebar--wrapper">
-              <app-input
-                [placeholder]="'search-in-document--placeholder' | translate"
-                [theme]="'dark'"
-                [size]="'sm'"
-                [showMicButton]="true"
-              ></app-input>
+          <hr>
+          <app-page-navigator
+            [label]="'sound-records--images-label'"
+            [currentPage]="detailViewService.currentPageIndex + 1"
+            [totalPages]="detailViewService.totalPagesOnly"
+            (next)="detailViewService.goToNext()"
+            (prev)="detailViewService.goToPrevious()"
+            (pageChange)="detailViewService.goToPage($event)"
+          ></app-page-navigator>
 
-              <hr>
-              <app-page-navigator
-                [currentPage]="detailViewService.currentPageIndex + 1"
-                [totalPages]="detailViewService.totalPagesOnly"
-                (next)="detailViewService.goToNext()"
-                (prev)="detailViewService.goToPrevious()"
-                (pageChange)="detailViewService.goToPage($event)"
-              ></app-page-navigator>
-
-              <div class="sidebar--wrapper--scroll-content">
-                <app-detail-pages-grid [type]="'recording'"></app-detail-pages-grid>
-              </div>
-            </div>
-          </app-tab-item>
-
-        </app-tabs>
+          <div class="sidebar--wrapper--scroll-content">
+            <app-detail-pages-grid [type]="'recording'"></app-detail-pages-grid>
+          </div>
+        </div>
       }
 
     </div>
@@ -127,8 +116,7 @@
 
               <!-- Images view: access denied replaces content -->
               @if (accessDenied) {
-                <app-document-access-denied [metadata]="document"
-                  [requiredLicenses]="documentInfoService.getRuntimeLicenses().length ? documentInfoService.getRuntimeLicenses() : document.licences">
+                <app-document-access-denied [metadata]="document">
                 </app-document-access-denied>
               } @else {
 
@@ -176,8 +164,7 @@
 
               @if (accessDenied) {
                 <div id="music-access-denied-section">
-                  <app-document-access-denied [metadata]="document"
-                    [requiredLicenses]="documentInfoService.getRuntimeLicenses().length ? documentInfoService.getRuntimeLicenses() : document.licences">
+                  <app-document-access-denied [metadata]="document">
                   </app-document-access-denied>
                 </div>
               }

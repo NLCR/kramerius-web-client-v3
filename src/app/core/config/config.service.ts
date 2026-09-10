@@ -12,6 +12,7 @@ import {
   LicenseAccessType,
   LicenseBarConfig,
   LicenseWatermarkConfig,
+  LicenseActionsConfig,
   I18nConfig,
   UiConfig,
   ExportConfig,
@@ -653,6 +654,39 @@ export class ConfigService {
    */
   getLicenseBars(): LicenseBarConfig[] {
     return this.licenses.filter(l => l.bar).map(l => l.bar!);
+  }
+
+  /**
+   * Whether a document under `docLicenses` permits `action`.
+   *
+   * The permission matrix in `config-licenses.json` is the only thing standing
+   * between a restricted document and the reader: the API serves the ALTO text
+   * and the IIIF crop regardless of license, so a `false` here is the actual
+   * enforcement, not a cosmetic hint. Every entry point for a restricted action
+   * must route through this method.
+   *
+   * Semantics — most restrictive license wins:
+   *  - No licenses at all (plain public document) → permitted. Restrictions only
+   *    ever come from a license that is actually present.
+   *  - Several licenses → the action needs *every* recognised one to allow it.
+   *    A `dnnto` document that also carries an open license must not have the
+   *    open half unlock text selection; that would defeat the whole matrix.
+   *  - An unrecognised license id contributes nothing — it has no matrix to
+   *    consult, so it can neither allow nor deny.
+   *
+   * Licenses are resolved through `resolveLicense`, so a source-scoped variant's
+   * `actions` override applies here exactly as it does for the license's texts.
+   */
+  isLicenseActionAllowed(docLicenses: string[] | null | undefined, action: keyof LicenseActionsConfig): boolean {
+    if (!docLicenses?.length) return true;
+
+    for (const licId of docLicenses) {
+      const lic = this.resolveLicense(licId);
+      if (lic?.actions?.[action] === false) return false;
+    }
+
+    // No recognised license denied it.
+    return true;
   }
 
   /**

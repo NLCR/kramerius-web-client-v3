@@ -42,5 +42,6 @@
   "licences": "授權",
   "genres": "體裁",
   "locations": "館藏地",
+  "shelf-locator": "索書號",
   "geonames": "地理名稱"
 }

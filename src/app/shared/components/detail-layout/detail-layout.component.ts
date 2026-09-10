@@ -26,6 +26,9 @@ export class DetailLayoutComponent {
 
   @Input() hideFilterToggle = false;
 
+  /** Forwarded to the left filter-sidebar's mobile slide-up header. */
+  @Input() leftSidebarMobileTitleKey = 'filters';
+
   private detailViewService = inject(DetailViewService);
 
   @HostListener('document:keydown', ['$event'])

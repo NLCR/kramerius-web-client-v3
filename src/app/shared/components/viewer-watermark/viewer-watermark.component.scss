@@ -7,6 +7,8 @@
 
 .watermark-canvas {
   display: block;
+  // The backing store is sized in device pixels for crispness; the element
+  // itself stays pinned to the viewer element in CSS pixels.
   width: 100%;
   height: 100%;
 }

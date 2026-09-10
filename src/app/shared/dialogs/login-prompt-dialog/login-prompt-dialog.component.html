@@ -10,12 +10,6 @@
 
     <div class="content">
       <p>{{ messageKey | translate }}</p>
-
-      <div class="dont-ask-again--container" *ngIf="showDontShowAgain">
-        <mat-checkbox class="p-left-0" [(ngModel)]="dontShowAgain">
-          {{ 'login-prompt-dont-show-again' | translate }}
-        </mat-checkbox>
-      </div>
     </div>
 
   </div>

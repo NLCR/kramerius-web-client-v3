@@ -68,6 +68,56 @@ Všechna pole jsou `true` / `false`.
 | `selection` | Obdélníkový výběr oblasti na stránce — umožňuje získat text, obrázek nebo OCR z vybrané části. |
 | `crop` | Vytvoření oříznuté IIIF URL z vybrané oblasti. Funguje jen u dokumentů s IIIF tiles. |
 
+Klíčové je, že `false` **neznamená skrýt celou funkci** — znamená zamezit tomu,
+aby se obsah dostal ven. Rozdíl:
+
+- **`text: false`** → OCR text se čtenáři normálně **zobrazí** (panel „Text
+  stránky", výběr textu z výřezu, překlad i sumarizace fungují). Zablokované je
+  jen **označení a kopírování** — přes direktivu `appNoTextCopy`
+  (`user-select: none` + zrušení `copy`/`cut`). Text si tedy lze přečíst, ale ne
+  odnést jako transkript. Skryje se i tlačítko **„Kopírovat do schránky"** v
+  toolbaru AI panelu: zapisuje do schránky přímo, takže by obě poloviny té
+  ochrany obešlo jedním kliknutím.
+- **`crop: false`** → nástroj pro výběr oblasti i vytvoření výřezu zůstávají
+  dostupné; skryje se jen tlačítko pro **stažení** výřezu v selection actions
+  (`showExport`) a zablokuje se `onExport()` včetně klávesy Enter.
+- `text` navíc řídí i export TXT a EPUB — obojí je OCR text dokumentu v souboru,
+  takže tam už jde o odnesení obsahu, ne o zobrazení.
+- **`metadata: true` neotevírá všechno v dialogu metadat.** Ten dialog má záložky
+  se surovými zdroji a některé z nich servírují právě to, co jiné akce zakazují:
+  `alto` a `ocr` (endpointy `/ocr/alto` a `/ocr/text`) a `foxml` (surový objekt
+  včetně OCR datastreamů) se řídí `text`; `iiif` (cesta k plnému rozlišení
+  skenu) se řídí `jpeg`. Pod `metadata` zůstávají jen popisné záložky — `mods`,
+  `dc`, `solr`, `item`, `children`. Stejnou podmínkou se řídí i tlačítko „URL",
+  které otevírá surový endpoint v nové kartě. Mapování je v
+  `metadata-dialog-tabs.ts`.
+
+### Jak se `actions` vyhodnocují
+
+Kontrolu provádí `ConfigService.isLicenseActionAllowed(licences, action)`.
+Pravidla:
+
+- **Dokument bez licencí** → povoleno vše. Omezení plyne jen z licence, která je
+  na dokumentu skutečně uvedená.
+- **Více licencí** → vyhrává ta **nejrestriktivnější**: akce musí být povolená
+  ve *všech* známých licencích dokumentu. DNNTO skan, který nese i volnou
+  licenci, tak nesmí mít textovou vrstvu odemčenou tou volnou polovinou.
+- **Neznámé id licence** → nepřispívá ani povolením, ani zákazem (nemá matici,
+  kterou by šlo konzultovat).
+- **Varianty pro zdroj** (`<base>__<source>`) se aplikují i tady — `actions`
+  varianty se vrství na základní licenci, nepřepisují ji celou.
+
+> **Pozor:** backend servíruje ALTO text i IIIF výřez bez ohledu na licenci.
+> Tato matice je tedy jediné vynucení omezení, a je **klientské**. Každé nové
+> místo, které nabízí omezenou akci, musí projít přes `isLicenseActionAllowed` —
+> a to jak u viditelnosti ovládacího prvku, tak v samotném handleru (skrytý
+> prvek neuzavírá cestu v kódu, např. klávesovou zkratku nebo mobilní menu).
+>
+> U `text: false` je navíc blokování kopírování jen **ztížení, ne záruka**: text
+> je v DOM, takže kdo otevře devtools nebo si zobrazí zdroj, dostane ho.
+> Spolehlivé omezení musí přijít z backendu (neservírovat ALTO pro licenci, která
+> na něj nemá právo). Direktiva řeší běžného čtenáře, ne odhodlaného.
+
 ### Jak funguje slučování s per-license `actions`
 
 Per-license `actions` **přepisuje** pole z `_defaults`. Příklad:
@@ -355,9 +405,18 @@ Sekce se v UI ukáže jen tehdy, když dokument má alespoň jednu runtime licen
 
 ## `watermark` — vodoznak v prohlížeči
 
-Vodoznak se vykresluje jako překryv nad obrazem stránky. Používá se u licencí, které umožňují prohlížení, ale chtějí obraz chránit proti nekontrolovanému pořizování kopií.
+Vodoznak se vykresluje **do obrazu stránky**. Používá se u licencí, které umožňují prohlížení, ale chtějí obraz chránit proti nekontrolovanému pořizování kopií.
 
 Dva režimy — textový nebo obrázkový.
+
+### Vodoznak je přilepený na stránku
+
+Vodoznak není překryv nad oknem prohlížeče, ale patří ke skenu:
+
+- **drží své místo na stránce** — při posunu obrazu se posouvá s ním,
+- **zvětšuje se a zmenšuje se skenem** — při přiblížení roste stejně jako obraz, jako by byl na stránce vytištěný,
+- **je omezen na plochu stránky** — při oddálení zůstává šedé okolí skenu čisté,
+- **mřížka se neposouvá** — u `probability` menší než `100` se rozmístění vylosuje jednou pro danou stránku, takže vodoznaky při posunu a přiblížení neposkakují.
 
 ### Textový vodoznak
 
@@ -372,10 +431,15 @@ Dva režimy — textový nebo obrázkový.
 "cs": "Nekopírovat",
 "en": "Do not copy"
 },
-"fontSize": 14,
+"scale": 0.8,
+"rotation": 45,
 "color": "rgba(0,0,0,0.5)"
 }
 ```
+
+Mřížka 3×3 rozmístí devět textů po stránce, `scale: 0.8` udělá každý z nich
+osmi desetinami šířky své buňky (tedy asi 27 % šířky stránky) a `rotation: 45`
+je postaví diagonálně.
 
 ### Obrázkový vodoznak
 
@@ -387,9 +451,11 @@ Dva režimy — textový nebo obrázkový.
 "colCount": 2,
 "probability": 100,
 "logo": "/local-config/img/watermark.png",
-"scale": 1.0
+"scale": 0.5
 }
 ```
+
+Mřížka 2×2 rozdělí stránku na čtyři buňky (každá je poloviční šířky stránky) a `scale: 0.5` udělá každý vodoznak poloviční vůči své buňce — tedy čtvrtinu šířky stránky.
 
 ### Společná pole
 
@@ -399,22 +465,56 @@ Dva režimy — textový nebo obrázkový.
 | `opacity` | ne | Průhlednost 0 až 1. | `0.15` |
 | `rowCount` | ne | Počet řádků mřížky vodoznaku přes stránku. | `3` |
 | `colCount` | ne | Počet sloupců mřížky. | `3` |
-| `probability` | ne | Pravděpodobnost 0 až 100, že se vodoznak v dané buňce mřížky vykreslí. `100` = vždy, `50` = zhruba polovina buněk. | `100` |
+| `probability` | ne | Pravděpodobnost 0 až 100, že se vodoznak v dané buňce mřížky vykreslí. `100` = vždy, `50` = zhruba polovina buněk. Losuje se jednou pro danou stránku. | `100` |
+| `scale` | ne | **Jak velkou část šířky své buňky vodoznak zabírá.** Viz níže. | `1.0` |
+| `rotation` | ne | Otočení ve stupních proti směru hodinových ručiček. `0` = nakřivo neotočený, `45` = diagonálně. | `0` |
+
+### `scale` — jak se určuje velikost
+
+`rowCount` × `colCount` rozdělí **stránku** na stejné buňky a do středu každé se
+vykreslí jeden vodoznak. **`scale` pak říká, jakou část šířky své buňky vodoznak
+zabírá:**
+
+| `scale` | Velikost vodoznaku |
+|---|---|
+| `1.0` | přes celou šířku buňky |
+| `0.5` | přes polovinu šířky buňky |
+| `0.25` | přes čtvrtinu šířky buňky |
+
+Při výchozí mřížce `1×1` je buňkou celá stránka, takže:
+
+- `scale: 1.0` → vodoznak přes **celou šířku stránky**
+- `scale: 0.5` → vodoznak přes **polovinu šířky stránky**
+- `scale: 0.33` → vodoznak přes **třetinu šířky stránky**
+
+Při mřížce `3×3` je každá buňka třetinou stránky, takže `scale: 1.0` udělá z
+každého z devíti vodoznaků třetinu šířky stránky (buňky se dotýkají) a
+`scale: 0.5` šestinu (mezi vodoznaky zůstane mezera).
+
+> **Velikost nezávisí ani na rozlišení skenu, ani na velikosti souboru s logem.**
+> Stejná konfigurace tedy vykreslí stejně velký vodoznak na každém dokumentu a
+> velikost lze při psaní konfigurace odhadnout dopředu. Nezáleží na tom, jestli
+> je logo 200 px nebo 4000 px široké — `scale` se vztahuje ke stránce, ne k
+> souboru.
+
+U obrázku se zachová poměr stran a výška je zastropovaná na stejnou část výšky
+buňky, aby vysoké logo nepřeteklo svou buňku. U textu se velikost fontu spočítá
+tak, aby text zabral `scale` šířky buňky — delší text tedy vyjde menším písmem
+než krátký, protože oba mají zabrat stejnou šířku.
 
 ### Jen pro `type: "image"`
 
 | Pole | Povinné | Popis | Výchozí |
 |---|---|---|---|
 | `logo` | ano | Cesta k obrázku vodoznaku. | — |
-| `scale` | ne | Měřítko obrázku (`1.0` = původní velikost). | `1.0` |
 
 ### Jen pro `type: "text"`
 
 | Pole | Povinné | Popis | Výchozí |
 |---|---|---|---|
 | `staticText` | ano | Lokalizovaný text vodoznaku. | — |
-| `fontSize` | ne | Velikost fontu v pixelech. | `14` |
 | `color` | ne | Barva textu v CSS formátu. | `rgba(0,0,0,0.5)` |
+| `fontSize` | ne | Zastaralé. Velikost fontu v pixelech obrazu, použije se **jen když chybí `scale`**. Doporučuje se místo něj `scale`, jehož výsledek je předvídatelný. | — |
 
 ---
 

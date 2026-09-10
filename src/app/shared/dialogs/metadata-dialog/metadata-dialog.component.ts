@@ -11,6 +11,8 @@ import { LocalStorageService } from '../../services/local-storage.service';
 import { IIIFViewerService } from '../../services/iiif-viewer.service';
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { SKIP_ERROR_INTERCEPTOR } from '../../../core/services/http-context-tokens';
+import { ConfigService } from '../../../core/config/config.service';
+import { visibleMetadataTabs } from './metadata-dialog-tabs';
 
 import hljs from 'highlight.js';
 
@@ -38,6 +40,15 @@ export class MetadataDialogComponent implements OnInit {
 
     private cache: { [pid: string]: { [format: string]: string } } = {};
 
+    /**
+     * Tabs the current document's license actually allows — see
+     * `visibleMetadataTabs` for which tab depends on which action and why.
+     */
+    get visibleTabs(): string[] {
+        return visibleMetadataTabs(action =>
+            this.configService.isLicenseActionAllowed(this.document?.licences, action));
+    }
+
     @Output() close = new EventEmitter<void>();
 
     private dialogRef = inject(MatDialogRef<MetadataDialogComponent>, { optional: true });
@@ -50,6 +61,7 @@ export class MetadataDialogComponent implements OnInit {
     private elementRef = inject(ElementRef);
     private iiifViewerService = inject(IIIFViewerService);
     private http = inject(HttpClient);
+    private configService = inject(ConfigService);
 
     constructor() {
         this.document = this.data.document;
@@ -57,8 +69,13 @@ export class MetadataDialogComponent implements OnInit {
 
     ngOnInit() {
         const lastTab = this.localStorage.get<string>('admin.metadata.resource');
-        if (lastTab) {
+        // The remembered tab is only restored when this document's license still
+        // allows it — otherwise opening a DNNTO document after viewing ALTO on a
+        // public one would land straight on the blocked tab.
+        if (lastTab && this.visibleTabs.includes(lastTab)) {
             this.activeTabLabel = lastTab;
+        } else if (!this.visibleTabs.includes(this.activeTabLabel)) {
+            this.activeTabLabel = this.visibleTabs[0] ?? '';
         }
     }
 
@@ -88,6 +105,10 @@ export class MetadataDialogComponent implements OnInit {
 
     loadData() {
         if (!this.selectedPid) return;
+        // Hidden tabs must also never fetch: the tab list is rebuilt from the
+        // license, but this method is reached from the hierarchy selector and a
+        // restored localStorage tab as well.
+        if (!this.visibleTabs.includes(this.activeTabLabel)) return;
 
         // Check cache
         if (this.cache[this.selectedPid] && this.cache[this.selectedPid][this.activeTabLabel]) {
@@ -198,6 +219,12 @@ export class MetadataDialogComponent implements OnInit {
     }
 
     openUrl() {
+        // This opens the raw API endpoint in a new tab, which hands over the
+        // resource itself rather than the rendered view — the shortest route to
+        // downloading the OCR text or reaching the full-resolution image. It has
+        // to obey the same gate as the tab it belongs to.
+        if (!this.visibleTabs.includes(this.activeTabLabel)) return;
+
         let url: string;
         if (this.activeTabLabel === 'iiif' && this.selectedModel === 'page') {
             url = this.iiifViewerService.getIIIFInfoUrl(this.selectedPid);

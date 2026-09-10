@@ -7,6 +7,7 @@ import { LanguageSelectComponent } from '../../language-select/language-select.c
 import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { TRANSLATION_LANGUAGES } from '../../../translation/translation-languages';
 import { copyTextToClipboard } from '../../../misc/misc-functions';
+import { DetailViewService } from '../../../../modules/detail-view-page/services/detail-view.service';
 
 @Component({
   selector: 'app-ai-content-toolbar',
@@ -18,6 +19,7 @@ import { copyTextToClipboard } from '../../../misc/misc-functions';
 export class AiContentToolbarComponent {
   aiPanelService = inject(AiPanelService);
   ttsService = inject(TtsService);
+  private detailViewService = inject(DetailViewService, { optional: true });
 
   @Input() isFullscreen: boolean = false;
 
@@ -46,7 +48,21 @@ export class AiContentToolbarComponent {
     this.aiPanelService.decreaseFontSize();
   }
 
+  /**
+   * Whether "copy to clipboard" may be offered for the current document.
+   *
+   * This button writes the text straight to the clipboard, so it bypasses both
+   * halves of the `appNoTextCopy` protection on the panel body (`user-select`
+   * and the cancelled `copy`/`cut` events). Leaving it enabled under
+   * `text: false` would hand over in one click exactly what those blocks
+   * prevent — so it goes away with them.
+   */
+  get canCopyContent(): boolean {
+    return this.detailViewService?.isActionAllowed('text') ?? true;
+  }
+
   copyContent(): void {
+    if (!this.canCopyContent) return;
     const content = this.aiPanelService.content();
     if (content) {
       copyTextToClipboard(content);
