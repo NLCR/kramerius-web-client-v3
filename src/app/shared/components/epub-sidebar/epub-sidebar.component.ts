@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { EpubService } from '../../services/epub.service';
 import { SearchDebounceService } from '../../services/search-debounce.service';
 import { InputComponent } from '../input/input.component';
+import { SheetCloseButtonComponent } from '../sheet-close-button/sheet-close-button.component';
 import { PageNavigatorComponent } from '../page-navigator/page-navigator.component';
 import { TranslatePipe } from '@ngx-translate/core';
 import { DetailArticleItemComponent } from '../../../modules/detail-view-page/components/detail-article-item/detail-article-item.component';
@@ -14,6 +15,7 @@ import { SearchNavigationComponent } from '../search-navigation/search-navigatio
   imports: [
     CommonModule,
     InputComponent,
+    SheetCloseButtonComponent,
     PageNavigatorComponent,
     TranslatePipe,
     DetailArticleItemComponent,

@@ -33,6 +33,18 @@ export class SlideUpPanelComponent implements AfterViewInit, OnDestroy {
   /** Title displayed in the header */
   @Input() title = '';
 
+  /**
+   * Drops the header row entirely - caption and close button both. For sheets
+   * whose content already says what they are (a page or track grid needs no
+   * "Strany" caption), where the row only costs phone height.
+   *
+   * The host is then responsible for its own dismiss control: the sidebars that
+   * project into this sheet place an `app-sheet-close-button` on their leading
+   * row, beside the search field (GitHub issue #177). Dragging the handle down,
+   * tapping the backdrop and Escape all keep working regardless.
+   */
+  @Input() hideTitle = false;
+
   /** Initial height in vh when opened */
   @Input() initialHeight = 50;
 
@@ -87,6 +99,13 @@ export class SlideUpPanelComponent implements AfterViewInit, OnDestroy {
       } else if (this.peek) {
         // Peek mode: collapse back to the resting peek instead of dismissing.
         this.isRendered = true;
+      } else if (!this.isClosing) {
+        // Closed from the outside rather than through close() - the host reset
+        // the bound signal directly (the sidebars' `manualToggle` does this).
+        // close() would have cleared these itself; without this branch the
+        // backdrop stayed mounted, since it renders on `isRendered` (issue #177).
+        this.isRendered = false;
+        this.isExpanded = false;
       }
     });
   }

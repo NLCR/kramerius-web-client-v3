@@ -3,7 +3,7 @@
   [constrainBottomToolbar]="true"
   [showRightSidebar]="true"
   [hideFilterToggle]="breakpointService.isMobile()"
-  [leftSidebarMobileTitleKey]="'sound-records--toggle'"
+  [hideLeftSidebarMobileTitle]="true"
   [rightSidebarCollapsed]="!detailViewService.metadataSidebarVisible">
 
   <ng-container left-sidebar>
@@ -23,12 +23,18 @@
             (toggled)="onPlaylistToggled($event)">
           </app-playlist-toggle>
 
-          <app-input
-            [placeholder]="'search-in-document--placeholder' | translate"
-            [theme]="'dark'"
-            [size]="'sm'"
-            [showMicButton]="true"
-          ></app-input>
+          <!-- The sheet hides its caption on mobile, so its X rides this row
+               rather than costing one of its own (GitHub issue #177). -->
+          <div class="search-input-row">
+            <app-input
+              [placeholder]="'search-in-document--placeholder' | translate"
+              [theme]="'dark'"
+              [size]="'sm'"
+              [showMicButton]="true"
+            ></app-input>
+
+            <app-sheet-close-button></app-sheet-close-button>
+          </div>
 
           <hr>
           <app-page-navigator

@@ -126,6 +126,14 @@
   min-height: 0;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+
+  // Caption-less sheets host a sidebar that brings its own padding and its own
+  // inner scroll area (`.sidebar--wrapper--scroll-content`). The outer gap is
+  // then dead space that just shortens that scroll area, so drop it and let the
+  // sidebar's content reach the sheet's edges (GitHub issue #177).
+  &--flush {
+    padding: 0;
+  }
 }
 
 @keyframes fadeIn {

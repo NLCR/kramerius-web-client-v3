@@ -1,16 +1,21 @@
 <div class="document-sidebar">
   <div class="sidebar--wrapper">
     @if (detailViewService.isPdf) {
-      <!-- PDF in-document search via pdfService -->
-      <app-input
-        [placeholder]="'search-in-document--placeholder' | translate"
-        [theme]="'dark'"
-        [size]="'sm'"
-        [showMicButton]="true"
-        [showClearButton]="true"
-        [signalInput]="searchTerm"
-        (valueChange)="onPdfSearchChange($event)"
-      ></app-input>
+      <!-- PDF in-document search via pdfService. Same pairing as the OCR
+           branch below: on mobile the sheet's X rides this row (issue #177). -->
+      <div class="search-input-row">
+        <app-input
+          [placeholder]="'search-in-document--placeholder' | translate"
+          [theme]="'dark'"
+          [size]="'sm'"
+          [showMicButton]="true"
+          [showClearButton]="true"
+          [signalInput]="searchTerm"
+          (valueChange)="onPdfSearchChange($event)"
+        ></app-input>
+
+        <app-sheet-close-button></app-sheet-close-button>
+      </div>
 
       @if (pdfService.searchQuery$ | async) {
         <app-search-navigation
@@ -24,27 +29,34 @@
 
       <hr>
     } @else {
-      <!-- OCR/API search via documentSearchService -->
+      <!-- OCR/API search via documentSearchService. On mobile the sheet's close
+           button shares this row (GitHub issue #177): the sheet drops its own
+           caption header, so pairing the X with the search field spends no
+           extra vertical space on a phone. -->
       <div class="search-input-group">
-        <app-autocomplete
-          [placeholder]="'search-in-document--placeholder' | translate"
-          [inputTheme]="'dark'"
-          [size]="'sm'"
-          [showMicrophoneButton]="true"
-          [showHelpButton]="false"
-          [showHistorySuggestions]="false"
-          [showCaseSensitiveButton]="true"
-          [showSubmitButton]="false"
-          [showClearButton]="true"
-          [minTermLength]="2"
-          [isCaseSensitive]="documentSearchService.isCaseSensitive"
-          [getSuggestions]="getSuggestionsFn"
-          [inputTerm]="searchTerm"
-          (onCaseSensitiveEvent)="caseSensitiveChanged()"
-          (suggestionSelected)="onSuggestionSelected($event)"
-          (search)="onSearch($event)"
-          (onClearEvent)="onAutocompleteClear()"
-        ></app-autocomplete>
+        <div class="search-input-row">
+          <app-autocomplete
+            [placeholder]="'search-in-document--placeholder' | translate"
+            [inputTheme]="'dark'"
+            [size]="'sm'"
+            [showMicrophoneButton]="true"
+            [showHelpButton]="false"
+            [showHistorySuggestions]="false"
+            [showCaseSensitiveButton]="true"
+            [showSubmitButton]="false"
+            [showClearButton]="true"
+            [minTermLength]="2"
+            [isCaseSensitive]="documentSearchService.isCaseSensitive"
+            [getSuggestions]="getSuggestionsFn"
+            [inputTerm]="searchTerm"
+            (onCaseSensitiveEvent)="caseSensitiveChanged()"
+            (suggestionSelected)="onSuggestionSelected($event)"
+            (search)="onSearch($event)"
+            (onClearEvent)="onAutocompleteClear()"
+          ></app-autocomplete>
+
+          <app-sheet-close-button></app-sheet-close-button>
+        </div>
 
         @if (documentSearchService.altoUnavailable()) {
           <p class="alto-unavailable-error">{{ 'alto-unavailable-error' | translate }}</p>

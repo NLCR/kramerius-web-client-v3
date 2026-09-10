@@ -73,3 +73,28 @@
   background-color: var(--color-secondary);
   z-index: 1000;
 }
+
+// Sidebar row pairing a search field with the mobile sheet's close button.
+//
+// The mobile slide-up hides its own caption header, so rather than spend a row
+// on a lone X, the hosting sidebar puts the button on its leading row beside
+// the search field (GitHub issue #177). Global because several sidebars project
+// into that sheet - document, PDF, EPUB, music - and each would otherwise
+// restate the same three declarations in its own scoped stylesheet.
+//
+// On wider viewports `app-sheet-close-button` renders nothing, leaving this a
+// plain single-item row.
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-x2);
+
+  // The field has to shrink to make room for the button rather than span the
+  // full width: `width: 100%` inside app-input / app-autocomplete resolves
+  // against this box, so it needs an explicit basis to flex from.
+  > app-autocomplete,
+  > app-input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
