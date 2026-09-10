@@ -203,9 +203,14 @@
    never lands on the projected content's first row - on a landscape phone that
    row is a search input, and the two visibly collided.
 
-   Declared last and with a two-class selector so the .padding-* shorthands
+   Only where that floating button actually renders: hosts that pair their own
+   X with the content's leading row (`hideMobileTitle`) suppress it, and there
+   the reserved strip was just an empty band above the search field on a
+   landscape phone (GitHub issue #177).
+
+   Declared last and with a multi-class selector so the .padding-* shorthands
    above cannot override it. Overlay is the only mode that renders a close
    button, so inline/desktop sidebars keep their own padding untouched. */
-.filter-sidebar.overlay .filter-content {
+.filter-sidebar.overlay:not(.overlay--paired-close) .filter-content {
   padding-top: 36px;
 }

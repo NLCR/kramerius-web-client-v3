@@ -1,21 +1,26 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { BreakpointService } from '../../services/breakpoint.service';
 
 /**
- * Dismisses the mobile slide-up sheet from inside a sidebar's own first row.
+ * Dismisses the collapsible sidebar from inside its own first row.
  *
- * The sheet hides its caption header on mobile (see `SlideUpPanelComponent`'s
- * `hideTitle`), so instead of spending a row on a lone X, the hosting sidebar
- * places this button beside its leading control - typically the in-document
- * search field. Renders nothing on wider viewports, where the sheet is not in
- * play (GitHub issue #177).
+ * Two viewports need this, for the same reason - a lone X costs a whole row:
+ * - portrait phone, where the slide-up sheet hides its caption header (see
+ *   `SlideUpPanelComponent`'s `hideTitle`);
+ * - landscape phone, where the sidebar renders as a tablet overlay whose own
+ *   floating close button sat where the "Filtry" caption used to be.
+ *
+ * In both the button pairs with whatever leads the sidebar - the in-document
+ * search field, or the playlist toggle in the sound-recording one. Renders
+ * nothing on roomy viewports, where the sidebar is not collapsible
+ * (GitHub issue #177).
  */
 @Component({
   selector: 'app-sheet-close-button',
   imports: [TranslatePipe],
   template: `
-    @if (breakpointService.isMobile()) {
+    @if (visible()) {
       <button class="sheet-close-button" type="button" (click)="close()"
         [attr.aria-label]="'close-dialog--arialabel' | translate">
         <i class="icon-close" aria-hidden="true"></i>
@@ -26,6 +31,15 @@ import { BreakpointService } from '../../services/breakpoint.service';
 })
 export class SheetCloseButtonComponent {
   protected breakpointService = inject(BreakpointService);
+
+  /**
+   * Shown whenever the sidebar is a dismissible layer: the portrait slide-up,
+   * or the landscape overlay. On roomy viewports the sidebar is docked and
+   * needs no close control here.
+   */
+  protected visible = computed(() =>
+    this.breakpointService.isMobile() || this.breakpointService.isShortViewport()
+  );
 
   close(): void {
     this.breakpointService.manualToggle.set(false);

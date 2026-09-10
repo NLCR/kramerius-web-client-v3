@@ -2,7 +2,8 @@
   <div class="sidebar--wrapper">
     @if (detailViewService.isPdf) {
       <!-- PDF in-document search via pdfService. Same pairing as the OCR
-           branch below: on mobile the sheet's X rides this row (issue #177). -->
+           branch below: the sidebar's X rides this row rather than floating on
+           one of its own (GitHub issue #177). -->
       <div class="search-input-row">
         <app-input
           [placeholder]="'search-in-document--placeholder' | translate"
@@ -29,10 +30,10 @@
 
       <hr>
     } @else {
-      <!-- OCR/API search via documentSearchService. On mobile the sheet's close
-           button shares this row (GitHub issue #177): the sheet drops its own
-           caption header, so pairing the X with the search field spends no
-           extra vertical space on a phone. -->
+      <!-- OCR/API search via documentSearchService. The sidebar's close button
+           shares this row (GitHub issue #177): the sheet drops its own caption
+           header, so pairing the X with the search field spends no extra
+           vertical space on a phone, portrait or landscape. -->
       <div class="search-input-group">
         <div class="search-input-row">
           <app-autocomplete

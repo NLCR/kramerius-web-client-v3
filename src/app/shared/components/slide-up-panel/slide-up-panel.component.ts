@@ -99,13 +99,13 @@ export class SlideUpPanelComponent implements AfterViewInit, OnDestroy {
       } else if (this.peek) {
         // Peek mode: collapse back to the resting peek instead of dismissing.
         this.isRendered = true;
-      } else if (!this.isClosing) {
-        // Closed from the outside rather than through close() - the host reset
-        // the bound signal directly (the sidebars' `manualToggle` does this).
-        // close() would have cleared these itself; without this branch the
-        // backdrop stayed mounted, since it renders on `isRendered` (issue #177).
-        this.isRendered = false;
-        this.isExpanded = false;
+      } else if (!this.isClosing && this.isRendered) {
+        // Closed from the outside rather than through close(): the host reset
+        // the bound signal directly, which is how the sidebars' `manualToggle`
+        // dismisses this sheet. Run the same slide-down close() would have run,
+        // so both routes look identical - without this the panel vanished in a
+        // single frame and left its backdrop mounted (GitHub issue #177).
+        this.animateOut();
       }
     });
   }
@@ -130,11 +130,22 @@ export class SlideUpPanelComponent implements AfterViewInit, OnDestroy {
       this.closed.emit();
       return;
     }
+    this.animateOut();
+  }
+
+  /**
+   * Plays the slide-down, then settles the closed state. Shared by close() and
+   * by an external reset of the bound `isOpen`, so a sheet dismissed either way
+   * animates the same. `isOpen.set(false)` is idempotent, which is what makes
+   * it safe to run on the path where the signal is already false.
+   */
+  private animateOut(): void {
     this.isClosing = true;
     this.isRendered = false;
     // Wait for slide-down transition to finish
     setTimeout(() => {
       this.isClosing = false;
+      this.isExpanded = false;
       this.isOpen.set(false);
       this.closed.emit();
     }, 300);
