@@ -30,11 +30,15 @@
         <!-- Action Toolbar -->
         <app-action-toolbar [hasCenterContent]="!!periodical.selectedYear() && !breakpointService.isMobile()">
 
+          <!-- The title links to the root periodical. On a volume/issue that is a real
+               move up the hierarchy. On the root itself it only makes sense while a
+               fulltext search is on: there it drops the query and returns to browsing.
+               Without a query it would link to the page you are already on. -->
           <div class="max-width-100" left *ngIf="periodical.document$ | async as document">
             <app-toolbar-header [title]="periodical.metadata?.mainTitle || document?.['root.title'] || ''"
               [showBackButton]="recordHandler.shouldShowBackButton(document)"
-                                [titleTooltip]="document.uuid !== document['root.pid'] ? ('go-to-volume--tooltip' | translate) : ''"
-                                [titleClickable]="document.uuid !== document['root.pid']"
+                                [titleTooltip]="isTitleClickable(document, mode) ? ('go-to-volume--tooltip' | translate) : ''"
+                                [titleClickable]="isTitleClickable(document, mode)"
                                 (titleClick)="recordHandler.navigateToPeriodical(document['root.pid'])"
                                 (goBack)="recordHandler.goBackClicked(document)">
 

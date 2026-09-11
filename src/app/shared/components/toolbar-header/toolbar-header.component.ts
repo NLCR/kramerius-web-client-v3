@@ -30,7 +30,19 @@ export class ToolbarHeaderComponent {
   }
 
   titleClicked() {
+    if (!this.titleClickable) {
+      return;
+    }
     this.titleClick.emit();
+  }
+
+  /** Space activates the title like a button; swallow the page scroll it would otherwise cause. */
+  onTitleSpace(event: Event) {
+    if (!this.titleClickable) {
+      return;
+    }
+    event.preventDefault();
+    this.titleClicked();
   }
 
 }
