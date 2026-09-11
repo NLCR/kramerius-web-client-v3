@@ -21,6 +21,7 @@ import { DetailViewService } from '../../../modules/detail-view-page/services/de
 import { Page } from '../../models/page.model';
 import { TranslatePipe } from '@ngx-translate/core';
 import { CdkTooltipDirective } from '../../directives';
+import { trimSnippetToHighlight } from '../../utils/highlight-snippet';
 
 export interface SearchResult {
   pid: string;
@@ -125,7 +126,7 @@ export class SearchResultsListComponent implements AfterViewInit, OnDestroy {
     const results = this.resultsSignal();
 
     if (!this.showAllPagesSignal()) {
-      return this.sortByPageNumber(results);
+      return this.sortByPageNumber(results.map(result => this.withTrimmedSnippet(result)));
     }
 
     const resultsMap = new Map<string, SearchResult>();
@@ -135,7 +136,7 @@ export class SearchResultsListComponent implements AfterViewInit, OnDestroy {
       const searchResult = resultsMap.get(page.pid);
       return {
         pid: page.pid,
-        highlightedText: searchResult?.highlightedText || '',
+        highlightedText: trimSnippetToHighlight(searchResult?.highlightedText || '', SNIPPET_VISIBLE_CHARS),
         pageNumber: searchResult?.pageNumber || page['page.number'],
         page,
       };
@@ -191,6 +192,15 @@ export class SearchResultsListComponent implements AfterViewInit, OnDestroy {
     this.viewport.scrollToIndex(Math.max(0, index), 'smooth');
   }
 
+  /**
+   * Re-centers the snippet on its first match. Rows are a fixed 104px and the
+   * text clamps to 5 lines, so a long Solr fragment used to push the searched
+   * term into the clipped overflow.
+   */
+  private withTrimmedSnippet<T extends { highlightedText: string }>(item: T): T {
+    return { ...item, highlightedText: trimSnippetToHighlight(item.highlightedText, SNIPPET_VISIBLE_CHARS) };
+  }
+
   private sortByPageNumber<T extends { pageNumber?: string }>(items: T[]): T[] {
     return [...items].sort((a, b) => {
       const aNum = Number(a.pageNumber);
@@ -221,3 +231,10 @@ export class SearchResultsListComponent implements AfterViewInit, OnDestroy {
 
   trackByPid = (_index: number, item: DisplayItem): string => item.pid;
 }
+
+/**
+ * What the 5-line clamp shows in a fixed-height result row. Sized from the same
+ * measurement as the card's OCR box and kept a little under capacity, so the
+ * match stays inside the clamp across sidebar widths and text scales.
+ */
+const SNIPPET_VISIBLE_CHARS = 90;

@@ -26,6 +26,7 @@ import { SlideUpPanelComponent } from '../slide-up-panel/slide-up-panel.componen
 import { MetadataSection } from '../metadata-section/metadata-section';
 import { PluralizePipe } from '../../pipes/pluralize.pipe';
 import { CdkTooltipDirective } from '../../directives/cdk-tooltip/cdk-tooltip.directive';
+import { trimSnippetToHighlight } from '../../utils/highlight-snippet';
 
 @Component({
   selector: 'app-record-item',
@@ -179,6 +180,15 @@ export class RecordItemComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Re-centers an OCR snippet on its first match. `.text-ocr` clamps to 4 lines
+   * and Solr fragments run longer than that, so without this the searched term
+   * frequently landed in the clipped overflow instead of on the card.
+   */
+  getOcrSnippet(text: string): string {
+    return trimSnippetToHighlight(text, OCR_SNIPPET_VISIBLE_CHARS);
+  }
+
   getTitle(): string {
     // Collections carry localized title fields; resolve per current language at
     // render time so the card title follows language changes (like the description).
@@ -296,3 +306,12 @@ export class RecordItemComponent implements OnInit, OnDestroy {
 
   protected readonly DocumentTypeEnum = DocumentTypeEnum;
 }
+
+/**
+ * What the 4-line `.text-ocr` clamp actually shows on a card. Measured in the
+ * running app: the box is ~131px wide at 14px/20px, which fits ~71 characters
+ * over its four lines. Kept a little under that — the trim keeps a quarter of
+ * the budget as lead-in context, so the match lands well inside the clamp even
+ * where a wider card or a larger text scale shifts the exact character count.
+ */
+const OCR_SNIPPET_VISIBLE_CHARS = 70;
