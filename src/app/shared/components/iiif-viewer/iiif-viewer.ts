@@ -411,8 +411,11 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       ajaxHeaders: authHeaders,
       // Transparent placeholder so thumbnail background shows through
       placeholderFillStyle: 'transparent',
-      // Ensure smooth progressive loading (low-res → high-res)
-      immediateRender: false,
+      // Render the closest matching level straight away instead of walking the
+      // pyramid low-res → high-res. Every tile pays the CDK proxy's per-request
+      // overhead, so skipping the intermediate levels cuts the request count
+      // per page at the cost of the image staying on the thumbnail for longer.
+      immediateRender: true,
       gestureSettingsMouse: {
         clickToZoom: false,
         dblClickToZoom: true,
