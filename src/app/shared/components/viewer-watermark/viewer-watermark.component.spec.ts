@@ -51,8 +51,23 @@ function fakeViewer(pxPerImagePx: number, originX = 0, originY = 0) {
       y: originY + p.y * pxPerImagePx,
     }),
   };
+  // `world` carries its own handler registry: the watermark listens for
+  // `add-item` there so it can draw as soon as the geometry exists, rather than
+  // waiting for the first tile to trigger an `animation` frame.
+  const worldHandlers: Record<string, (() => void)[]> = {};
   return {
-    world: { getItemAt: (i: number) => (i === 0 ? item : null) },
+    world: {
+      getItemAt: (i: number) => (i === 0 ? item : null),
+      addHandler: (name: string, fn: () => void) => {
+        (worldHandlers[name] ||= []).push(fn);
+      },
+      removeHandler: (name: string, fn: () => void) => {
+        worldHandlers[name] = (worldHandlers[name] || []).filter(h => h !== fn);
+      },
+      /** Test hook: fire `add-item` the way OpenSeadragon does. */
+      emit: (name: string) => (worldHandlers[name] || []).forEach(h => h()),
+      handlerCount: (name: string) => (worldHandlers[name] || []).length,
+    },
     addHandler: () => {},
     removeHandler: () => {},
   } as any;
@@ -311,6 +326,53 @@ describe('ViewerWatermarkComponent geometry', () => {
     (component as any).osdViewer = fakeViewer(1);
     (component as any).render();
     expect(recorder.drawnImages.length).toBe(0);
+  });
+
+  describe('draws before the tiles arrive', () => {
+    // The watermark is a publication condition, so it must not be gated on the
+    // scan finishing. Its geometry is known as soon as the tile source is
+    // parsed, which OpenSeadragon signals with `add-item` on the world.
+    it('draws on add-item without any pan, zoom or tile activity', () => {
+      // Pin to a single always-stamped cell so the count is deterministic:
+      // the default grid is 3x3 behind a probability roll.
+      watermarkConfig = {
+        type: 'image', logo: 'l.png', rowCount: 1, colCount: 1, probability: 100
+      };
+      // The logo is already warm, as preloadLogo arranges, so the draw needs no
+      // further round-trip.
+      (component as any).loadedImage = squareLogo;
+      (component as any).loadedImageSrc = 'l.png';
+
+      const viewer = fakeViewer(1);
+      component.viewer = viewer;
+      expect(recorder.drawnImages.length)
+        .withContext('nothing is drawn while the world is still empty')
+        .toBe(0);
+
+      viewer.world.emit('add-item');
+
+      expect(recorder.drawnImages.length)
+        .withContext('add-item alone must produce the watermark')
+        .toBe(1);
+    });
+
+    it('releases the world handler when the viewer is swapped out', () => {
+      const viewer = fakeViewer(1);
+      component.viewer = viewer;
+      expect(viewer.world.handlerCount('add-item')).toBe(1);
+
+      component.viewer = null;
+      expect(viewer.world.handlerCount('add-item')).toBe(0);
+    });
+
+    it('survives detaching from a viewer whose world is already gone', () => {
+      const viewer = fakeViewer(1);
+      component.viewer = viewer;
+      // OpenSeadragon drops `world` on destroy, and the parent hands us the
+      // dead viewer right afterwards.
+      viewer.world = undefined;
+      expect(() => { component.viewer = null; }).not.toThrow();
+    });
   });
 
   it('draws nothing before a viewer is available', () => {
