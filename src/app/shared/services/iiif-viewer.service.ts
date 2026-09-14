@@ -11,35 +11,6 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ToastService } from './toast.service';
 import { DetailFullscreenService } from './detail-fullscreen.service';
 
-/**
- * Marks the low-res preview layer that the viewer puts beneath each page (a
- * single IIIF request standing in for ~50 tiles while they load).
- */
-export const PREVIEW_LAYER = Symbol('iiifPreviewLayer');
-
-/**
- * The tiled image holding the actual page, skipping the preview layer.
- *
- * Anything that measures the page or projects image coordinates must use this
- * instead of `world.getItemAt(0)`: with a preview present, item 0 is the
- * low-res stand-in and its content size is a fraction of the real page's, which
- * would scale every projected coordinate wrongly.
- */
-export function getPageItem(
-  viewer: OpenSeadragon.Viewer | null | undefined
-): OpenSeadragon.TiledImage | null {
-  const world = viewer?.world;
-  if (!world) return null;
-  // getItemCount is absent on some stubbed worlds; fall back to item 0, which
-  // is the page whenever no preview layer was added.
-  const count = typeof world.getItemCount === 'function' ? world.getItemCount() : 1;
-  for (let i = 0; i < count; i++) {
-    const item = world.getItemAt(i);
-    if (item && !(item as any)[PREVIEW_LAYER]) return item;
-  }
-  return null;
-}
-
 export interface IIIFViewerProperties {
   zoom: number;
   rotation: 0 | 90 | 180 | 270;
@@ -233,7 +204,7 @@ export class IIIFViewerService {
         cleanupTiledImage();
         tiledImage = item;
         onFullyLoaded = (e: any) => {
-          if (e.fullyLoaded && getPageItem(viewer) === item) {
+          if (e.fullyLoaded && viewer.world.getItemAt(0) === item) {
             emit();
           }
         };
@@ -247,7 +218,7 @@ export class IIIFViewerService {
       openSub = this.viewerOpenedSubject.subscribe(() => {
         const viewer = this.viewer;
         if (!viewer) return;
-        const item = getPageItem(viewer);
+        const item = viewer.world.getItemAt(0);
         if (item) {
           waitForFullyLoaded(viewer, item);
         } else {
@@ -341,22 +312,6 @@ export class IIIFViewerService {
     return `${this.API_URL}/search/iiif${prefix}/${pid}/info.json`;
   }
 
-  /**
-   * URL of the whole page rendered at (at most) the given box, as a single IIIF
-   * request. Used as the viewer's base layer so one request paints the page
-   * instead of the ~50 tiles the pyramid would need for the same view.
-   *
-   * Uses `!w,h` (sizeByWh — confirmed in the server's level1 profile), which
-   * fits the image inside the box while preserving aspect ratio.
-   */
-  getScaledImageUrl(pid: string, width: number, height: number): string {
-    const code = this.cdkSource.getCode();
-    const prefix = code ? `/${code}` : '';
-    const w = Math.round(width);
-    const h = Math.round(height);
-    return `${this.API_URL}/search/iiif${prefix}/${pid}/full/!${w},${h}/0/default.jpg`;
-  }
-
   // Enable/disable test fallback mode
   setTestFallbackMode(enabled: boolean): void {
     this.testFallbackMode = enabled;
@@ -415,7 +370,7 @@ export class IIIFViewerService {
 
       // Debounce: wait a bit to ensure all visible tiles are loaded
       imageLoadTimeout = setTimeout(() => {
-        const tiledImage = getPageItem(this.viewer);
+        const tiledImage = this.viewer?.world.getItemAt(0);
         if (tiledImage) {
 
           const fullyLoaded = tiledImage.getFullyLoaded();
@@ -437,7 +392,7 @@ export class IIIFViewerService {
 
       // Debounce: wait for viewport updates to settle
       imageLoadTimeout = setTimeout(() => {
-        const tiledImage = getPageItem(this.viewer);
+        const tiledImage = this.viewer?.world.getItemAt(0);
         if (tiledImage) {
           const fullyLoaded = tiledImage.getFullyLoaded();
           if (fullyLoaded) {
@@ -598,8 +553,7 @@ export class IIIFViewerService {
   fitToWidth(): void {
     if (!this.viewer) return;
     const viewport = this.viewer.viewport;
-    const item = getPageItem(this.viewer);
-    if (!item) return;
+    const item = this.viewer.world.getItemAt(0);
 
     const containerWidth = viewport.getContainerSize().x;
     const imageWidth = item.getContentSize().x;
@@ -1058,7 +1012,7 @@ export class IIIFViewerService {
     this.clearTtsHighlight();
     if (!this.viewer) return;
 
-    const tiledImage = getPageItem(this.viewer);
+    const tiledImage = this.viewer.world.getItemAt(0);
     if (!tiledImage) return;
 
     const contentSize = tiledImage.getContentSize();
@@ -1130,7 +1084,7 @@ export class IIIFViewerService {
     this.searchQuerySubject.next(searchTerm);
 
     // Get the image dimensions from the viewer
-    const tiledImage = getPageItem(this.viewer);
+    const tiledImage = this.viewer.world.getItemAt(0);
     if (!tiledImage) {
       console.warn('No tiled image found in viewer');
       return -1;
