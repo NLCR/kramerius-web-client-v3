@@ -16,7 +16,7 @@ import {
   HostListener
 } from '@angular/core';
 import { Metadata } from '../../models/metadata.model';
-import { IIIFViewerService } from '../../services/iiif-viewer.service';
+import { IIIFViewerService, PREVIEW_LAYER, getPageItem } from '../../services/iiif-viewer.service';
 import { Subject, Subscription, switchMap, EMPTY, catchError, skip, distinctUntilChanged } from 'rxjs';
 import { DetailViewService } from '../../../modules/detail-view-page/services/detail-view.service';
 import OpenSeadragon from 'openseadragon';
@@ -144,9 +144,15 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       ).subscribe()
     );
 
-    // Subscribe to book mode changes
+    // Subscribe to book mode changes. bookMode$ is a BehaviorSubject, so it
+    // replays its seed on subscribe; skip(1) ignores that replay because the
+    // initial load is owned by initializeViewer. distinctUntilChanged avoids
+    // rebuilding the viewer when the mode is re-emitted with the same value.
     this.subscriptions.push(
-      this.iiifViewerService.bookMode$.subscribe(() => {
+      this.iiifViewerService.bookMode$.pipe(
+        skip(1),
+        distinctUntilChanged(),
+      ).subscribe(() => {
         this.triggerViewerUpdate();
       })
     );
@@ -316,7 +322,7 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     }).subscribe({
       next: (infoJson: any) => {
         this.processInfoJson(infoJson, infoUrl);
-        this.createViewer(infoJson);
+        this.createViewer(infoJson, pid);
       },
       error: (error) => {
         console.error('Failed to fetch IIIF info.json', error);
@@ -351,7 +357,7 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
    * Handles both IIIF tiled sources (waits for all tiles) and direct image fallbacks.
    */
   private waitForImageLoaded(): void {
-    const tiledImage = this.viewer?.world.getItemAt(0);
+    const tiledImage = getPageItem(this.viewer);
     if (tiledImage) {
       if (tiledImage.getFullyLoaded()) {
         requestAnimationFrame(() => this.clearThumbnailBackground());
@@ -368,8 +374,11 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       // World is empty — image not added yet (can happen with direct image fallbacks).
       // Listen for the item to be added, then wait for it to fully load.
       const onAddItem = (e: any) => {
-        this.viewer?.world.removeHandler('add-item', onAddItem);
         const item = e.item;
+        // The preview layer lands first and finishes almost immediately;
+        // waiting on it would drop the thumbnail before the page is drawn.
+        if (item?.[PREVIEW_LAYER]) return;
+        this.viewer?.world.removeHandler('add-item', onAddItem);
         if (item.getFullyLoaded()) {
           requestAnimationFrame(() => this.clearThumbnailBackground());
         } else {
@@ -386,7 +395,69 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     }
   }
 
-  private createViewer(tileSource: any): void {
+  /**
+   * Open a single page and, beneath it, a one-request preview of the whole page.
+   *
+   * A full page at fit-zoom needs roughly fifty tiles, each paying the CDK
+   * proxy's per-request overhead. The preview paints the page from a single
+   * IIIF request while those tiles arrive, which is what the old OpenLayers
+   * client did with its static base layer.
+   */
+  private openWithPreview(tileSource: any, pid: string): void {
+    if (!this.viewer) return;
+
+    const pageWidth = Number(tileSource?.width);
+    const pageHeight = Number(tileSource?.height);
+    if (!pageWidth || !pageHeight) {
+      // No dimensions to scale against — open the page on its own.
+      this.viewer.open(tileSource);
+      return;
+    }
+
+    // Ask for a preview that covers the viewport but no more. The server rounds
+    // `!w,h` to whole pixels, so the returned image's aspect ratio can differ
+    // slightly from the page's. Left to itself that misaligns the two layers and
+    // skews the world's home bounds, so the preview's bounds are pinned to the
+    // page's normalized box (1 x height/width) below rather than inferred.
+    const container = this.viewer.viewport.getContainerSize();
+    const scale = Math.min(
+      1,
+      Math.max(container.x / pageWidth, container.y / pageHeight)
+    );
+    const previewUrl = this.iiifViewerService.getScaledImageUrl(
+      pid,
+      Math.max(Math.round(pageWidth * scale), 1),
+      Math.max(Math.round(pageHeight * scale), 1)
+    );
+
+    this.viewer.open([
+      {
+        tileSource: {
+          type: 'image',
+          url: previewUrl,
+          buildPyramid: false
+        },
+        // Pin to the page's own normalized box so both layers register exactly
+        // and getHomeBounds()/minZoomLevel stay driven by the page.
+        x: 0,
+        y: 0,
+        width: 1,
+        height: pageHeight / pageWidth,
+        // Tagged so getPageItem() can tell the preview from the real page.
+        success: (event: any) => {
+          if (event?.item) (event.item as any)[PREVIEW_LAYER] = true;
+        }
+      },
+      { tileSource, x: 0, y: 0, width: 1 }
+    ] as any);
+  }
+
+  /**
+   * @param previewPid when set, the page is opened with a single-request preview
+   *   layer beneath it (see openWithPreview). Left unset for the direct-image
+   *   fallback, which is already one request and has no IIIF endpoint.
+   */
+  private createViewer(tileSource: any, previewPid?: string): void {
     if (this.viewer) {
       this.osdViewer.set(null);
       this.viewer.destroy();
@@ -397,7 +468,9 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     this.viewer = OpenSeadragon({
       element: this.viewerContainer.nativeElement,
       prefixUrl: 'https://cdn.jsdelivr.net/npm/openseadragon@4.1/build/openseadragon/images/',
-      tileSources: tileSource,
+      // With a preview the world is populated by openWithPreview() below, once
+      // the viewport exists and its size can be measured.
+      tileSources: previewPid ? [] : tileSource,
       showNavigationControl: false,
       showRotationControl: false,
       showHomeControl: false,
@@ -411,11 +484,25 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       ajaxHeaders: authHeaders,
       // Transparent placeholder so thumbnail background shows through
       placeholderFillStyle: 'transparent',
-      // Render the closest matching level straight away instead of walking the
-      // pyramid low-res → high-res. Every tile pays the CDK proxy's per-request
-      // overhead, so skipping the intermediate levels cuts the request count
-      // per page at the cost of the image staying on the thumbnail for longer.
-      immediateRender: true,
+      // Left at OpenSeadragon's default (false) so the pyramid is walked
+      // low-res → high-res and the page sharpens progressively. Setting it to
+      // true pins every tile's priority to the target level, so nothing shows
+      // until those tiles land and the page then appears all at once.
+      // The preview layer below already covers the blank-page gap that
+      // immediateRender was meant to shorten.
+      immediateRender: false,
+      // OpenSeadragon's default is 0 (unlimited), which fires every tile of the
+      // visible grid at once — ~54 parallel requests for a full page. Each one
+      // pays the CDK proxy's per-request overhead, so the burst is what makes
+      // page loads feel slow. Cap the concurrency instead.
+      imageLoaderLimit: 6,
+      // Caps the pyramid level OSD targets: highestLevel is clamped by
+      // log2(zeroRatio / minPixelRatio), so raising this picks a coarser level.
+      // At the default 0.5 a full page targets level 3 — 54 tiles, each a proxy
+      // round-trip. At 1.0 it targets level 2, so the whole progressive run
+      // (levels 0→2) costs 23 tiles and still sharpens step by step. Zooming in
+      // raises zeroRatio and brings the finer levels back as needed.
+      minPixelRatio: 1.0,
       gestureSettingsMouse: {
         clickToZoom: false,
         dblClickToZoom: true,
@@ -439,6 +526,10 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     // Hand the new viewer to the watermark overlay, which projects its image
     // coordinates through this viewport.
     this.osdViewer.set(this.viewer);
+
+    if (previewPid) {
+      this.openWithPreview(tileSource, previewPid);
+    }
 
     // Reset fallback state when image source opens, then wait for all tiles to render
     this.viewer.addHandler('open', () => {
@@ -610,7 +701,7 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       }).pipe(
         switchMap((infoJson: any) => {
           this.processInfoJson(infoJson, infoUrl);
-          this.viewer?.open(infoJson);
+          this.openWithPreview(infoJson, currentPid);
           return EMPTY;
         })
       );
@@ -792,7 +883,7 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   onText() {
     if (this.currentImageRect && this.imagePid && this.viewer) {
       // Get image dimensions from the viewer
-      const tiledImage = this.viewer.world.getItemAt(0);
+      const tiledImage = getPageItem(this.viewer);
       if (!tiledImage) {
         console.warn('No tiled image available');
         return;
@@ -1004,7 +1095,7 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
    */
   private updateMinZoomLevel(): void {
     if (!this.viewer) return;
-    const item = this.viewer.world.getItemAt(0);
+    const item = getPageItem(this.viewer);
     if (!item) return;
 
     const containerSize = this.viewer.viewport.getContainerSize();

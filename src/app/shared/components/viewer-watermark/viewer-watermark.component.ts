@@ -10,6 +10,7 @@ import {
   ViewChild
 } from '@angular/core';
 import OpenSeadragon from 'openseadragon';
+import { getPageItem } from '../../services/iiif-viewer.service';
 import { ConfigService } from '../../../core/config/config.service';
 import { TranslateService } from '@ngx-translate/core';
 import { LicenseWatermarkConfig, LocalizedLabel } from '../../../core/config/config.interfaces';
@@ -244,7 +245,7 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    const item = viewer.world.getItemAt(0);
+    const item = getPageItem(viewer);
     if (!item) return;
 
     const imageSize = item.getContentSize();
