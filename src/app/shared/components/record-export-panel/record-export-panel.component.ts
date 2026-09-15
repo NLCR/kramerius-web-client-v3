@@ -55,20 +55,23 @@ export class RecordExportPanelComponent implements OnInit {
   private router = inject(Router);
   private configService = inject(ConfigService);
 
-  // Tracks the selected CDK member library: PDF/EPUB availability depends on whether
-  // THAT library's backend runs the public worker, so the flags below must be
-  // re-evaluated whenever the source changes.
+  // Tracks the selected CDK member library: EPUB/TXT availability and which
+  // whole-document PDF flavour applies depend on whether THAT library's backend
+  // runs the public worker, so everything below must be re-evaluated whenever the
+  // source changes.
   private cdkSource = inject(CdkSourceService);
   private cdkSourceCode = toSignal(this.cdkSource.code$, { initialValue: this.cdkSource.getCode() });
 
   // Per-format visibility driven by the instance's export config (config-main.json),
-  // plus — for pdf/epub — the serving library's public-worker support.
+  // plus — for epub/txt — the serving library's public-worker support.
   printEnabled = this.configService.isExportFormatEnabled('print');
-  txtEnabled = this.configService.isExportFormatEnabled('txt');
-  pdfEnabled = computed(() => {
+  txtEnabled = computed(() => {
     this.cdkSourceCode();
-    return this.configService.isExportFormatEnabled('pdf');
+    return this.configService.isExportFormatEnabled('txt');
   });
+  // PDF is not worker-gated: the synchronous `/pdf/selection` download works
+  // everywhere, so only the options differ by library (see pdfOptions).
+  pdfEnabled = computed(() => this.configService.isExportFormatEnabled('pdf'));
   epubEnabled = computed(() => {
     this.cdkSourceCode();
     return this.configService.isExportFormatEnabled('epub');
@@ -85,6 +88,9 @@ export class RecordExportPanelComponent implements OnInit {
   isLoggedIn = computed(() => !!this.userService.userSession$()?.authenticated);
 
   pdfOptions = computed(() => {
+    // Which whole-document flavour applies depends on the serving library.
+    this.cdkSourceCode();
+
     const pages = this.pages();
     const loaded = this.pagesLoaded();
     const exportable = pages.filter(p => this.exportService.hasExportableLicense(p));
@@ -94,10 +100,16 @@ export class RecordExportPanelComponent implements OnInit {
     const disableLegacy = !loaded || !hasExportable || pages.length > max || exportable.length > max;
     const disableSelect = !loaded || !hasExportable;
 
+    // Mutually exclusive, both labelled plainly "whole-document": the worker job
+    // by e-mail where the worker exists, the synchronous `/pdf/selection` download
+    // otherwise. The distinct value routes onPdfSubmit to the right path.
+    const wholeDocument = this.configService.hasPublicWorkerExports()
+      ? { label: 'whole-document', value: 'whole-document', disabled: !loaded }
+      : { label: 'whole-document', value: 'whole-document-legacy', disabled: disableLegacy };
+
     return [
-      { label: 'whole-document-legacy', value: 'whole-document-legacy', disabled: disableLegacy },
+      wholeDocument,
       { label: 'select-pages', value: 'select-pages', disabled: disableSelect },
-      { label: 'whole-document', value: 'whole-document', disabled: !loaded },
     ];
   });
 

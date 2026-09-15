@@ -329,13 +329,45 @@ export class DetailViewService {
    * was offered on DNNTO documents. See `ConfigService.isLicenseActionAllowed`
    * for the most-restrictive-wins semantics.
    *
-   * Reads `documentSignal()`, so calling this from a template or a `computed`
-   * registers a dependency on the document and re-evaluates when it changes.
-   * Callers that cache the result in a plain field instead would go stale on the
-   * next document.
+   * Reads `documentSignal()`, `_pages()` and `_currentPageIndex()`, so calling this
+   * from a template or a `computed` registers a dependency on the document and on
+   * the open page and re-evaluates when either changes. Callers that cache the
+   * result in a plain field instead would go stale on the next page.
    */
   isActionAllowed(action: keyof LicenseActionsConfig): boolean {
-    return this.configService.isLicenseActionAllowed(this.documentSignal()?.licences, action);
+    return this.configService.isLicenseActionAllowed(this.effectiveLicences(), action);
+  }
+
+  /**
+   * The licences that govern what the reader may do right now.
+   *
+   * The page on screen decides, not the parent document. `Metadata.licences` comes
+   * from Solr's `licenses.facet`, which is the union of the whole tree — the
+   * object's own licences, its ancestors' AND its descendants' (`contains_licenses`).
+   * Under most-restrictive-wins that union is far too broad: a periodical issue of a
+   * `dnnto` title reports `["public","dnnto","covid"]`, so every export was denied on
+   * issues whose pages are plainly public and the export tab rendered empty.
+   *
+   * A page carries both licences set directly on it and those inherited from its
+   * ancestors, and both bind it, so the two are combined. The document stays as the
+   * fallback for views with no page list (sound recordings, PDF documents) and for a
+   * page indexed without any licence — otherwise a gap in the index would silently
+   * unlock a restricted document.
+   */
+  private effectiveLicences(): string[] | null | undefined {
+    const page = this.getCurrentPage() as any;
+    if (page) {
+      // Pages reach the store as raw Solr docs, so the field is `licenses`; the
+      // `Page` model spells its own copy `licences`. Read whichever is present.
+      const pageLicences = [
+        ...(page.licences ?? page['licenses'] ?? []),
+        ...(page.licenses_of_ancestors ?? []),
+      ];
+      if (pageLicences.length) {
+        return pageLicences;
+      }
+    }
+    return this.documentSignal()?.licences;
   }
 
   /**
