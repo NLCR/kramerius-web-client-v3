@@ -466,8 +466,20 @@ export class ConfigService {
    */
   private static readonly PUBLIC_WORKER_LIBRARIES = ['knav', 'nkp'];
 
-  /** Export formats produced by the public worker. */
-  private static readonly PUBLIC_WORKER_FORMATS: ExportFormat[] = ['pdf', 'epub'];
+  /**
+   * Export formats that exist ONLY as a public-worker job — there is no other way
+   * to produce them, so without the worker the format has to disappear entirely.
+   *
+   * PDF is deliberately absent even though a worker-backed whole-document PDF
+   * exists: the synchronous `/pdf/selection` download covers PDF at every library,
+   * so gating the format here hid a working export. Which of the two PDF flavours
+   * to offer is decided in the UI via `hasPublicWorkerExports()`.
+   *
+   * TXT belongs here for the same reason EPUB does — both are the same worker job
+   * (`requests/special_needs_text` / `special_needs_ebook`), just a different
+   * rendition.
+   */
+  private static readonly PUBLIC_WORKER_FORMATS: ExportFormat[] = ['epub', 'txt'];
 
   /**
    * True when the library that actually serves the open document runs the public
@@ -478,7 +490,7 @@ export class ConfigService {
    * loaded from, which is also the backend that would have to produce the export.
    * Off CDK there is no source, so the instance's own code decides.
    */
-  private hasPublicWorker(): boolean {
+  hasPublicWorkerExports(): boolean {
     const code = this.cdkSource.getCode() || this.envService.getKrameriusId() || this.app?.code || '';
     return ConfigService.PUBLIC_WORKER_LIBRARIES.some(lib => code.includes(lib));
   }
@@ -486,13 +498,13 @@ export class ConfigService {
   /**
    * Check whether a document export format (print/jpeg/pdf/epub/txt) is enabled.
    *
-   * PDF and EPUB additionally require the serving library's backend to run the
+   * EPUB and TXT additionally require the serving library's backend to run the
    * public worker — config alone cannot enable them for a library that has none.
    * Because that depends on the selected CDK source, callers must re-evaluate this
    * when the source changes (see `CdkSourceService.code$`).
    */
   isExportFormatEnabled(format: ExportFormat): boolean {
-    if (ConfigService.PUBLIC_WORKER_FORMATS.includes(format) && !this.hasPublicWorker()) {
+    if (ConfigService.PUBLIC_WORKER_FORMATS.includes(format) && !this.hasPublicWorkerExports()) {
       return false;
     }
     return this.export[format] ?? true;

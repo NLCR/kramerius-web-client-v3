@@ -1,6 +1,7 @@
 <app-detail-layout [showBottomToolbar]="false" [constrainBottomToolbar]="true"
                    [showRightSidebar]="!breakpointService.isMobile()"
                    [rightSidebarCollapsed]="!detailViewService.metadataSidebarVisible"
+                   [hideLeftSidebarMobileTitle]="true"
                    [hideFilterToggle]="breakpointService.isMobile()">
 
   <ng-container left-sidebar>
@@ -25,12 +26,17 @@
 
           <app-tab-item id="records" [label]="'sound-records--toggle' | translate">
             <div class="sidebar--wrapper">
-              <app-input
-                [placeholder]="'search-in-document--placeholder' | translate"
-                [theme]="'dark'"
-                [size]="'sm'"
-                [showMicButton]="true"
-              ></app-input>
+              <!-- Sidebar's X shares this row, not one of its own (#177). -->
+              <div class="search-input-row">
+                <app-input
+                  [placeholder]="'search-in-document--placeholder' | translate"
+                  [theme]="'dark'"
+                  [size]="'sm'"
+                  [showMicButton]="true"
+                ></app-input>
+
+                <app-sheet-close-button></app-sheet-close-button>
+              </div>
 
               <div class="sidebar--wrapper--scroll-content">
                 <app-detail-pages-grid [type]="'recording'"></app-detail-pages-grid>
@@ -40,12 +46,17 @@
 
           <app-tab-item id="images" [label]="'images--toggle' | translate">
             <div class="sidebar--wrapper">
-              <app-input
-                [placeholder]="'search-in-document--placeholder' | translate"
-                [theme]="'dark'"
-                [size]="'sm'"
-                [showMicButton]="true"
-              ></app-input>
+              <!-- Sidebar's X shares this row, not one of its own (#177). -->
+              <div class="search-input-row">
+                <app-input
+                  [placeholder]="'search-in-document--placeholder' | translate"
+                  [theme]="'dark'"
+                  [size]="'sm'"
+                  [showMicButton]="true"
+                ></app-input>
+
+                <app-sheet-close-button></app-sheet-close-button>
+              </div>
 
               <hr>
               <app-page-navigator

@@ -8,6 +8,7 @@ import { ToolbarControlsComponent } from '../../shared/components/toolbar-contro
 import { ToolbarHeaderComponent } from '../../shared/components/toolbar-header/toolbar-header.component';
 import { DetailPagesGridComponent } from './components/detail-pages-grid/detail-pages-grid.component';
 import { InputComponent } from '../../shared/components/input/input.component';
+import {SheetCloseButtonComponent} from "../../shared/components/sheet-close-button/sheet-close-button.component";
 import {
   DetailViewBottomToolbarComponent
 } from './components/detail-view-bottom-toolbar/detail-view-bottom-toolbar.component';
@@ -76,6 +77,7 @@ const routes: Routes = [
 		ToolbarHeaderComponent,
 		DetailPagesGridComponent,
 		InputComponent,
+		SheetCloseButtonComponent,
 		DetailViewBottomToolbarComponent,
 		PageNavigatorComponent,
 		TabsComponent,

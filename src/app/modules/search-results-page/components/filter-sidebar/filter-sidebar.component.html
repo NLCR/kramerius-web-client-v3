@@ -12,7 +12,8 @@
 
 <!-- Mobile slide-up panel mode -->
 @if (breakpointService.isMobile()) {
-<app-slide-up-panel [title]="mobileTitleKey | translate" [(isOpen)]="breakpointService.manualToggle"
+<app-slide-up-panel [title]="mobileTitleKey | translate" [hideTitle]="hideMobileTitle"
+  [(isOpen)]="breakpointService.manualToggle"
   (closed)="breakpointService.manualToggle.set(false)">
   <ng-container *ngTemplateOutlet="filterContent"></ng-container>
 </app-slide-up-panel>
@@ -26,10 +27,16 @@
 
 <div class="filter-sidebar" role="complementary" [attr.aria-label]="'search-filters' | translate"
   [class.overlay]="isOverlay()" [class.visible]="breakpointService.isVisible()"
+  [class.overlay--paired-close]="hideMobileTitle"
   [class.disabled]="isDisabled" [class.dimmed]="dimmed">
 
-  <!-- Close button for tablet overlay mode -->
-  <button *ngIf="isOverlay() && breakpointService.isVisible()" class="sidebar-close-btn"
+  <!-- Close button for tablet overlay mode. Suppressed where the projected
+       sidebar pairs its own X with its leading row (`hideMobileTitle` hosts, via
+       app-sheet-close-button): this one floats absolutely at the top, which on a
+       landscape phone left an empty row exactly where the caption used to be
+       (GitHub issue #177). -->
+  <button *ngIf="isOverlay() && breakpointService.isVisible() && !hideMobileTitle"
+    class="sidebar-close-btn"
     (click)="breakpointService.toggleSidebar()" [attr.aria-label]="'close-filters' | translate">
     <i class="icon-close"></i>
   </button>

@@ -73,3 +73,32 @@
   background-color: var(--color-secondary);
   z-index: 1000;
 }
+
+// Sidebar row pairing the panel's topmost control with the mobile sheet's
+// close button.
+//
+// The mobile slide-up hides its own caption header, so rather than spend a row
+// on a lone X, the hosting sidebar puts the button beside whatever sits at the
+// top of the sheet - the search field in most sidebars, the playlist toggle in
+// the sound-recording one (GitHub issue #177). Global because several sidebars
+// project into that sheet - document, PDF, EPUB, music - and each would
+// otherwise restate the same declarations in its own scoped stylesheet.
+//
+// On wider viewports `app-sheet-close-button` renders nothing, leaving this a
+// plain single-item row.
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-x2);
+
+  // The leading control has to shrink to make room for the button rather than
+  // span the full width: `width: 100%` inside these components resolves against
+  // this box, so each needs an explicit basis to flex from. app-playlist-toggle
+  // is here because the sound-recording sidebar leads with it, not a field.
+  > app-autocomplete,
+  > app-input,
+  > app-playlist-toggle {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}

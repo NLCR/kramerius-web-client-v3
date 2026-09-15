@@ -144,9 +144,15 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       ).subscribe()
     );
 
-    // Subscribe to book mode changes
+    // Subscribe to book mode changes. bookMode$ is a BehaviorSubject, so it
+    // replays its seed on subscribe; skip(1) ignores that replay because the
+    // initial load is owned by initializeViewer. distinctUntilChanged avoids
+    // rebuilding the viewer when the mode is re-emitted with the same value.
     this.subscriptions.push(
-      this.iiifViewerService.bookMode$.subscribe(() => {
+      this.iiifViewerService.bookMode$.pipe(
+        skip(1),
+        distinctUntilChanged(),
+      ).subscribe(() => {
         this.triggerViewerUpdate();
       })
     );
@@ -411,8 +417,24 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       ajaxHeaders: authHeaders,
       // Transparent placeholder so thumbnail background shows through
       placeholderFillStyle: 'transparent',
-      // Ensure smooth progressive loading (low-res → high-res)
+      // Left at OpenSeadragon's default (false) so the pyramid is walked
+      // low-res → high-res and the page sharpens progressively. Setting it to
+      // true pins every tile's priority to the target level, so nothing shows
+      // until those tiles land and the page then appears all at once.
+      // The thumbnail background covers the gap until the first tiles arrive.
       immediateRender: false,
+      // OpenSeadragon's default is 0 (unlimited), which fires every tile of the
+      // visible grid at once — ~54 parallel requests for a full page. Each one
+      // pays the CDK proxy's per-request overhead, so the burst is what makes
+      // page loads feel slow. Cap the concurrency instead.
+      imageLoaderLimit: 6,
+      // Caps the pyramid level OSD targets: highestLevel is clamped by
+      // log2(zeroRatio / minPixelRatio), so raising this picks a coarser level.
+      // At the default 0.5 a full page targets level 3 — 54 tiles, each a proxy
+      // round-trip. At 1.0 it targets level 2, so the whole progressive run
+      // (levels 0→2) costs 23 tiles and still sharpens step by step. Zooming in
+      // raises zeroRatio and brings the finer levels back as needed.
+      minPixelRatio: 1.0,
       gestureSettingsMouse: {
         clickToZoom: false,
         dblClickToZoom: true,
@@ -789,7 +811,7 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   onText() {
     if (this.currentImageRect && this.imagePid && this.viewer) {
       // Get image dimensions from the viewer
-      const tiledImage = this.viewer.world.getItemAt(0);
+      const tiledImage = this.viewer?.world.getItemAt(0);
       if (!tiledImage) {
         console.warn('No tiled image available');
         return;

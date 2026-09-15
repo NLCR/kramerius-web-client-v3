@@ -6,6 +6,8 @@ import { AdminActionsComponent } from '../admin-actions/admin-actions.component'
 import { DetailPagesGridComponent } from '../../../modules/detail-view-page/components/detail-pages-grid/detail-pages-grid.component';
 import { DetailArticlesListComponent } from '../../../modules/detail-view-page/components/detail-articles-list/detail-articles-list.component';
 import { DetailViewService } from '../../../modules/detail-view-page/services/detail-view.service';
+import { BreakpointService } from '../../services/breakpoint.service';
+import { SheetCloseButtonComponent } from '../sheet-close-button/sheet-close-button.component';
 import { DocumentTypeEnum } from '../../../modules/constants/document-type';
 import { Metadata } from '../../models/metadata.model';
 import { AdminModeService } from '../../services';
@@ -35,6 +37,7 @@ import { SearchDebounceService } from '../../services/search-debounce.service';
     DetailArticlesListComponent,
     AutocompleteComponent,
     InputComponent,
+    SheetCloseButtonComponent,
     SearchNavigationComponent,
     SearchResultsListComponent,
     MatSlideToggle,
@@ -47,6 +50,7 @@ export class DocumentSidebarComponent implements OnInit, OnChanges, OnDestroy {
   @Input() document!: Metadata;
   @Input() mode?: 'pages' | 'articles';
 
+  public breakpointService = inject(BreakpointService);
   public detailViewService = inject(DetailViewService);
   public adminModeService = inject(AdminModeService);
   public iiifViewerService = inject(IIIFViewerService);

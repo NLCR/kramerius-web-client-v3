@@ -52,7 +52,7 @@
     </app-export-document-section-item-component>
     }
 
-    @if (txtEnabled) {
+    @if (txtEnabled()) {
     <app-export-document-section-item-component
       [title]="'export-text-title'"
       [icon]="'icon-document-text'"

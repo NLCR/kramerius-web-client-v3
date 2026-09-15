@@ -3,6 +3,7 @@ import {PdfService} from '../../services/pdf.service';
 import {SearchDebounceService} from '../../services/search-debounce.service';
 import {PdfContentTreeComponent} from '../pdf-content-tree/pdf-content-tree.component';
 import {InputComponent} from '../input/input.component';
+import { SheetCloseButtonComponent } from '../sheet-close-button/sheet-close-button.component';
 import {PageNavigatorComponent} from '../page-navigator/page-navigator.component';
 import {TranslatePipe} from '@ngx-translate/core';
 import {AsyncPipe} from '@angular/common';
@@ -14,6 +15,7 @@ import {SearchNavigationComponent} from '../search-navigation/search-navigation.
   imports: [
     PdfContentTreeComponent,
     InputComponent,
+    SheetCloseButtonComponent,
     PageNavigatorComponent,
     TranslatePipe,
     AsyncPipe,

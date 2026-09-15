@@ -4,6 +4,7 @@ import {MusicPageComponent} from "./music-page.component";
 import {DetailViewPageComponent} from "../detail-view-page/detail-view-page.component";
 import {DetailLayoutComponent} from "../../shared/components/detail-layout/detail-layout.component";
 import {InputComponent} from "../../shared/components/input/input.component";
+import {SheetCloseButtonComponent} from "../../shared/components/sheet-close-button/sheet-close-button.component";
 import {AsyncPipe, NgForOf, NgIf} from "@angular/common";
 import {PageNavigatorComponent} from "../../shared/components/page-navigator/page-navigator.component";
 import {DetailPagesGridComponent} from "../detail-view-page/components/detail-pages-grid/detail-pages-grid.component";
@@ -51,6 +52,7 @@ const routes: Routes = [
         RouterModule.forChild(routes),
         DetailLayoutComponent,
         InputComponent,
+        SheetCloseButtonComponent,
         NgIf,
         AsyncPipe,
         PageNavigatorComponent,

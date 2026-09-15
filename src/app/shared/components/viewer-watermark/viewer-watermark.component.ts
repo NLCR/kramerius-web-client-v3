@@ -72,8 +72,44 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
 
   private readonly onViewportChange = () => this.render();
 
+  /**
+   * The watermark draws in image coordinates, so it needs the `TiledImage` to
+   * exist before it can project anything — `drawCanvas` bails out while
+   * `world` is still empty.
+   *
+   * `open` is not enough: it can fire before the item is in the world, and the
+   * remaining handlers (`animation`, `update-viewport`) only fire once
+   * OpenSeadragon starts painting tiles. That made the first draw wait for the
+   * tiles, which is very visible now that each tile pays the CDK proxy's
+   * per-request overhead. `add-item` fires as soon as the tile source is
+   * parsed, which is the earliest the geometry is known.
+   */
+  private readonly onWorldItemAdded = () => this.render();
+
   ngAfterViewInit(): void {
+    // Start fetching the logo before the viewer geometry is ready, so the first
+    // draw is not delayed by the logo's own round-trip on top of it.
+    this.preloadLogo();
     this.scheduleRender();
+  }
+
+  /**
+   * Warm `loadedImage` so `render` can draw synchronously on its first call.
+   * Without this the earliest draw still waits for the logo to arrive, which
+   * would undo the point of drawing as soon as the geometry exists.
+   */
+  private preloadLogo(): void {
+    const config = this.configService.getWatermarkConfig(this.docLicenses);
+    if (!config || config.type !== 'image' || !config.logo) return;
+    if (this.loadedImageSrc === config.logo) return;
+
+    const img = new Image();
+    img.onload = () => {
+      this.loadedImage = img;
+      this.loadedImageSrc = config.logo!;
+      this.scheduleRender();
+    };
+    img.src = config.logo;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -81,6 +117,8 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
       // A new page or license means a fresh roll of the probability mask.
       this.cellMask = null;
       this.cellMaskKey = null;
+      // A license change can point at a different logo — fetch it up front too.
+      if (changes['docLicenses']) this.preloadLogo();
       this.scheduleRender();
     }
   }
@@ -99,6 +137,8 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
     viewer.addHandler('update-viewport', this.onViewportChange);
     viewer.addHandler('resize', this.onViewportChange);
     viewer.addHandler('open', this.onViewportChange);
+    // Draw as soon as the image geometry exists, without waiting for tiles.
+    viewer.world?.addHandler('add-item', this.onWorldItemAdded);
   }
 
   private detachViewer(): void {
@@ -108,6 +148,9 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
     viewer.removeHandler('update-viewport', this.onViewportChange);
     viewer.removeHandler('resize', this.onViewportChange);
     viewer.removeHandler('open', this.onViewportChange);
+    // `world` is gone once the viewer has been destroyed, which is exactly when
+    // the parent detaches us.
+    viewer.world?.removeHandler('add-item', this.onWorldItemAdded);
   }
 
   private scheduleRender(): void {

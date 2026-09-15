@@ -141,8 +141,8 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   private cdkSourceCode = toSignal(this.cdkSource.code$, { initialValue: this.cdkSource.getCode() });
 
   // Per-format visibility driven by the instance's export config (config-main.json),
-  // plus — for pdf/epub — the serving library's public-worker support, plus the
-  // current document's license permission matrix.
+  // plus — for epub/txt — the serving library's public-worker support, plus the
+  // current page's license permission matrix.
   //
   // All of these are computed rather than plain fields: the license gate depends
   // on the loaded document, so a value sampled once at construction would be
@@ -154,11 +154,14 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   // to display.
   printEnabled = computed(() => this.configService.isExportFormatEnabled('print') && this.isActionAllowed('print'));
   jpegEnabled = computed(() => this.configService.isExportFormatEnabled('jpeg') && this.isActionAllowed('jpeg'));
-  txtEnabled = computed(() => this.configService.isExportFormatEnabled('txt') && this.isActionAllowed('text'));
-  pdfEnabled = computed(() => {
+  txtEnabled = computed(() => {
     this.cdkSourceCode();
-    return this.configService.isExportFormatEnabled('pdf') && this.isActionAllowed('pdf');
+    return this.configService.isExportFormatEnabled('txt') && this.isActionAllowed('text');
   });
+  // PDF is not worker-gated: without the worker the synchronous `/pdf/selection`
+  // download still works, so only `pdfOptions()` differs by library, not the
+  // section's visibility.
+  pdfEnabled = computed(() => this.configService.isExportFormatEnabled('pdf') && this.isActionAllowed('pdf'));
   epubEnabled = computed(() => {
     this.cdkSourceCode();
     // EPUB is a full-text rendition of the document, so it follows `text` too.
@@ -186,6 +189,10 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   });
 
   pdfOptions = computed(() => {
+    // Which whole-document flavour is offered depends on the serving library, so
+    // this has to re-run when the selected CDK source changes.
+    this.cdkSourceCode();
+
     // For PDF documents the file is downloaded directly, so only offer the
     // whole-document option ("Celý dokument").
     if (this.detailViewService.isPdf) {
@@ -213,10 +220,19 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
 
     const pagesLoaded = !!pages;
 
+    // Two different exports produce a whole-document PDF: the worker-backed job
+    // delivered by e-mail (KNAV/NKP only) and the synchronous `/pdf/selection`
+    // download (everywhere, capped by pdfMaxRange). Only one of them can work at a
+    // given library, so only one is offered — and both are labelled plainly
+    // "whole-document"; the distinct *value* is what routes onPdfSubmit to the
+    // right path.
+    const wholeDocument = this.configService.hasPublicWorkerExports()
+      ? { label: 'whole-document', value: 'whole-document', disabled: !pagesLoaded }
+      : { label: 'whole-document', value: 'whole-document-legacy', disabled: disableWholeDocument };
+
     return [
-      { label: 'whole-document-legacy', value: 'whole-document-legacy', disabled: disableWholeDocument },
+      wholeDocument,
       { label: 'select-pages', value: 'select-pages', disabled: disableSelectPages },
-      { label: 'whole-document', value: 'whole-document', disabled: !pagesLoaded },
     ];
   });
 
