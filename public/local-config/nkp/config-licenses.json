@@ -38,7 +38,7 @@
           "page": {
             "cs": "local-config/nkp/html/licenses/public.cs.html",
             "en": "local-config/nkp/html/licenses/public.en.html",
-            "de": "local-config/html/licenses/public.de.html"
+            "de": "local-config/nkp/html/licenses/public.de.html"
           }
         }
       ],
@@ -70,7 +70,7 @@
           "page": {
             "cs": "local-config/nkp/html/licenses/public-contract.cs.html",
             "en": "local-config/nkp/html/licenses/public-contract.en.html",
-            "de": "local-config/html/licenses/public-contract.de.html"
+            "de": "local-config/nkp/html/licenses/public-contract.de.html"
           }
         }
       ]
@@ -99,7 +99,7 @@
           "page": {
             "cs": "local-config/nkp/html/licenses/public-muo.cs.html",
             "en": "local-config/nkp/html/licenses/public-muo.en.html",
-            "de": "local-config/html/licenses/public-muo.de.html"
+            "de": "local-config/nkp/html/licenses/public-muo.de.html"
           }
         }
       ],
@@ -156,32 +156,32 @@
         {
           "key": "unauthenticated",
           "page": {
-            "cs": "local-config/mzk/html/licenses/dnnto.cs.html",
-            "en": "local-config/mzk/html/licenses/dnnto.en.html",
-            "de": "local-config/html/licenses/dnnto.de.html"
+            "cs": "local-config/nkp/html/licenses/dnnto.cs.html",
+            "en": "local-config/nkp/html/licenses/dnnto.en.html",
+            "de": "local-config/nkp/html/licenses/dnnto.de.html"
           }
         },
         {
           "key": "unauthorized",
           "page": {
-            "cs": "local-config/mzk/html/licenses/dnnto2.cs.html",
-            "en": "local-config/mzk/html/licenses/dnnto2.en.html",
-            "de": "local-config/html/licenses/dnnto2.de.html"
+            "cs": "local-config/nkp/html/licenses/dnnto2.cs.html",
+            "en": "local-config/nkp/html/licenses/dnnto2.en.html",
+            "de": "local-config/nkp/html/licenses/dnnto2.de.html"
           }
         },
         {
           "key": "available",
           "page": {
-            "cs": "local-config/mzk/html/licenses/dnnto3.cs.html",
-            "en": "local-config/mzk/html/licenses/dnnto3.en.html",
-            "de": "local-config/html/licenses/dnnto3.de.html"
+            "cs": "local-config/nkp/html/licenses/dnnto3.cs.html",
+            "en": "local-config/nkp/html/licenses/dnnto3.en.html",
+            "de": "local-config/nkp/html/licenses/dnnto3.de.html"
           }
         }
       ],
       "instructionPage": {
-        "cs": "local-config/mzk/html/licenses/dnnto.instruction.cs.html",
-        "en": "local-config/mzk/html/licenses/dnnto.instruction.en.html",
-        "de": "local-config/html/licenses/dnnto.instruction.de.html"
+        "cs": "local-config/nkp/html/licenses/dnnto.instruction.cs.html",
+        "en": "local-config/nkp/html/licenses/dnnto.instruction.en.html",
+        "de": "local-config/nkp/html/licenses/dnnto.instruction.de.html"
       },
       "actions": {
         "pdf": false,
@@ -211,16 +211,16 @@
         {
           "key": "unauthenticated",
           "page": {
-            "cs": "local-config/mzk/html/licenses/dnntt.cs.html",
-            "en": "local-config/mzk/html/licenses/dnntt.en.html",
-            "de": "local-config/html/licenses/dnntt.de.html"
+            "cs": "local-config/nkp/html/licenses/dnntt.cs.html",
+            "en": "local-config/nkp/html/licenses/dnntt.en.html",
+            "de": "local-config/nkp/html/licenses/dnntt.de.html"
           }
         }
       ],
       "instructionPage": {
-        "cs": "local-config/mzk/html/licenses/dnntt.instruction.cs.html",
-        "en": "local-config/mzk/html/licenses/dnntt.instruction.en.html",
-        "de": "local-config/html/licenses/dnntt.instruction.de.html"
+        "cs": "local-config/nkp/html/licenses/dnntt.instruction.cs.html",
+        "en": "local-config/nkp/html/licenses/dnntt.instruction.en.html",
+        "de": "local-config/nkp/html/licenses/dnntt.instruction.de.html"
       },
       "actions": {
         "print": true,
@@ -241,16 +241,16 @@
         {
           "key": "unauthenticated",
           "page": {
-            "cs": "local-config/mzk/html/licenses/onsite.cs.html",
-            "en": "local-config/mzk/html/licenses/onsite.en.html",
-            "de": "local-config/html/licenses/onsite.de.html"
+            "cs": "local-config/nkp/html/licenses/onsite.cs.html",
+            "en": "local-config/nkp/html/licenses/onsite.en.html",
+            "de": "local-config/nkp/html/licenses/onsite.de.html"
           }
         }
       ],
       "instructionPage": {
-        "cs": "local-config/mzk/html/licenses/onsite.instruction.cs.html",
-        "en": "local-config/mzk/html/licenses/onsite.instruction.en.html",
-        "de": "local-config/html/licenses/onsite.instruction.de.html"
+        "cs": "local-config/nkp/html/licenses/onsite.instruction.cs.html",
+        "en": "local-config/nkp/html/licenses/onsite.instruction.en.html",
+        "de": "local-config/nkp/html/licenses/onsite.instruction.de.html"
       },
       "actions": {
         "print": true,
@@ -271,16 +271,16 @@
         {
           "key": "unauthenticated",
           "page": {
-            "cs": "local-config/mzk/html/licenses/onsite-sheetmusic.cs.html",
-            "en": "local-config/mzk/html/licenses/onsite-sheetmusic.en.html",
-            "de": "local-config/html/licenses/onsite-sheetmusic.de.html"
+            "cs": "local-config/nkp/html/licenses/onsite-sheetmusic.cs.html",
+            "en": "local-config/nkp/html/licenses/onsite-sheetmusic.en.html",
+            "de": "local-config/nkp/html/licenses/onsite-sheetmusic.de.html"
           }
         }
       ],
       "instructionPage": {
-        "cs": "local-config/mzk/html/licenses/onsite-sheetmusic.instruction.cs.html",
-        "en": "local-config/mzk/html/licenses/onsite-sheetmusic.instruction.en.html",
-        "de": "local-config/html/licenses/onsite-sheetmusic.instruction.de.html"
+        "cs": "local-config/nkp/html/licenses/onsite-sheetmusic.instruction.cs.html",
+        "en": "local-config/nkp/html/licenses/onsite-sheetmusic.instruction.en.html",
+        "de": "local-config/nkp/html/licenses/onsite-sheetmusic.instruction.de.html"
       },
       "actions": {
         "print": true,
@@ -303,7 +303,7 @@
           "page": {
             "cs": "local-config/nkp/html/licenses/orphan.cs.html",
             "en": "local-config/nkp/html/licenses/orphan.en.html",
-            "de": "local-config/html/licenses/orphan.de.html"
+            "de": "local-config/nkp/html/licenses/orphan.de.html"
           }
         }
       ],

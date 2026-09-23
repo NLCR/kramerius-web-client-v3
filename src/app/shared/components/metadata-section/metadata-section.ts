@@ -1230,10 +1230,11 @@ export class MetadataSection implements OnInit, OnChanges {
     if (!url) return;
 
     const content = await this.configService.loadHtmlContent(url);
+    if (!content) return;
     const title = this.configService.getLocalizedLabel('license', license, lang);
 
     this.dialog.open(LicenseInfoDialogComponent, {
-      data: { title, content },
+      data: { title, content, raw: true },
       autoFocus: false,
       restoreFocus: false,
       panelClass: 'simple-dialog-panel'

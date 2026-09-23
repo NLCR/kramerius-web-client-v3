@@ -112,7 +112,7 @@
       "content": {
         "cs": "local-config/nkp/html/about/about.cs.html",
         "en": "local-config/nkp/html/about/about.en.html",
-        "de": "local-config/html/about/about.de.html"
+        "de": "local-config/nkp/html/about/about.de.html"
       },
       "showInHeader": true
     },
@@ -128,8 +128,8 @@
           "local-config/nkp/html/terms/terms2.en.html"
         ],
         "de": [
-          "local-config/html/terms/terms.de.html",
-          "local-config/html/terms/terms2.de.html"
+          "local-config/nkp/html/terms/terms.de.html",
+          "local-config/nkp/html/terms/terms2.de.html"
         ]
       }
     },
@@ -138,7 +138,7 @@
       "content": {
         "cs": "local-config/nkp/html/copyright/copyright.cs.html",
         "en": "local-config/nkp/html/copyright/copyright.en.html",
-        "de": "local-config/html/copyright/copyright.de.html"
+        "de": "local-config/nkp/html/copyright/copyright.de.html"
       }
     },
     {
@@ -146,7 +146,7 @@
       "content": {
         "cs": "local-config/nkp/html/gdpr/gdpr.cs.html",
         "en": "local-config/nkp/html/gdpr/gdpr.en.html",
-        "de": "local-config/html/gdpr/gdpr.de.html"
+        "de": "local-config/nkp/html/gdpr/gdpr.de.html"
       }
     },
     {
@@ -154,7 +154,7 @@
       "content": {
         "cs": "local-config/nkp/html/faq/faq.cs.html",
         "en": "local-config/nkp/html/faq/faq.en.html",
-        "de": "local-config/html/faq/faq.de.html"
+        "de": "local-config/nkp/html/faq/faq.de.html"
       }
     }
   ],

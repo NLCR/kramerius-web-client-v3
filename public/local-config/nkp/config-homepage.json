@@ -3,13 +3,15 @@
     "cs": "Národní digitální knihovna",
     "en": "National Digital Library",
     "sk": "Národná digitálna knižnica",
-    "pl": "Narodowa Biblioteka Cyfrowa"
+    "pl": "Narodowa Biblioteka Cyfrowa",
+    "de": "Nationale Digitale Bibliothek"
   },
   "subtitle": {
     "cs": "Hledáte historické knihy, noviny, mapy nebo rukopisy? Digitální knihovna vám otevírá brány k bohaté sbírce digitalizovaných dokumentů – volně dostupných i chráněných autorskými právy.",
     "en": "Looking for historical books, newspapers, maps or manuscripts? The digital library opens the gates to a rich collection of digitized documents – both freely available and copyright-protected.",
     "sk": "Hľadáte historické knihy, noviny, mapy alebo rukopisy? Digitálna knižnica vám otvára brány k bohatej zbierke digitalizovaných dokumentov - či už voľne dostupných alebo chránených autorskými právami.",
-    "pl": "Szukasz historycznych książek, gazet, map lub rękopisów? Biblioteka cyfrowa otwiera drzwi do bogatej kolekcji zdigitalizowanych dokumentów – zarówno ogólnodostępnych, jak i chronionych prawem autorskim."
+    "pl": "Szukasz historycznych książek, gazet, map lub rękopisów? Biblioteka cyfrowa otwiera drzwi do bogatej kolekcji zdigitalizowanych dokumentów – zarówno ogólnodostępnych, jak i chronionych prawem autorskim.",
+    "de": "Suchen Sie historische Bücher, Zeitungen, Karten oder Handschriften? Die digitale Bibliothek öffnet Ihnen die Tore zu einer reichen Sammlung digitalisierter Dokumente – sowohl frei zugänglich als auch urheberrechtlich geschützt."
   },
   "sections": [
   {

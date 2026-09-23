@@ -906,6 +906,12 @@ export class ConfigService {
       if (!response.ok) return '';
       const buffer = await response.arrayBuffer();
       const html = new TextDecoder('utf-8').decode(buffer);
+      // A missing file under an SPA fallback (dev server, some proxies) comes back
+      // as the app's own index.html with 200 — never render that as content.
+      if (/<app-root[\s>]/i.test(html)) {
+        console.warn(`ConfigService: ${url} resolved to the app shell (missing file?).`);
+        return '';
+      }
       // Editor-authored HTML often carries pasted inline colours and fonts that
       // break dark mode and the design system; strip those, keep layout styles.
       return sanitizeContentHtml(html);

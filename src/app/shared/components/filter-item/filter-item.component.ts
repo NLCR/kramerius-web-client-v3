@@ -86,10 +86,11 @@ export class FilterItemComponent {
     }
 
     const content = await this.configService.loadHtmlContent(url);
+    if (!content) return;
     const title = this.configService.getLocalizedLabel('license', this.label, lang);
 
     this.dialog.open(LicenseInfoDialogComponent, {
-      data: { title, content },
+      data: { title, content, raw: true },
       autoFocus: false,
       restoreFocus: false,
       panelClass: 'simple-dialog-panel'

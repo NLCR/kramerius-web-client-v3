@@ -132,6 +132,12 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     // when the immersive bar shows/hides. Driven in JS because a CSS transition
     // cannot interpolate a calc() height that changes via a custom property.
     effect(() => {
+      // The bars only render on mobile (see template); reserving their height on
+      // desktop would leave a dead strip under the viewer.
+      if (!this.breakpointService.isMobile()) {
+        this.animateMobileNavBarHeight(0);
+        return;
+      }
       const visible = this.mobileNavVisible();
       const target =
         (visible ? DetailViewPageComponent.MOBILE_NAV_BAR_HEIGHT : 0) +
