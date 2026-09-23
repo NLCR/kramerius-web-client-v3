@@ -22,8 +22,11 @@
 .sidebar--wrapper {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-x4);
-  padding: var(--spacing-x3);
+  gap: var(--spacing-x3);
+  // No bottom padding: the scroll area below fills the remaining height, so a
+  // bottom gap would only shorten it and leave the thumbnail grid floating
+  // clear of the edge. Matches document-sidebar / detail-view (issue #177).
+  padding: var(--spacing-x3) var(--spacing-x3) 0 var(--spacing-x3);
   height: 100%;
   flex: 1;
   overflow: hidden;

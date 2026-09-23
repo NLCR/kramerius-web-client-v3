@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, effect, computed } from '@angular/core';
+import { Component, inject, Input, OnDestroy, effect, computed } from '@angular/core';
 import { DetailViewService } from '../../services/detail-view.service';
 import { UiStateService } from '../../../../shared/services/ui-state.service';
 import { UserService } from '../../../../shared/services/user.service';
@@ -12,6 +12,15 @@ import { LicenseBarConfig } from '../../../../core/config/config.interfaces';
   styleUrl: './license-bar.component.scss'
 })
 export class LicenseBarComponent implements OnDestroy {
+  /**
+   * Set on the copy projected into the fullscreen overlay slot. That instance is
+   * an overlay pinned over the viewer, not part of the document flow, so it must
+   * not touch `uiState.licenseBarVisible` — that signal reserves vertical space
+   * in the layout, and a second writer would either double-reserve it or clear
+   * it on destroy while the in-flow bar is still shown.
+   */
+  @Input() overlay = false;
+
   public detailViewService = inject(DetailViewService);
   public userService = inject(UserService);
   private uiState = inject(UiStateService);
@@ -37,7 +46,9 @@ export class LicenseBarComponent implements OnDestroy {
 
   constructor() {
     effect(() => {
-      this.uiState.licenseBarVisible.set(this.visible());
+      const visible = this.visible();
+      if (this.overlay) return;
+      this.uiState.licenseBarVisible.set(visible);
     });
   }
 
@@ -47,6 +58,7 @@ export class LicenseBarComponent implements OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.overlay) return;
     this.uiState.licenseBarVisible.set(false);
   }
 }

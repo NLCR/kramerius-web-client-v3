@@ -7,7 +7,6 @@ import { Subscription, filter, take } from 'rxjs';
 import { selectFoldersCount } from '../../../modules/saved-lists-page/state';
 import { LoginPromptDialogComponent } from '../../../shared/dialogs/login-prompt-dialog/login-prompt-dialog.component';
 import { BreakpointService } from '../../../shared/services/breakpoint.service';
-import { DontShowAgainService, DontShowDialogs } from '../../../shared/services/dont-show-again.service';
 import { APP_ROUTES_ENUM } from '../../../app.routes';
 import { HeaderType } from './header-types';
 import { SettingsService } from '../../../modules/settings/settings.service';
@@ -91,7 +90,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private store = inject(Store);
   private dialog = inject(MatDialog);
   private breakpointService = inject(BreakpointService);
-  private dontShowAgainService = inject(DontShowAgainService);
 
   constructor(
     private envService: EnvironmentService,
@@ -364,15 +362,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // If the user previously chose "don't show again", skip straight to login
-    if (!this.dontShowAgainService.shouldShowDialog(DontShowDialogs.FavoritesLoginDialog)) {
-      this.goToLogin();
-      return;
-    }
-
+    // The favourites login prompt is always shown - from every place with a heart icon -
+    // so it never offers a "don't show again" option.
     const isMobileOrTablet = this.breakpointService.isMobile() || this.breakpointService.isTablet();
     const dialogRef = this.dialog.open(LoginPromptDialogComponent, {
-      data: { dontShowDialogId: DontShowDialogs.FavoritesLoginDialog },
       width: isMobileOrTablet ? '90vw' : '60vw',
       panelClass: 'simple-dialog-panel',
       disableClose: false,

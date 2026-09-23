@@ -41,6 +41,7 @@
   "sources": "Källor",
   "licences": "Licenser",
   "genres": "Genrer",
-  "locations": "Placeringar",
+  "locations": "Placering",
+  "shelf-locator": "Hyllsignum",
   "geonames": "Geografiska namn"
 }

@@ -242,15 +242,20 @@ export class AltoService {
   /**
    * Parses ALTO XML and extracts bounding boxes for matched words
    * Returns boxes in ALTO pixel coordinates
+   *
+   * Quoted parts of the query are matched as phrases (consecutive words),
+   * mirroring Solr, so a search for "karel hájek" does not light up every
+   * stray "karel" and "hájek" on the page.
+   *
    * @param altoXml - ALTO XML string
-   * @param searchTerms - Array of search terms or space-separated string
+   * @param searchTerms - Search query string, or array of already-split words
    * @returns Array of bounding boxes in ALTO pixel coordinates
    */
   getBoxes(
     altoXml: string,
     searchTerms: string | string[]
   ): AltoBox[] {
-    const terms = this.normalizeSearchTerms(searchTerms);
+    const terms = this.parseSearchTerms(searchTerms);
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(altoXml, 'text/xml');
 
@@ -290,29 +295,65 @@ export class AltoService {
   }
 
   /**
-   * Normalizes search terms by removing special characters and converting to lowercase
-   * @param searchTerms - Search terms as string or array
-   * @returns Array of normalized search terms
+   * Parses a search query into terms to highlight.
+   *
+   * A double-quoted group is kept together as a phrase, so it only highlights
+   * where those words appear next to each other in that order — matching how
+   * Solr treats a quoted query. Unquoted words stay independent terms.
+   *
+   * @param searchTerms - Search query as string, or pre-split array of words
+   * @returns Array of terms, each a list of consecutive words to match
    */
-  private normalizeSearchTerms(searchTerms: string | string[]): string[] {
-    let terms: string[];
-
-    if (typeof searchTerms === 'string') {
-      // Remove fuzzy search notation (e.g., "word~" becomes "word")
-      let cleanedQuery = searchTerms;
-      if (cleanedQuery.includes('~')) {
-        cleanedQuery = cleanedQuery.substring(0, cleanedQuery.indexOf('~'));
-      }
-      // Split by spaces and remove quotes
-      terms = cleanedQuery.replace(/"/g, '').split(/\s+/);
-    } else {
-      terms = searchTerms;
+  private parseSearchTerms(searchTerms: string | string[]): string[][] {
+    if (Array.isArray(searchTerms)) {
+      return searchTerms
+        .map(term => this.normalizeWord(term))
+        .filter(term => term.length > 0)
+        .map(term => [term]);
     }
 
-    // Normalize each term
-    return terms
-      .map(term => this.normalizeWord(term))
-      .filter(term => term.length > 0);
+    // Remove fuzzy search notation (e.g., "word~" becomes "word")
+    let cleanedQuery = searchTerms;
+    if (cleanedQuery.includes('~')) {
+      cleanedQuery = cleanedQuery.substring(0, cleanedQuery.indexOf('~'));
+    }
+
+    const terms: string[][] = [];
+
+    // Split into quoted groups and the loose text between them. An unterminated
+    // trailing quote is treated as a phrase too, so highlighting keeps up with
+    // what the user has typed so far.
+    const tokenPattern = /"([^"]*)"?|(\S+)/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = tokenPattern.exec(cleanedQuery)) !== null) {
+      const [, quoted, bare] = match;
+
+      if (quoted !== undefined) {
+        const words = this.normalizeWords(quoted.split(/\s+/));
+        if (words.length > 0) {
+          terms.push(words);
+        }
+      } else if (bare !== undefined) {
+        const words = this.normalizeWords([bare]);
+        if (words.length > 0) {
+          terms.push(words);
+        }
+      }
+    }
+
+    return terms;
+  }
+
+  /**
+   * Normalizes a list of words, dropping any that normalize to nothing
+   * @param words - Words to normalize
+   * @returns Normalized, non-empty words
+   */
+  private normalizeWords(words: string[]): string[] {
+    return words
+      .map(word => this.normalizeWord(word))
+      .filter(word => word.length > 0);
   }
 
   /**
@@ -329,20 +370,32 @@ export class AltoService {
   /**
    * Extracts bounding boxes from ALTO String elements that match search terms
    * Returns boxes in ALTO pixel coordinates (not scaled)
+   *
+   * A multi-word term is a phrase: it only matches where those words appear
+   * consecutively, and every word of the match gets its own box.
+   *
    * @param strings - Array of String elements from ALTO XML
-   * @param searchTerms - Normalized search terms
+   * @param searchTerms - Parsed search terms, each a list of consecutive words
    * @returns Array of bounding boxes in ALTO coordinates
    */
   private extractBoxesFromStrings(
     strings: Element[],
-    searchTerms: string[]
+    searchTerms: string[][]
   ): AltoBox[] {
     const boxes: AltoBox[] = [];
 
-    for (const term of searchTerms) {
-      for (const stringEl of strings) {
-        if (this.stringElementMatchesTerm(stringEl, term)) {
-          const box = this.createBoxFromElement(stringEl);
+    for (const words of searchTerms) {
+      for (let i = 0; i <= strings.length - words.length; i++) {
+        const matchesHere = words.every(
+          (word, offset) => this.stringElementMatchesTerm(strings[i + offset], word)
+        );
+
+        if (!matchesHere) {
+          continue;
+        }
+
+        for (let offset = 0; offset < words.length; offset++) {
+          const box = this.createBoxFromElement(strings[i + offset]);
           if (box) {
             boxes.push(box);
           }

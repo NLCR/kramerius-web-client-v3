@@ -40,18 +40,37 @@
 
       </div>
 
-      <div class="page-selection-grid">
-        @for (page of pages; track page.pid; let index = $index) {
-        <app-detail-page-item [page]="page" [type]="'page'" [pageNumber]="index + 1" [pageNumberPosition]="'bottom-left'"
-          [showPageNumberInSelectionMode]="true" [localSelectionMode]="true"
-          [localIsSelected]="isPageSelected(page.pid)"
-          [showPreviewButton]="true"
-          [class.disabled-selection]="!isPageSelected(page.pid) && isLimitReached()"
-          (selectionToggled)="togglePageSelection(page.pid, $event.event)"
-          (previewClicked)="onPreviewClicked($event)">
-        </app-detail-page-item>
-        }
-      </div>
+      <!--
+        Virtualized page grid. This dialog lists *every* page of the document,
+        each one a thumbnail-bearing card, so a large scan meant 1000+ <img>
+        elements in a single dialog. Rows are the virtual unit (cdkVirtualFor
+        virtualizes a flat list, but this is a multi-column grid), and both the
+        column count and the row height are measured from the live DOM because
+        the grid uses `auto-fill` with responsive breakpoints.
+      -->
+      <cdk-virtual-scroll-viewport
+        class="page-selection-grid__viewport"
+        [itemSize]="rowHeight()"
+        [minBufferPx]="rowHeight() * 2"
+        [maxBufferPx]="rowHeight() * 4">
+
+        <div class="page-selection-grid" #gridMeasure>
+          <div class="page-selection-grid__row"
+               *cdkVirtualFor="let row of pageRows(); trackBy: trackByRow; templateCacheSize: 0">
+            @for (page of row; track page.pid) {
+              <app-detail-page-item [page]="page" [type]="'page'" [pageNumber]="pageNumber(page)"
+                [pageNumberPosition]="'bottom-left'"
+                [showPageNumberInSelectionMode]="true" [localSelectionMode]="true"
+                [localIsSelected]="isPageSelected(page.pid)"
+                [showPreviewButton]="true"
+                [class.disabled-selection]="!isPageSelected(page.pid) && isLimitReached()"
+                (selectionToggled)="togglePageSelection(page.pid, $event.event)"
+                (previewClicked)="onPreviewClicked($event)">
+              </app-detail-page-item>
+            }
+          </div>
+        </div>
+      </cdk-virtual-scroll-viewport>
 
     </div>
   </div>

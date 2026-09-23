@@ -14,3 +14,4 @@ export {
 
 // Other directives
 export { ClickOutsideDirective } from './click-outside/click-outside.directive';
+export { NoTextCopyDirective } from './no-text-copy.directive';

@@ -144,3 +144,163 @@ describe('DocumentAccessDenied.openLicenseDialog', () => {
     expect(opened[0].content).toBe('access-denied.dialog.other.content');
   });
 });
+
+/**
+ * Regression coverage for a document carrying a license that is not defined in
+ * `config-licenses.json` (seen in the wild: `[dnnto, onsite, covid]`). Two things
+ * went wrong on the access-denied screen:
+ *
+ *  1. The undefined license was listed anyway, and since it has neither a config
+ *     label nor an `access-denied.license-<id>` translation, it rendered as the raw
+ *     key `access-denied.license-covid`. Facets already filter license values down
+ *     to `getConfiguredLicenses()` (see `facet-utils`); this screen must do the same.
+ *  2. Only the *primary* license's instruction page was shown, so a document that is
+ *     both dnnto and onsite explained just the dnnto route ("log in with a partner
+ *     library account") and never mentioned the reading-room requirement.
+ *
+ * The instructions are now keyed off the detected license list itself (previously a
+ * separate `requiredLicenses` input carrying the page's runtime `providedByLicenses`,
+ * which could name a license absent from the list on screen), so the list and the text
+ * below it can no longer disagree.
+ */
+describe('DocumentAccessDenied license filtering and instructions', () => {
+  function makeComponent(options: {
+    documentLicenses?: string[];
+    configuredLicenses?: string[];
+    instructionPages?: Record<string, string>;
+    htmlByUrl?: Record<string, string>;
+  }) {
+    const {
+      documentLicenses = [],
+      configuredLicenses = ['public', 'dnnto', 'dnntt', 'onsite', 'onsite-sheetmusic'],
+      instructionPages = {},
+      htmlByUrl = {},
+    } = options;
+
+    const component = Object.create(DocumentAccessDenied.prototype) as DocumentAccessDenied;
+    const loadedUrls: string[] = [];
+
+    // Field initializers never run under `Object.create(prototype)`, so the
+    // instance fields `detectAllLicenseTypes()` mutates are seeded by hand.
+    component.metadata = { uuid: 'uuid:1', licences: documentLicenses } as any;
+    component.licenseTypes = new Set<string>();
+    component.uniqueLicenseTypes = [];
+    component.instructionHtml = '';
+
+    (component as any).configService = {
+      licenses: configuredLicenses.map(id => ({ id })),
+      getLicenseOrder: () => configuredLicenses,
+      getInstructionPageUrl: (licenseId: string) => instructionPages[licenseId] ?? null,
+      getPageContentUrl: () => null,
+      loadHtmlContent: (url: string) => {
+        loadedUrls.push(url);
+        return Promise.resolve(htmlByUrl[url] ?? '');
+      },
+      getLocalizedLabel: (_t: string, key: string) => key,
+    };
+    (component as any).translationService = { currentLanguage: () => ({ code: 'cs' }) };
+    (component as any).translate = { instant: (key: string) => key };
+    (component as any).router = { url: '/view/uuid:1' };
+    (component as any).cdr = { markForCheck: () => {} };
+
+    return { component, loadedUrls };
+  }
+
+  it('omits licenses that are not defined in the config', () => {
+    const { component } = makeComponent({ documentLicenses: ['dnnto', 'onsite', 'covid'] });
+
+    component.detectAllLicenseTypes();
+
+    expect(component.uniqueLicenseTypes).toEqual(['dnnto', 'onsite']);
+    expect(component.uniqueLicenseTypes).not.toContain('covid');
+  });
+
+  it('falls back to "other" when every license of the document is undefined in config', () => {
+    const { component } = makeComponent({ documentLicenses: ['covid'] });
+
+    component.detectAllLicenseTypes();
+
+    expect(component.uniqueLicenseTypes).toEqual(['other']);
+  });
+
+  it('shows the instructions of every displayed license, ordered by license order', async () => {
+    const { component } = makeComponent({
+      documentLicenses: ['onsite', 'dnnto'],
+      instructionPages: { dnnto: 'dnnto.cs.html', onsite: 'onsite.cs.html' },
+      htmlByUrl: { 'dnnto.cs.html': '<p>Log in</p>', 'onsite.cs.html': '<p>Visit the reading room</p>' },
+    });
+
+    component.detectAllLicenseTypes();
+    await (component as any).loadHtmlContent();
+
+    expect(component.instructionHtml).toContain('Log in');
+    expect(component.instructionHtml).toContain('Visit the reading room');
+    expect(component.instructionHtml.indexOf('Log in'))
+      .toBeLessThan(component.instructionHtml.indexOf('Visit the reading room'));
+  });
+
+  it('does not request an instruction page for a license missing from the config', async () => {
+    const { component, loadedUrls } = makeComponent({
+      documentLicenses: ['dnnto', 'covid'],
+      instructionPages: { dnnto: 'dnnto.cs.html', covid: 'covid.cs.html' },
+      htmlByUrl: { 'dnnto.cs.html': '<p>Log in</p>', 'covid.cs.html': '<p>Covid</p>' },
+    });
+
+    component.detectAllLicenseTypes();
+    await (component as any).loadHtmlContent();
+
+    expect(loadedUrls).toEqual(['dnnto.cs.html']);
+    expect(component.instructionHtml).not.toContain('Covid');
+  });
+
+  it('requests no instruction page when the license list falls back to "other"', async () => {
+    // The instructions are keyed off the detected license list, which collapses to
+    // `other` when nothing is recognised; `other` is not a configured license and so
+    // has no instruction page to fetch.
+    const { component, loadedUrls } = makeComponent({
+      documentLicenses: ['covid'],
+      instructionPages: { covid: 'covid.cs.html' },
+    });
+
+    component.detectAllLicenseTypes();
+    await (component as any).loadHtmlContent();
+
+    expect(component.uniqueLicenseTypes).toEqual(['other']);
+    expect(loadedUrls).toEqual([]);
+    expect(component.instructionHtml).toBe('');
+  });
+
+  it('asks for instructions by base license id, so a source-scoped variant can win', async () => {
+    // Variant resolution lives in ConfigService: `getInstructionPageUrl('onsite', lang)`
+    // resolves `onsite__<selected source>` when such a variant is configured (covered in
+    // config.service.spec.ts). That only works if this screen keeps passing the BASE id —
+    // `uniqueLicenseTypes` holds base ids, and variants never reach it because
+    // `ConfigService.licenses` filters them out. This pins that contract: with an
+    // `onsite__nkp` variant configured, the reading-room text follows the selected source
+    // instead of staying on the generic (MZK-worded) base page.
+    const { component } = makeComponent({
+      documentLicenses: ['onsite'],
+      instructionPages: { onsite: 'onsite.nkp.instruction.cs.html' },
+      htmlByUrl: { 'onsite.nkp.instruction.cs.html': '<p>Terminal at NKP</p>' },
+    });
+
+    component.detectAllLicenseTypes();
+    await (component as any).loadHtmlContent();
+
+    expect(component.uniqueLicenseTypes).toEqual(['onsite']);
+    expect(component.instructionHtml).toContain('Terminal at NKP');
+  });
+
+  it('renders a shared instruction page only once when two licenses point at it', async () => {
+    const { component } = makeComponent({
+      documentLicenses: ['dnnto', 'dnntt'],
+      instructionPages: { dnnto: 'shared.cs.html', dnntt: 'shared.cs.html' },
+      htmlByUrl: { 'shared.cs.html': '<p>Shared</p>' },
+    });
+
+    component.detectAllLicenseTypes();
+    await (component as any).loadHtmlContent();
+
+    expect(component.instructionHtml.match(/Shared/g)?.length).toBe(1);
+  });
+});

@@ -5,8 +5,6 @@ import { APP_ROUTES_ENUM } from '../../app.routes';
 import { SearchDocument } from '../../modules/models/search-document';
 import { SearchService } from './search.service';
 import { MatDialog } from '@angular/material/dialog';
-import { CitationDialogComponent } from '../dialogs/citation-dialog/citation-dialog.component';
-import { ShareDialogComponent } from '../dialogs/share-dialog/share-dialog.component';
 import { Metadata } from '../models/metadata.model';
 import { customDefinedFacetsEnum, facetKeysEnum } from '../../modules/search-results-page/const/facets';
 import { AdminModeService } from './admin-mode.service';
@@ -17,6 +15,7 @@ import { UserService } from './user.service';
 import { LibraryContextService } from './library-context.service';
 import {getAfterLoginLicenses, getOnlineLicenses, getOpenLicenses, getTerminalLicenses, mergeDocumentLicenses} from '../../core/solr/solr-misc';
 import { isViewerRoutePath } from '../constants/viewer-routes';
+import { ConfigService } from '../../core/config/config.service';
 
 @Injectable({
   providedIn: 'root'
@@ -29,6 +28,7 @@ export class RecordHandlerService {
   private breakpointService = inject(BreakpointService);
   private userService = inject(UserService);
   private libraryContext = inject(LibraryContextService);
+  private configService = inject(ConfigService);
 
   // Filter keys that should be preserved when navigating to periodicals
   private readonly FILTERS_TO_PRESERVE = ['yearFrom', 'yearTo', 'dateFrom', 'dateTo', 'dateOffset', customDefinedFacetsEnum.accessibility, facetKeysEnum.license];
@@ -192,11 +192,15 @@ export class RecordHandlerService {
       console.warn('No document provided for citation dialog.');
       return;
     }
-    const isMobileOrTablet = this.breakpointService.isMobile() || this.breakpointService.isTablet();
-    this.dialog.open(CitationDialogComponent, {
-      width: isMobileOrTablet ? '100vw' : '60vw',
-      panelClass: isMobileOrTablet ? undefined : 'simple-dialog-panel',
-      data: { document },
+    // Gated here rather than at each caller: detail view, music, periodical and
+    // monograph-volumes pages all route their "cite" button through this method.
+    if (!this.configService.isLicenseActionAllowed(document.licences, 'citation')) return;
+
+    import('../dialogs/citation-dialog/citation-dialog.component').then(m => {
+      this.dialog.open(m.CitationDialogComponent, {
+        ...this.dialogSizing(),
+        data: { document },
+      });
     });
   }
 
@@ -205,12 +209,42 @@ export class RecordHandlerService {
       console.warn('No document provided for share dialog.');
       return;
     }
+    if (!this.configService.isLicenseActionAllowed(document.licences, 'share')) return;
+
+    import('../dialogs/share-dialog/share-dialog.component').then(m => {
+      this.dialog.open(m.ShareDialogComponent, {
+        ...this.dialogSizing(),
+        data: { document, queryParams },
+      });
+    });
+  }
+
+  /**
+   * The two dialogs above are reached through `import()` rather than a static
+   * import, because both inject this service back — CitationDialog directly, and
+   * both of them via DocumentHierarchySelectorComponent — which closed a cycle:
+   *
+   *   record-handler.service → citation-dialog → document-hierarchy-selector
+   *                          → record-handler.service
+   *
+   * Booting through the router happened to evaluate those modules in a working
+   * order, so the app was fine. But any spec importing one of these components
+   * first got the other order and failed on
+   * "Cannot access 'DocumentHierarchySelectorComponent' before initialization",
+   * which made the metadata dialog untestable.
+   *
+   * Deferring to call time keeps the static graph acyclic, and a service has no
+   * business depending on view components at module scope anyway. The dialogs are
+   * only ever opened from a user gesture, so the extra async tick is free.
+   */
+
+  /** Shared MatDialog geometry for the two record dialogs opened here. */
+  private dialogSizing() {
     const isMobileOrTablet = this.breakpointService.isMobile() || this.breakpointService.isTablet();
-    this.dialog.open(ShareDialogComponent, {
+    return {
       width: isMobileOrTablet ? '100vw' : '60vw',
       panelClass: isMobileOrTablet ? undefined : 'simple-dialog-panel',
-      data: { document, queryParams },
-    })
+    };
   }
 
   /**

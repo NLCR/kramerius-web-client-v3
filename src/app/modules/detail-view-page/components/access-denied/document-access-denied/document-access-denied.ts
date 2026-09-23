@@ -16,7 +16,6 @@ import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { DNNTO_FAQ_ITEMS, DNNTT_FAQ_ITEMS, OTHER_FAQ_ITEMS } from './faq-data';
 import { TranslateService } from '@ngx-translate/core';
-import { selectPrimaryLicense, sortLicenses } from '../../../../../core/solr/solr-misc';
 import { escapeHtml } from '../../../../../shared/utils/escape-html';
 import { linkifyText } from '../../../../../shared/utils/linkify';
 import { normalizeForComparison } from '../../../../../shared/utils/normalize-text';
@@ -43,7 +42,6 @@ interface FaqGroup {
 })
 export class DocumentAccessDenied implements OnInit, OnChanges {
   @Input() metadata: Metadata | null = null;
-  @Input() requiredLicenses: string[] = [];
 
   faqItems: AccordionItemData[] = [];
   licenseTypes: Set<string> = new Set();
@@ -69,8 +67,11 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
     // Reload HTML content when language changes. FAQ items are rebuilt too:
     // grouping matches on translated question text and merged answers embed
     // resolved translations, so both go stale on a language switch.
+    // `effect()` runs before `ngOnInit`, and `loadHtmlContent()` now reads the detected
+    // license list, so detection has to happen here rather than only in `ngOnInit`.
     effect(() => {
       this.translationService.currentLanguage(); // track the signal
+      this.detectAllLicenseTypes();
       this.loadHtmlContent();
       this.faqItems = this.getAllFaqItems();
       this.cdr.markForCheck();
@@ -98,14 +99,12 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    // A new document means new licenses, and the instructions are keyed off those,
+    // so they must be re-fetched here as well.
     if (changes['metadata'] && !changes['metadata'].firstChange) {
       this.loadModsData();
       this.detectAllLicenseTypes();
       this.faqItems = this.getAllFaqItems();
-    }
-    if (
-      (changes['requiredLicenses'] && !changes['requiredLicenses'].firstChange)
-    ) {
       this.loadHtmlContent();
     }
   }
@@ -120,8 +119,11 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
         const merged = mergeMetadata(this.metadata, modsMetadata);
         this.metadata = merged;
 
+        // The merged MODS metadata can introduce licenses the Solr record did not
+        // carry, so the instructions are re-resolved against the updated list.
         this.detectAllLicenseTypes();
         this.faqItems = this.getAllFaqItems();
+        this.loadHtmlContent();
         this.cdr.markForCheck();
       }
     } catch (error) {
@@ -129,29 +131,67 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
     }
   }
 
-  private get primaryLicense(): string | null {
-    return selectPrimaryLicense(this.requiredLicenses);
+  /**
+   * Keeps only licenses that `config-licenses.json` actually defines, in the
+   * configured display order.
+   *
+   * Documents in the index carry historical license ids the config no longer knows
+   * about (e.g. `covid`). Such an id has no label, no instruction page and no access
+   * semantics here, so listing it only surfaces the raw `access-denied.license-<id>`
+   * translation key to the reader. Facet values are already narrowed the same way in
+   * `facet-utils`; this screen follows suit.
+   *
+   * Filtering goes through the injected `ConfigService` rather than the module-level
+   * `getConfiguredLicenses()` / `sortLicenses()` helpers in `solr-misc`, which read a
+   * global reference set during app bootstrap.
+   */
+  private configuredLicenses(licenses: string[]): string[] {
+    const order = this.configService.getLicenseOrder();
+    const configured = new Set(this.configService.licenses.map(l => l.id));
+    return licenses
+      .filter(license => configured.has(license))
+      .sort((a, b) => order.indexOf(a) - order.indexOf(b));
   }
 
+  /**
+   * Loads the instruction text of EVERY license blocking the document, not just the
+   * highest-priority one.
+   *
+   * A document can require several licenses at once (e.g. `dnnto` + `onsite`), and each
+   * describes a different route to the content — "log in with a partner library account"
+   * vs. "come to the reading room". Showing only the primary license's instructions left
+   * the reader with half the answer, so all of them are concatenated in the configured
+   * license order. Two licenses may point at the same instruction page, so URLs are
+   * deduplicated to avoid printing the same paragraph twice.
+   *
+   * The licenses come from `uniqueLicenseTypes` — the same list rendered above the
+   * instructions — so the text always explains exactly the licenses the reader can see
+   * named on screen. This replaced a `requiredLicenses` input carrying the current
+   * page's runtime `providedByLicenses`, which can differ from the document's own
+   * licenses and so could describe a license listed nowhere. `'other'`, the fallback
+   * when nothing is recognised, has no configured instruction page, so it yields no text.
+   */
   private async loadHtmlContent(): Promise<void> {
     this.htmlLoading = true;
-    const licenseId = this.primaryLicense;
 
-    if (!licenseId) {
-      this.htmlLoading = false;
-      return;
-    }
-
+    const licenseIds = this.uniqueLicenseTypes;
     const lang = this.translationService.currentLanguage().code;
-    const instructionUrl = this.configService.getInstructionPageUrl(licenseId, lang);
+
+    const instructionUrls = [...new Set(
+      licenseIds
+        .map(licenseId => this.configService.getInstructionPageUrl(licenseId, lang))
+        .filter((url): url is string => !!url)
+    )];
     const copyrightUrl = this.configService.getPageContentUrl('copyright', lang);
 
-    const [instruction, copyright] = await Promise.all([
-      instructionUrl ? this.configService.loadHtmlContent(instructionUrl) : Promise.resolve(''),
+    const [instructions, copyright] = await Promise.all([
+      Promise.all(instructionUrls.map(url => this.configService.loadHtmlContent(url))),
       copyrightUrl ? this.configService.loadHtmlContent(copyrightUrl) : Promise.resolve('')
     ]);
 
-    this.instructionHtml = this.resolveLoginLinks(instruction);
+    this.instructionHtml = this.resolveLoginLinks(
+      instructions.filter(html => !!html).join('')
+    );
     this.copyrightHtml = this.resolveLoginLinks(copyright);
     this.htmlLoading = false;
     this.cdr.markForCheck();
@@ -184,18 +224,21 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
     // a previously viewed document would leak into the licenses shown here.
     this.licenseTypes.clear();
 
-    if (!this.metadata || !this.metadata.licences || this.metadata.licences.length === 0) {
+    const licenses = this.configuredLicenses(
+      (this.metadata?.licences ?? []).map(license => this.getLicenseTypeFromString(license))
+    );
+
+    // Either the document carries no licenses at all, or every one it carries is
+    // unknown to the config; both leave nothing specific to say, so fall back to the
+    // generic "other" wording (label, FAQ and dialog all key off it).
+    if (licenses.length === 0) {
       this.licenseTypes.add('other');
       this.uniqueLicenseTypes = ['other'];
       return;
     }
 
-    this.metadata.licences.forEach(license => {
-      const licenseType = this.getLicenseTypeFromString(license);
-      this.licenseTypes.add(licenseType);
-    });
-
-    this.uniqueLicenseTypes = sortLicenses(Array.from(this.licenseTypes));
+    licenses.forEach(license => this.licenseTypes.add(license));
+    this.uniqueLicenseTypes = licenses;
   }
 
   getLicenseTypeFromString(license: string): string {

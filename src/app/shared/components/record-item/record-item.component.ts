@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, Input, OnDestroy, OnInit, signal } from '@angular/core';
 import { AsyncPipe, NgClass, NgIf } from '@angular/common';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Router } from '@angular/router';
@@ -10,7 +10,7 @@ import { FavoritesPopupComponent } from '../favorites-popup/favorites-popup.comp
 import { PopupPositioningService, PopupState } from '../../services/popup-positioning.service';
 import { AdminModeService } from '../../services';
 import { CheckboxComponent } from '../checkbox/checkbox.component';
-import { Observable, EMPTY, take } from 'rxjs';
+import { Observable, EMPTY, take, shareReplay } from 'rxjs';
 import { Store } from '@ngrx/store';
 import { selectUserOwnedFolders } from '../../../modules/saved-lists-page/state';
 import { SavedListsService } from '../../../modules/saved-lists-page/services/saved-lists.service';
@@ -26,6 +26,7 @@ import { SlideUpPanelComponent } from '../slide-up-panel/slide-up-panel.componen
 import { MetadataSection } from '../metadata-section/metadata-section';
 import { PluralizePipe } from '../../pipes/pluralize.pipe';
 import { CdkTooltipDirective } from '../../directives/cdk-tooltip/cdk-tooltip.directive';
+import { trimSnippetToHighlight } from '../../utils/highlight-snippet';
 
 @Component({
   selector: 'app-record-item',
@@ -45,7 +46,13 @@ import { CdkTooltipDirective } from '../../directives/cdk-tooltip/cdk-tooltip.di
     CdkTooltipDirective,
   ],
   templateUrl: './record-item.component.html',
-  styleUrl: './record-item.component.scss'
+  styleUrl: './record-item.component.scss',
+  // OnPush: result grids render up to 180 of these at once (and several
+  // sections at the same time on the search page). Its inputs are replaced
+  // rather than mutated, its local state is signal-based (popup state, info
+  // sheet) and the rest of the template reads signals or async pipes, all of
+  // which mark the view dirty on their own.
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecordItemComponent implements OnInit, OnDestroy {
 
@@ -112,10 +119,18 @@ export class RecordItemComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    // Initialize the observable once we have the item
+    // Initialize the observable once we have the item.
+    //
+    // shareReplay is what keeps result grids affordable: the template subscribes
+    // to isItemFavorited$ six times (favourite button class, icon, and the same
+    // pair again in the horizontal layout) and each subscription otherwise ran
+    // its own store.select + a full scan of the folder mapping on every store
+    // emission. At a 180-item page size that was ~1000 scans per emission.
     if (this.item?.id) {
-      this.isItemFavorited$ = this.favoritesService.getFavoritedStatus(this.item!.id);
-      this.itemFolderIds$ = this.folderItemsService.getFolderIdsContainingItem(this.item!.id);
+      this.isItemFavorited$ = this.favoritesService.getFavoritedStatus(this.item!.id)
+        .pipe(shareReplay({ bufferSize: 1, refCount: true }));
+      this.itemFolderIds$ = this.folderItemsService.getFolderIdsContainingItem(this.item!.id)
+        .pipe(shareReplay({ bufferSize: 1, refCount: true }));
     }
   }
 
@@ -163,6 +178,15 @@ export class RecordItemComponent implements OnInit, OnDestroy {
       fulltextForDocument: this.fulltextOverride,
       grouped: this.item.grouped,
     });
+  }
+
+  /**
+   * Re-centers an OCR snippet on its first match. `.text-ocr` clamps to 4 lines
+   * and Solr fragments run longer than that, so without this the searched term
+   * frequently landed in the clipped overflow instead of on the card.
+   */
+  getOcrSnippet(text: string): string {
+    return trimSnippetToHighlight(text, OCR_SNIPPET_VISIBLE_CHARS);
   }
 
   getTitle(): string {
@@ -282,3 +306,12 @@ export class RecordItemComponent implements OnInit, OnDestroy {
 
   protected readonly DocumentTypeEnum = DocumentTypeEnum;
 }
+
+/**
+ * What the 4-line `.text-ocr` clamp actually shows on a card. Measured in the
+ * running app: the box is ~131px wide at 14px/20px, which fits ~71 characters
+ * over its four lines. Kept a little under that — the trim keeps a quarter of
+ * the budget as lead-in context, so the match lands well inside the clamp even
+ * where a wider card or a larger text scale shifts the exact character count.
+ */
+const OCR_SNIPPET_VISIBLE_CHARS = 70;

@@ -1,0 +1,20 @@
+:host {
+  display: contents;
+}
+
+.sheet-close-button {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  // The global `button` rule sets padding, which would inflate the fixed box
+  // and push the glyph off-centre.
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--font-size-xxlarge);
+  color: var(--color-icon-tertiary-default);
+}

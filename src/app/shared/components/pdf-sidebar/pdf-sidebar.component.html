@@ -4,14 +4,19 @@
 <!--      tab-common-up -->
   <div
       class="sidebar--wrapper">
-      <app-input
-        [placeholder]="'search-in-document--placeholder' | translate"
-        [theme]="'dark'"
-        [size]="'sm'"
-        [showMicButton]="true"
-        [showClearButton]="true"
-        (valueChange)="onSearchChange($event)"
-      ></app-input>
+      <!-- Sidebar's X shares this row rather than floating above it (#177). -->
+      <div class="search-input-row">
+        <app-input
+          [placeholder]="'search-in-document--placeholder' | translate"
+          [theme]="'dark'"
+          [size]="'sm'"
+          [showMicButton]="true"
+          [showClearButton]="true"
+          (valueChange)="onSearchChange($event)"
+        ></app-input>
+
+        <app-sheet-close-button></app-sheet-close-button>
+      </div>
 
       @if (pdfService.searchQuery$ | async) {
         <app-search-navigation

@@ -6,7 +6,6 @@ import { AuthService } from '../../core/auth/auth.service';
 import { LoginPromptDialogComponent } from '../dialogs/login-prompt-dialog/login-prompt-dialog.component';
 import { FolderItemsService } from '../../modules/saved-lists-page/services/folder-items.service';
 import { PopupPositioningService, PopupState } from './popup-positioning.service';
-import { DontShowAgainService, DontShowDialogs } from './dont-show-again.service';
 import { BreakpointService } from './breakpoint.service';
 
 export interface FavoriteToggleResult {
@@ -23,7 +22,6 @@ export class FavoritesService {
   private router = inject(Router);
   private folderItemsService = inject(FolderItemsService);
   private popupPositioning = inject(PopupPositioningService);
-  private dontShowAgainService = inject(DontShowAgainService);
   private breakpointService = inject(BreakpointService);
 
   /**
@@ -43,19 +41,10 @@ export class FavoritesService {
     // Check if user is authenticated
     if (!this.authService.hasValidToken()) {
 
-      const showDialog = this.dontShowAgainService.shouldShowDialog(DontShowDialogs.FavoritesLoginDialog);
-
-      if (!showDialog) {
-        // "Don't show again" only suppresses the benefits dialog - the licence/GDPR
-        // consent step must still be shown before handing the user to the IdP.
-        this.router.navigate(['pages/terms'], { queryParams: { returnUrl: this.router.url } });
-        return true;
-      }
-
-      // Show login prompt dialog
+      // The favourites login prompt is always shown - from every place with a heart icon -
+      // so it never offers a "don't show again" option.
       const isMobileOrTablet = this.breakpointService.isMobile() || this.breakpointService.isTablet();
       const dialogRef = this.dialog.open(LoginPromptDialogComponent, {
-        data: { dontShowDialogId: DontShowDialogs.FavoritesLoginDialog },
         width: isMobileOrTablet ? '90vw' : '60vw',
         panelClass: 'simple-dialog-panel',
         disableClose: false

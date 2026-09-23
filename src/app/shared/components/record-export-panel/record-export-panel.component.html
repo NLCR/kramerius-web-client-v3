@@ -53,7 +53,7 @@
     </app-export-document-section-item-component>
     }
 
-    @if (txtEnabled && textAllowed()) {
+    @if (txtEnabled() && textAllowed()) {
     <app-export-document-section-item-component
       [title]="'export-text-title'"
       [icon]="'icon-document-text'"

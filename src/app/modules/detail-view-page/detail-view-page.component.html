@@ -1,6 +1,7 @@
 <app-detail-layout [showBottomToolbar]="false" [constrainBottomToolbar]="true"
                    [showRightSidebar]="!breakpointService.isMobile()"
                    [rightSidebarCollapsed]="!detailViewService.metadataSidebarVisible"
+                   [hideLeftSidebarMobileTitle]="true"
                    [hideFilterToggle]="breakpointService.isMobile()">
 
   <ng-container left-sidebar>
@@ -25,12 +26,17 @@
 
           <app-tab-item id="records" [label]="'sound-records--toggle' | translate">
             <div class="sidebar--wrapper">
-              <app-input
-                [placeholder]="'search-in-document--placeholder' | translate"
-                [theme]="'dark'"
-                [size]="'sm'"
-                [showMicButton]="true"
-              ></app-input>
+              <!-- Sidebar's X shares this row, not one of its own (#177). -->
+              <div class="search-input-row">
+                <app-input
+                  [placeholder]="'search-in-document--placeholder' | translate"
+                  [theme]="'dark'"
+                  [size]="'sm'"
+                  [showMicButton]="true"
+                ></app-input>
+
+                <app-sheet-close-button></app-sheet-close-button>
+              </div>
 
               <div class="sidebar--wrapper--scroll-content">
                 <app-detail-pages-grid [type]="'recording'"></app-detail-pages-grid>
@@ -40,12 +46,17 @@
 
           <app-tab-item id="images" [label]="'images--toggle' | translate">
             <div class="sidebar--wrapper">
-              <app-input
-                [placeholder]="'search-in-document--placeholder' | translate"
-                [theme]="'dark'"
-                [size]="'sm'"
-                [showMicButton]="true"
-              ></app-input>
+              <!-- Sidebar's X shares this row, not one of its own (#177). -->
+              <div class="search-input-row">
+                <app-input
+                  [placeholder]="'search-in-document--placeholder' | translate"
+                  [theme]="'dark'"
+                  [size]="'sm'"
+                  [showMicButton]="true"
+                ></app-input>
+
+                <app-sheet-close-button></app-sheet-close-button>
+              </div>
 
               <hr>
               <app-page-navigator
@@ -214,8 +225,7 @@
           <!-- Show access denied after access check completes and fails -->
           @if (checkState === 'LOADED' && !recordHandler.isRecordPublic(document.licences) &&
           !documentInfoService.canAccessDocument() && !userService.hasAnyLicense(document.licences)) {
-            <app-document-access-denied [metadata]="document"
-                                        [requiredLicenses]="documentInfoService.getRuntimeLicenses().length ? documentInfoService.getRuntimeLicenses() : document.licences">
+            <app-document-access-denied [metadata]="document">
             </app-document-access-denied>
           } @else if (checkState === 'INITIAL' || checkState === 'LOADING') {
             <!-- Show loader while access is being (re)checked. This keeps the
@@ -302,6 +312,16 @@
           <app-ai-content-panel></app-ai-content-panel>
         }
       </div>
+      <!--
+        Second instance of the protective bar, projected *inside* the fullscreen
+        container. The bar in the `license-bar` slot below is a sibling of
+        <app-fullscreen>, so the browser stops rendering it the moment the
+        content body goes fullscreen — the reader's identification vanished
+        exactly where it matters most. This copy is display:none until the
+        container is actually fullscreen (see .fullscreen-overlay), so only ever
+        one of the two is visible.
+      -->
+      <app-license-bar fullscreen-overlay [overlay]="true"></app-license-bar>
       </app-fullscreen>
     </ng-container>
   </ng-container>

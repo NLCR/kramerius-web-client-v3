@@ -41,6 +41,10 @@ $slide-up-panel: 9999;
 // paint over the fixed header (1000) and the mobile nav bar.
 $fullscreen-fallback: 10000;
 $fullscreen-fallback-close: 10001;
+// Reader-identifying license bar kept visible inside fullscreen. Sits above the
+// viewer and its floating controls but below the close button, so exiting
+// fullscreen is never blocked by the bar.
+$fullscreen-overlay: 10000;
 $sidebar-disabled-overlay-z-index: 803;
 $tooltip: 800;
 $saved-lists-popup: 800;

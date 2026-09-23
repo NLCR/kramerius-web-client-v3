@@ -1,5 +1,4 @@
 {
-  "whole-document-legacy": "Celý dokument (zastarané)",
   "model-badge.tooltip.multivolume": "Viaczväzok",
   "model-badge.tooltip.multivolume-part": "Časť viaczväzku",
   "volume": "Ročník",
@@ -138,6 +137,10 @@
   "search-in-document--placeholder": "Hľadať na stránkach",
   "alto-unavailable-error": "Tento dokument nemá k dispozícii rozšírené OCR dáta (ALTO). Preto nie je možné zvýrazniť hľadaný text. Nejde o chybu, ale o starší spôsob digitalizácie.",
   "sound-records--toggle": "Nahrávky",
+  "sound-records--playlist-title": "Seznam nahrávok",
+  "sound-records--track-count": "{{count}} zvukových stôp",
+  "sound-records--track-count-one": "{{count}} zvuková stopa",
+  "sound-records--images-label": "Obrázky",
   "images--toggle": "Obrázky",
   "track-list-table--title": "Názov",
   "track-list-table--duration": "Dĺžka",

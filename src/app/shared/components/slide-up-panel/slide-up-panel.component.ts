@@ -33,6 +33,18 @@ export class SlideUpPanelComponent implements AfterViewInit, OnDestroy {
   /** Title displayed in the header */
   @Input() title = '';
 
+  /**
+   * Drops the header row entirely - caption and close button both. For sheets
+   * whose content already says what they are (a page or track grid needs no
+   * "Strany" caption), where the row only costs phone height.
+   *
+   * The host is then responsible for its own dismiss control: the sidebars that
+   * project into this sheet place an `app-sheet-close-button` on their leading
+   * row, beside the search field (GitHub issue #177). Dragging the handle down,
+   * tapping the backdrop and Escape all keep working regardless.
+   */
+  @Input() hideTitle = false;
+
   /** Initial height in vh when opened */
   @Input() initialHeight = 50;
 
@@ -87,6 +99,13 @@ export class SlideUpPanelComponent implements AfterViewInit, OnDestroy {
       } else if (this.peek) {
         // Peek mode: collapse back to the resting peek instead of dismissing.
         this.isRendered = true;
+      } else if (!this.isClosing && this.isRendered) {
+        // Closed from the outside rather than through close(): the host reset
+        // the bound signal directly, which is how the sidebars' `manualToggle`
+        // dismisses this sheet. Run the same slide-down close() would have run,
+        // so both routes look identical - without this the panel vanished in a
+        // single frame and left its backdrop mounted (GitHub issue #177).
+        this.animateOut();
       }
     });
   }
@@ -111,11 +130,22 @@ export class SlideUpPanelComponent implements AfterViewInit, OnDestroy {
       this.closed.emit();
       return;
     }
+    this.animateOut();
+  }
+
+  /**
+   * Plays the slide-down, then settles the closed state. Shared by close() and
+   * by an external reset of the bound `isOpen`, so a sheet dismissed either way
+   * animates the same. `isOpen.set(false)` is idempotent, which is what makes
+   * it safe to run on the path where the signal is already false.
+   */
+  private animateOut(): void {
     this.isClosing = true;
     this.isRendered = false;
     // Wait for slide-down transition to finish
     setTimeout(() => {
       this.isClosing = false;
+      this.isExpanded = false;
       this.isOpen.set(false);
       this.closed.emit();
     }, 300);

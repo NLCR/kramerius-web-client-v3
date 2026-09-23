@@ -4,6 +4,7 @@ import {MusicPageComponent} from "./music-page.component";
 import {DetailViewPageComponent} from "../detail-view-page/detail-view-page.component";
 import {DetailLayoutComponent} from "../../shared/components/detail-layout/detail-layout.component";
 import {InputComponent} from "../../shared/components/input/input.component";
+import {SheetCloseButtonComponent} from "../../shared/components/sheet-close-button/sheet-close-button.component";
 import {AsyncPipe, NgForOf, NgIf} from "@angular/common";
 import {PageNavigatorComponent} from "../../shared/components/page-navigator/page-navigator.component";
 import {DetailPagesGridComponent} from "../detail-view-page/components/detail-pages-grid/detail-pages-grid.component";
@@ -15,6 +16,7 @@ import {
   DetailViewBottomToolbarComponent
 } from "../detail-view-page/components/detail-view-bottom-toolbar/detail-view-bottom-toolbar.component";
 import {MusicTrackListComponent} from "./components/music-track-list/music-track-list.component";
+import {PlaylistToggleComponent} from "./components/playlist-toggle/playlist-toggle.component";
 import {TranslatePipe} from '@ngx-translate/core';
 import {ViewerControls} from '../../shared/components/viewer-controls/viewer-controls';
 import {ImageViewer} from '../../shared/components/image-viewer/image-viewer';
@@ -23,8 +25,6 @@ import {FavoritesPopupComponent} from '../../shared/components/favorites-popup/f
 import {DocumentAccessDenied} from '../detail-view-page/components/access-denied/document-access-denied/document-access-denied';
 import {InlineLoaderComponent} from '../../shared/components/inline-loader/inline-loader.component';
 import {MetadataSidebarComponent} from '../../shared/components/metadata-sidebar/metadata-sidebar.component';
-import {TabsComponent} from '../../shared/components/tabs/tabs.component';
-import {TabItemComponent} from '../../shared/components/tabs/tab-item.component';
 import {MobileNavBarComponent} from '../../shared/components/mobile-nav-bar/mobile-nav-bar.component';
 import {ViewerTapToggleDirective} from '../../shared/directives/viewer-tap-toggle.directive';
 import {AiContentPanelComponent} from '../../shared/components/ai-content-panel/ai-content-panel.component';
@@ -52,6 +52,7 @@ const routes: Routes = [
         RouterModule.forChild(routes),
         DetailLayoutComponent,
         InputComponent,
+        SheetCloseButtonComponent,
         NgIf,
         AsyncPipe,
         PageNavigatorComponent,
@@ -63,6 +64,7 @@ const routes: Routes = [
         DetailViewBottomToolbarComponent,
         NgForOf,
         MusicTrackListComponent,
+        PlaylistToggleComponent,
         TranslatePipe,
         ViewerControls,
         ImageViewer,
@@ -71,8 +73,6 @@ const routes: Routes = [
         DocumentAccessDenied,
         InlineLoaderComponent,
         MetadataSidebarComponent,
-        TabsComponent,
-        TabItemComponent,
         MobileNavBarComponent,
         ViewerTapToggleDirective,
         AiContentPanelComponent,

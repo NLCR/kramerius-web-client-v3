@@ -1,31 +1,52 @@
-<div class="search-results-list">
-  @for (item of displayItems; track item.pid) {
-    <div
-      class="search-result-item"
-      role="button"
-      tabindex="0"
-      [attr.aria-label]="'go-to-page' | translate:{ p: item.pageNumber }"
-      [class.with-content]="true"
-      [class.active]="isActive(item)"
-      (click)="onResultClick(item)"
-      (keydown.enter)="onResultClick(item)"
-      (keydown.space)="$event.preventDefault(); onResultClick(item)">
+<!--
+  Virtualized fulltext-results list.
 
-      <app-detail-page-item
-        [page]="item.page || item"
-        [type]="'page'"
-        [pageNumberPosition]="'left'"
-        [pageNumber]="item.pageNumber?.toString() || null"
-        [isLocked]="detailViewService.isPageLocked(item.pid)"
-        [isUnlocked]="detailViewService.isPageUnlocked(item.pid)"
-        [isAccessible]="detailViewService.isDocumentRestrictedButAccessible()"
-        [lockStyle]="detailViewService.pageLockStyle()"
-      >
-      </app-detail-page-item>
+  Each row carries a page thumbnail (`app-detail-page-item`) plus a highlighted
+  text block, and with `showAllPages` on the list holds every page of the
+  document — 1000+ rows on a large scan. Rendering them all put ~1000 <img>
+  elements in the sidebar and made every change-detection pass walk the lot,
+  which is what made the mobile slide-up panel stutter while being dragged.
 
-<!--      @if (item.highlightedText) {-->
+  Rows are a fixed height (see the SCSS) so the viewport's itemSize stays
+  honest; the highlighted text clamps rather than growing the row.
+-->
+@if (displayItems().length === 0) {
+  <div class="no-results">
+    {{ (currentPageHasNoOcr ? 'no_results_to_display--no-ocr-hint' : 'no_results_to_display') | translate }}
+  </div>
+} @else {
+  <cdk-virtual-scroll-viewport
+    class="search-results-list__viewport"
+    [itemSize]="rowHeight()"
+    [minBufferPx]="rowHeight() * 2"
+    [maxBufferPx]="rowHeight() * 4">
+
+    <div class="search-results-list" #rowMeasure>
+      <div
+        *cdkVirtualFor="let item of displayItems(); trackBy: trackByPid; templateCacheSize: 0"
+        class="search-result-item"
+        role="button"
+        tabindex="0"
+        [attr.aria-label]="'go-to-page' | translate:{ p: item.pageNumber }"
+        [class.with-content]="true"
+        [class.active]="isActive(item)"
+        (click)="onResultClick(item)"
+        (keydown.enter)="onResultClick(item)"
+        (keydown.space)="$event.preventDefault(); onResultClick(item)">
+
+        <app-detail-page-item
+          [page]="item.page || item"
+          [type]="'page'"
+          [pageNumberPosition]="'left'"
+          [pageNumber]="item.pageNumber?.toString() || null"
+          [isLocked]="detailViewService.isPageLocked(item.pid)"
+          [isUnlocked]="detailViewService.isPageUnlocked(item.pid)"
+          [isAccessible]="detailViewService.isDocumentRestrictedButAccessible()"
+          [lockStyle]="detailViewService.pageLockStyle()"
+        >
+        </app-detail-page-item>
+
         <div class="search-result-item--content">
-
           @if (item.highlightedText && item.highlightedText.length > 0) {
             <div class="highlighted-text" [innerHTML]="item.highlightedText || ' '"></div>
           } @else {
@@ -35,15 +56,9 @@
               </span>
             </div>
           }
-
         </div>
-<!--      }-->
 
+      </div>
     </div>
-  }
-  @if (displayItems.length === 0) {
-    <div class="no-results">
-      {{ (currentPageHasNoOcr ? 'no_results_to_display--no-ocr-hint' : 'no_results_to_display') | translate }}
-    </div>
-  }
-</div>
+  </cdk-virtual-scroll-viewport>
+}

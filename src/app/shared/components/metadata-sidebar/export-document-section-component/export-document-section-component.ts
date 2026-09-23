@@ -16,12 +16,12 @@ import { Router } from '@angular/router';
 import { ToastService } from '../../../services/toast.service';
 import { AppConfigService } from '../../../services/app-config.service';
 import { ConfigService } from '../../../../core/config';
+import { LicenseActionsConfig } from '../../../../core/config/config.interfaces';
 import { PdfService } from '../../../services/pdf.service';
 import { CdkSourceService } from '../../../services/cdk-source.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { UserService } from '../../../services/user.service';
 import { Page } from '../../../models/page.model';
-import { LicenseActionsConfig } from '../../../../core/config/config.interfaces';
 
 @Component({
   selector: 'app-export-document-section-component',
@@ -66,7 +66,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
     });
 
     this.cropSubscription = this.iiifViewerService.selectedArea$.subscribe(rect => {
-      if (rect && this.activeCropSession && this.pagePid) {
+      if (rect && this.activeCropSession && this.pagePid && this.isActionAllowed('crop')) {
         this.exportService.exportJpegCrop(this.pagePid, rect);
         this.iiifViewerService.setSelectionMode(false);
         this.activeCropSession = false;
@@ -86,15 +86,25 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
     return pages.filter(page => this.exportService.hasExportableLicense(page, action));
   }
 
-  private getEffectiveDocumentLicenses(): string[] {
-    return Array.from(new Set([
-      ...(this.detailViewService.document?.licences ?? []),
-      ...this.documentInfoService.getRuntimeLicenses(),
-    ]));
-  }
-
+  /**
+   * Whether the reader may do `action` to what is on screen right now.
+   *
+   * Two sources bind, and the stricter one wins:
+   *   - `DetailViewService.isActionAllowed` — the indexed licences of the open
+   *     page (plus its ancestors), falling back to the document.
+   *   - the runtime licences the image server actually applied to the open page
+   *     (`providedByLicenses`), which catch a page delivered under a restricted
+   *     licence that the index reports as public.
+   */
   private isActionAllowed(action: keyof LicenseActionsConfig): boolean {
-    return this.configService.isLicenseActionAllowed(this.getEffectiveDocumentLicenses(), action);
+    if (!this.detailViewService.isActionAllowed(action)) {
+      return false;
+    }
+    const runtimeLicenses = this.documentInfoService.getRuntimeLicenses();
+    if (!runtimeLicenses.length) {
+      return true;
+    }
+    return this.configService.isLicenseActionAllowed(runtimeLicenses, action);
   }
 
   pdfAllowed = computed(() => this.isActionAllowed('pdf'));
@@ -162,17 +172,31 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   private cdkSourceCode = toSignal(this.cdkSource.code$, { initialValue: this.cdkSource.getCode() });
 
   // Per-format visibility driven by the instance's export config (config-main.json),
-  // plus — for pdf/epub — the serving library's public-worker support.
-  printEnabled = this.configService.isExportFormatEnabled('print');
-  jpegEnabled = this.configService.isExportFormatEnabled('jpeg');
-  txtEnabled = this.configService.isExportFormatEnabled('txt');
-  pdfEnabled = computed(() => {
+  // plus — for epub/txt — the serving library's public-worker support, plus the
+  // current page's license permission matrix.
+  //
+  // All of these are computed rather than plain fields: the license gate depends
+  // on the loaded document, so a value sampled once at construction would be
+  // wrong for every document loaded afterwards.
+  //
+  // `txt` has no matrix flag of its own — a TXT export is the page's OCR text in
+  // a file, so it follows the `text` action that governs showing that same text
+  // on screen. Without this a DNNTO reader could download what the UI refuses
+  // to display.
+  printEnabled = computed(() => this.configService.isExportFormatEnabled('print') && this.isActionAllowed('print'));
+  jpegEnabled = computed(() => this.configService.isExportFormatEnabled('jpeg') && this.isActionAllowed('jpeg'));
+  txtEnabled = computed(() => {
     this.cdkSourceCode();
-    return this.configService.isExportFormatEnabled('pdf');
+    return this.configService.isExportFormatEnabled('txt') && this.isActionAllowed('text');
   });
+  // PDF is not worker-gated: without the worker the synchronous `/pdf/selection`
+  // download still works, so only `pdfOptions()` differs by library, not the
+  // section's visibility.
+  pdfEnabled = computed(() => this.configService.isExportFormatEnabled('pdf') && this.isActionAllowed('pdf'));
   epubEnabled = computed(() => {
     this.cdkSourceCode();
-    return this.configService.isExportFormatEnabled('epub');
+    // EPUB is a full-text rendition of the document, so it follows `text` too.
+    return this.configService.isExportFormatEnabled('epub') && this.isActionAllowed('text');
   });
 
   epubOptions = computed(() => {
@@ -192,6 +216,10 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   });
 
   pdfOptions = computed(() => {
+    // Which whole-document flavour is offered depends on the serving library, so
+    // this has to re-run when the selected CDK source changes.
+    this.cdkSourceCode();
+
     // For PDF documents the file is downloaded directly, so only offer the
     // whole-document option ("Celý dokument").
     if (this.detailViewService.isPdf) {
@@ -201,17 +229,38 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
     }
 
     const pages = this.detailViewService.pages;
+    const maxRange = this.appConfig.pdfMaxRange();
     const exportablePages = this.getExportablePages('pdf');
     const hasExportablePages = exportablePages.length > 0;
+
+    // The legacy whole-document flavour is a synchronous `/pdf/selection` call,
+    // so it is capped by pdfMaxRange. Disable it if:
+    // 1. Total pages exceed maxRange OR
+    // 2. No exportable pages OR
+    // 3. Exportable pages exceed maxRange
+    const disableWholeDocument =
+      !hasExportablePages ||
+      (pages && pages.length > maxRange) ||
+      exportablePages.length > maxRange;
 
     // Disable select pages if no exportable pages
     const disableSelectPages = !hasExportablePages;
 
     const pagesLoaded = !!pages;
 
+    // Two different exports produce a whole-document PDF: the worker-backed job
+    // delivered by e-mail (KNAV/NKP only) and the synchronous `/pdf/selection`
+    // download (everywhere, capped by pdfMaxRange). Only one of them can work at a
+    // given library, so only one is offered — and both are labelled plainly
+    // "whole-document"; the distinct *value* is what routes onPdfSubmit to the
+    // right path.
+    const wholeDocument = this.configService.hasPublicWorkerExports()
+      ? { label: 'whole-document', value: 'whole-document', disabled: !pagesLoaded }
+      : { label: 'whole-document', value: 'whole-document-legacy', disabled: disableWholeDocument };
+
     return [
       { label: 'select-pages', value: 'select-pages', disabled: disableSelectPages },
-      { label: 'whole-document', value: 'whole-document', disabled: !pagesLoaded || !this.pdfAllowed() },
+      { ...wholeDocument, disabled: wholeDocument.disabled || !this.pdfAllowed() },
     ];
   });
 
@@ -256,7 +305,12 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onJpegSubmit(value: string) {
+    // The panel hides the JPEG section when the license forbids it, but this
+    // handler is the one that actually opens the full-resolution IIIF URL, so it
+    // re-checks rather than trusting the UI state it was rendered from.
+    // A crop is a separate permission from a whole-page JPEG.
     if (!this.jpegAllowed() || (value === 'crop-page' && !this.cropAllowed())) return;
+
     if (value === 'current-page' && this.pagePid) {
       this.exportService.exportJpeg(this.pagePid);
     } else if (value === 'current-left-page') {
@@ -312,7 +366,17 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
     }
     if (value === 'select-pages') {
       this.openPageSelectionDialog('page-selection-dialog--header-pdf', 'pdf');
-        } else if (value === 'whole-document') {
+    } else if (value === 'whole-document-legacy') {
+      const exportablePages = this.getExportablePages('pdf');
+      const pageUuids = exportablePages.map(page => page.pid);
+      if (pageUuids.length > 0) {
+        this.pdfLoading.set(true);
+        this.exportService.exportPdfSelection(pageUuids, this.detailViewService.title).subscribe({
+          next: () => this.pdfLoading.set(false),
+          error: () => this.pdfLoading.set(false),
+        });
+      }
+    } else if (value === 'whole-document') {
       const pid = this.detailViewService.document?.uuid;
       if (pid) this.openEmailExportDialog(pid, 'pdf');
     }
@@ -478,6 +542,7 @@ export class ExportDocumentSectionComponent implements OnInit, OnDestroy {
   }
 
   onEpubSubmit(value: string): void {
+    // EPUB and TXT both ship the document's OCR text, so both follow `text`.
     if (!this.textAllowed()) return;
     if (!this.isLoggedIn()) {
       this.openLoginPrompt();

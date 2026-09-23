@@ -97,19 +97,8 @@ app-collapsible-content {
 // underline on hover/focus. This avoids mixing black-underlined values with
 // blue non-underlined values in the same sidebar.
 .clickable-list {
-  li.clickable {
-    cursor: pointer;
-    color: var(--color-text-link, var(--color-primary));
-    text-decoration: none;
-    transition: color 0.2s ease;
-
-    &:hover,
-    &:focus-within {
-      color: var(--color-text-link, var(--color-primary));
-      text-decoration: underline;
-      text-decoration-thickness: 1px;
-      text-underline-offset: 3px;
-    }
+  li {
+    color: var(--color-text-primary);
 
     .item-content {
       display: inline-flex;
@@ -121,6 +110,43 @@ app-collapsible-content {
       }
     }
 
+    // Secondary line under the item (e.g. the shelf locator under its holding
+    // library). Plain text, so it opts out of the item's underline, hover
+    // color and cursor even while sitting inside a clickable <li>.
+    .item-subtext {
+      display: block;
+      cursor: default;
+      text-decoration: none;
+      color: var(--color-text-secondary);
+    }
+  }
+
+  li.clickable {
+    cursor: pointer;
+    color: var(--color-text-link, var(--color-primary));
+    text-decoration: none;
+    transition: color 0.2s ease;
+
+    // Underline the interactive content only. A decoration set on the <li>
+    // would be inherited by the plain `.item-subtext` line below it, which
+    // descendants cannot cancel.
+    &:hover,
+    &:focus-within {
+      color: var(--color-text-link, var(--color-primary));
+
+      .item-content {
+        text-decoration: underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+      }
+
+      .item-subtext {
+        color: var(--color-text-secondary);
+      }
+    }
+
+    // Item rendered as a real link (openable in a new tab). Inherit the list
+    // item's color/underline so it looks identical to the button variant.
     a.item-link {
       color: inherit;
       text-decoration: none;
@@ -131,7 +157,6 @@ app-collapsible-content {
     }
   }
 }
-
 
 // Badge/pill styling
 .badge {

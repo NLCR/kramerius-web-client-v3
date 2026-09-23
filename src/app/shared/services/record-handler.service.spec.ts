@@ -8,6 +8,7 @@ import { BreakpointService } from './breakpoint.service';
 import { UserService } from './user.service';
 import { MatDialog } from '@angular/material/dialog';
 import { DocumentTypeEnum } from '../../modules/constants/document-type';
+import { ConfigService } from '../../core/config/config.service';
 
 describe('RecordHandlerService.getDocumentUrl fulltext forwarding', () => {
   let service: RecordHandlerService;
@@ -134,5 +135,70 @@ describe('RecordHandlerService.isRecordLocked open-access handling', () => {
   it('treats a record with no licenses as locked', () => {
     const service = makeService([]);
     expect(service.isRecordLocked([])).toBe(true);
+  });
+});
+
+/**
+ * The citation and share dialogs are reached via `import()` rather than a static
+ * import, to keep this service out of an import cycle with the dialog components
+ * (see `dialogSizing` in the service). These tests pin the two things that change
+ * could plausibly break: the dialog still opens, and the license gate still runs
+ * before the module is even fetched.
+ */
+describe('RecordHandlerService dialog opening', () => {
+  function makeService(opts: { allow?: boolean } = {}) {
+    const open = jasmine.createSpy('open');
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        RecordHandlerService,
+        { provide: Router, useValue: { createUrlTree: () => ({ toString: () => '/' }) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParams: {} } } },
+        { provide: LibraryContextService, useValue: { prependLibraryPrefix: (s: any[]) => s } },
+        { provide: SearchService, useValue: {} },
+        { provide: AdminModeService, useValue: {} },
+        { provide: BreakpointService, useValue: { isMobile: () => false, isTablet: () => false } },
+        { provide: UserService, useValue: {} },
+        { provide: MatDialog, useValue: { open } },
+        {
+          provide: ConfigService,
+          useValue: { isLicenseActionAllowed: () => opts.allow ?? true },
+        },
+      ],
+    });
+    return { service: TestBed.inject(RecordHandlerService), open };
+  }
+
+  const doc = { licences: ['public'], mainTitle: 'T' } as any;
+
+  // The service opens the dialog in an import() callback. Awaiting the same
+  // module here (already cached by then) puts us behind that callback without
+  // guessing at a number of microtask ticks.
+  const settleImports = async () => {
+    await import('../dialogs/citation-dialog/citation-dialog.component');
+    await import('../dialogs/share-dialog/share-dialog.component');
+    await Promise.resolve();
+  };
+
+  it('opens the citation dialog once the lazy module resolves', async () => {
+    const { service, open } = makeService();
+    service.openCitationDialog(doc);
+    await settleImports();
+    expect(open).toHaveBeenCalled();
+  });
+
+  it('opens the share dialog once the lazy module resolves', async () => {
+    const { service, open } = makeService();
+    service.openShareDialog(doc);
+    await settleImports();
+    expect(open).toHaveBeenCalled();
+  });
+
+  it('does not even load the dialog when the license forbids the action', async () => {
+    const { service, open } = makeService({ allow: false });
+    service.openCitationDialog(doc);
+    service.openShareDialog(doc);
+    await settleImports();
+    expect(open).not.toHaveBeenCalled();
   });
 });

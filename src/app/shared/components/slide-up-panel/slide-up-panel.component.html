@@ -8,7 +8,7 @@
   [class.collapsed-peek]="isCollapsedPeek" [class.dragging]="isDragging" [class.expanded]="isExpanded"
   [style.height.vh]="currentHeight" [style.bottom.px]="peek ? peekOffset : 0"
   role="dialog" aria-modal="true"
-  [attr.aria-labelledby]="title ? 'slide-up-panel-title' : null"
+  [attr.aria-labelledby]="title && !hideTitle ? 'slide-up-panel-title' : null"
   cdkTrapFocus [cdkTrapFocusAutoCapture]="isOpen()"
   (keydown.escape)="close()">
 
@@ -18,17 +18,23 @@
     <span class="slide-up-panel__handle-bar"></span>
   </div>
 
-  <!-- Header -->
-  <div *ngIf="title" class="slide-up-panel__header">
-    <h3 id="slide-up-panel-title" class="slide-up-panel__title">{{ title }}</h3>
-    <button class="slide-up-panel__close" (click)="close()" type="button"
-      [attr.aria-label]="'close-dialog--arialabel' | translate">
-      <i class="icon-close" aria-hidden="true"></i>
-    </button>
-  </div>
+  <!-- Header (captioned sheets only). With the caption hidden there is no
+       header row at all: the hosting sidebar renders its own close button
+       (app-sheet-close-button) beside its leading control instead, so the sheet
+       spends no vertical space on a caption or a lone X (GitHub issue #177). -->
+  @if (title && !hideTitle) {
+    <div class="slide-up-panel__header">
+      <h3 id="slide-up-panel-title" class="slide-up-panel__title">{{ title }}</h3>
+      <button class="slide-up-panel__close" (click)="close()" type="button"
+        [attr.aria-label]="'close-dialog--arialabel' | translate">
+        <i class="icon-close" aria-hidden="true"></i>
+      </button>
+    </div>
+  }
 
   <!-- Content -->
-  <div class="slide-up-panel__content">
+  <div class="slide-up-panel__content"
+    [class.slide-up-panel__content--flush]="hideTitle">
     <ng-content></ng-content>
   </div>
 </div>

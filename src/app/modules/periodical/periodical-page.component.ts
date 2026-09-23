@@ -152,6 +152,22 @@ export class PeriodicalPageComponent implements OnInit, OnDestroy {
     this.favoritesHelper.cleanup();
   }
 
+  /**
+   * Whether the toolbar title navigates to the root periodical.
+   *
+   * On a volume/issue it always does — that is a step up the hierarchy. On the root
+   * periodical itself the link would point at the current page, so it is offered only
+   * in search-results mode, where following it drops the fulltext query and returns
+   * the user to browsing the volumes.
+   */
+  isTitleClickable(document: { uuid?: string; 'root.pid'?: string } | null, mode: ViewMode): boolean {
+    const rootPid = document?.['root.pid'];
+    if (!rootPid) {
+      return false;
+    }
+    return document?.uuid !== rootPid || mode === ViewMode.SearchResults;
+  }
+
   openRecordInfo() {
     this.toggleMetadataSidebar();
   }

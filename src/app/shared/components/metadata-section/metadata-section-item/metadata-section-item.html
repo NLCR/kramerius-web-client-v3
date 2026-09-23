@@ -29,9 +29,10 @@
 
     <!-- Clickable list type: vertical list with underlined clickable items -->
     <ul *ngIf="type === 'clickable-list'" class="clickable-list" [class.with-bullets]="bulletsVisible">
-      <li *ngFor="let item of visibleItems; let last = last" class="clickable"
-        [attr.role]="getItemHref(item) ? null : 'button'"
-        [attr.tabindex]="getItemHref(item) ? null : 0"
+      <li *ngFor="let item of visibleItems; let last = last"
+        [class.clickable]="isItemInteractive(item)"
+        [attr.role]="isItemInteractive(item) && !getItemHref(item) ? 'button' : null"
+        [attr.tabindex]="isItemInteractive(item) && !getItemHref(item) ? 0 : null"
         (click)="handleItemClick(item)"
         (keydown.enter)="handleItemClick(item)"
         (keydown.space)="handleItemSpace($event, item)">
@@ -57,6 +58,9 @@
               <ng-container *ngTemplateOutlet="itemSuffixTpl; context: { $implicit: item }"></ng-container>
             </ng-container>
           </span>
+        }
+        @if (getItemSubtext(item); as subtext) {
+          <span class="item-subtext" (click)="$event.stopPropagation()">{{ subtext }}</span>
         }<span *ngIf="last && hiddenCount > 0" class="items-more-inline" role="button" tabindex="0" (click)="expanded = true; $event.stopPropagation()" (keydown.enter)="expanded = true; $event.stopPropagation()" (keydown.space)="$event.preventDefault(); expanded = true; $event.stopPropagation()"> + {{ hiddenCount }} {{ 'authors-more' | translate }}</span>
       </li>
     </ul>

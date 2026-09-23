@@ -11,4 +11,18 @@
   <div class="fullscreen-content">
     <ng-content></ng-content>
   </div>
+
+  <!--
+    Content that must stay visible *while* fullscreen, pinned to the top strip.
+    Anything outside this container is not rendered by the browser in fullscreen,
+    so a reader-identifying overlay projected here (see the DNNTO license bar)
+    survives the transition instead of vanishing with the rest of the page.
+
+    Kept last in the DOM so it paints over the viewer without needing a stacking
+    context of its own; the close button above is nudged down out of its way
+    (see .fullscreen-overlay in the stylesheet).
+  -->
+  <div class="fullscreen-overlay">
+    <ng-content select="[fullscreen-overlay]"></ng-content>
+  </div>
 </div>

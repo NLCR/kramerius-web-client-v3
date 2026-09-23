@@ -206,6 +206,26 @@ Tiše zmizí z karuselu. Není nutné ručně čistit konfiguraci při každém 
 
 ---
 
+## Rozměry a poměr stran obrázků
+
+Platí pro vlastní obrázky zadané přes `imageUrl` (viz varianta B výše). Karty na úvodní straně jsou v karuselu (`featured-documents`) a jejich obrázek má **jiný poměr stran než karty ve výsledcích vyhledávání** — obrázek se řídí pouze variantou karty (`cardVariant`), ne tím, jak velký soubor nahrajete.
+
+| `cardVariant` | Poměr stran obrázku | Šířka karty | Doporučený rozměr souboru | Kde se hodí |
+|---|---|---|---|---|
+| `"default"` (výchozí) | **160 : 220** (≈ 0,73 — na výšku, blízko 8 : 11) | 185 px | **320 × 440 px** | běžné dokumenty, obálky knih |
+| `"portrait"` | **167 : 220** (≈ 0,76 — na výšku) | 185 px | **334 × 440 px** | vizuálně silné sekce — autoři s portréty, žánry s ilustracemi |
+
+### Na co si dát pozor
+
+- **Obrázek se needituje ani neořezává.** Vkládá se přes `object-fit: contain`, tedy se celý vejde do rámečku a dopočítá se prázdným místem (barva pozadí náhledu). Když má obrázek jiný poměr stran, nic se neztratí, ale po stranách nebo nad/pod obrázkem zůstane volný pás. Nejlepší výsledek proto dává soubor už nahraný v poměru z tabulky.
+- **Obrázky na šířku (landscape) vypadají v kartě špatně** — rámeček je na výšku, takže se takový obrázek zmenší na úzký pásek doprostřed karty. Pro fotografie na šířku je lepší je předem doříznout na výšku.
+- **Nahrávejte přibližně 2× větší rozměr, než je karta** (proto 320 px, resp. 334 px místo 185 px). Na displejích s vysokou hustotou pixelů (Retina) je pak náhled ostrý. Větší soubory už nemají smysl — jen zpomalí načtení úvodní strany.
+- **Šířka karty se mění podle nastavení přístupnosti.** Při zvětšeném písmu se karta roztáhne, poměr stran obrázku ale zůstává stejný. Není tedy potřeba připravovat víc variant obrázku.
+- **Doporučený formát:** `webp` nebo optimalizované `jpg` pro fotografie, `png` pro obrázky s průhledností nebo ostrou grafikou. Vejděte se ideálně do ~150 kB na obrázek.
+- **Kam soubory dát:** typicky `public/local-config/img/...` a v configu se na ně odkazuje relativní cestou bez `public/` — např. `"imageUrl": "local-config/img/authors/bronte.png"`.
+
+---
+
 ## Typ `link-tiles` — mřížka odkazů s ikonami
 
 Grid dlaždic, kde každá je klikací odkaz s ikonou a popiskem. Používá se jako navigační rozcestník (např. "Prohlížet podle typu dokumentu" s dlaždicemi Periodika / Knihy / Mapy…).

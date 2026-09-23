@@ -41,6 +41,7 @@ import { PdfService } from '../../../shared/services/pdf.service';
 import { UserService } from '../../../shared/services/user.service';
 import { RecordHandlerService } from '../../../shared/services/record-handler.service';
 import { ConfigService } from '../../../core/config/config.service';
+import { LicenseActionsConfig } from '../../../core/config/config.interfaces';
 import { CdkSourceService } from '../../../shared/services/cdk-source.service';
 import { parseIssueStartDate } from '../../../shared/utils/periodical-date';
 
@@ -329,6 +330,56 @@ export class DetailViewService {
     if (doc.licences.some(l => terminalLicenses.includes(l))) return 'terminal';
     return 'default';
   });
+
+  /**
+   * Whether the current document's licenses permit `action`.
+   *
+   * The single place components ask "may this reader do X to *this* document".
+   * Before this existed the permission matrix was configured but never read, so
+   * every restricted action (text selection, area crop, JPEG/PDF/print export)
+   * was offered on DNNTO documents. See `ConfigService.isLicenseActionAllowed`
+   * for the most-restrictive-wins semantics.
+   *
+   * Reads `documentSignal()`, `_pages()` and `_currentPageIndex()`, so calling this
+   * from a template or a `computed` registers a dependency on the document and on
+   * the open page and re-evaluates when either changes. Callers that cache the
+   * result in a plain field instead would go stale on the next page.
+   */
+  isActionAllowed(action: keyof LicenseActionsConfig): boolean {
+    return this.configService.isLicenseActionAllowed(this.effectiveLicences(), action);
+  }
+
+  /**
+   * The licences that govern what the reader may do right now.
+   *
+   * The page on screen decides, not the parent document. `Metadata.licences` comes
+   * from Solr's `licenses.facet`, which is the union of the whole tree — the
+   * object's own licences, its ancestors' AND its descendants' (`contains_licenses`).
+   * Under most-restrictive-wins that union is far too broad: a periodical issue of a
+   * `dnnto` title reports `["public","dnnto","covid"]`, so every export was denied on
+   * issues whose pages are plainly public and the export tab rendered empty.
+   *
+   * A page carries both licences set directly on it and those inherited from its
+   * ancestors, and both bind it, so the two are combined. The document stays as the
+   * fallback for views with no page list (sound recordings, PDF documents) and for a
+   * page indexed without any licence — otherwise a gap in the index would silently
+   * unlock a restricted document.
+   */
+  private effectiveLicences(): string[] | null | undefined {
+    const page = this.getCurrentPage() as any;
+    if (page) {
+      // Pages reach the store as raw Solr docs, so the field is `licenses`; the
+      // `Page` model spells its own copy `licences`. Read whichever is present.
+      const pageLicences = [
+        ...(page.licences ?? page['licenses'] ?? []),
+        ...(page.licenses_of_ancestors ?? []),
+      ];
+      if (pageLicences.length) {
+        return pageLicences;
+      }
+    }
+    return this.documentSignal()?.licences;
+  }
 
   /**
    * Computed: true when a license bar is shown — document has a bar-configured license (non-public)

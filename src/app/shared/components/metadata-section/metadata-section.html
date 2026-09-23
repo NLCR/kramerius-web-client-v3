@@ -336,6 +336,7 @@
       <!-- Locations -->
       <app-metadata-section-item *ngIf="childData.locations.length" [label]="'locations' | translate"
         type="clickable-list" [items]="childData.locations" [displayFn]="getLocationLabel"
+        [itemSubtextFn]="getLocationSubtext"
         [disableTranslate]="true" [onItemClick]="clickedLocation" [itemHref]="locationHref">
       </app-metadata-section-item>
 
@@ -377,8 +378,8 @@
 
   <!-- Locations -->
   <app-metadata-section-item *ngIf="data.locations.length" [label]="'locations' | translate" type="clickable-list"
-    [items]="data.locations" [displayFn]="getLocationLabel" [disableTranslate]="true"
-    [onItemClick]="clickedLocation" [itemHref]="locationHref">
+    [items]="data.locations" [displayFn]="getLocationLabel" [itemSubtextFn]="getLocationSubtext"
+    [disableTranslate]="true" [onItemClick]="clickedLocation" [itemHref]="locationHref">
   </app-metadata-section-item>
 
   <!-- Keywords -->
@@ -443,11 +444,13 @@
     </ul>
   </app-metadata-section-item>
 
-  <div class="metadata--actions">
-    <button class="primary link with-icon p-left-0" (click)="openMetadataDialog()">
-      <i class="icon-code-3" aria-hidden="true"></i>
-      {{ 'metadata--button' | translate }}
-    </button>
-  </div>
+  @if (canShowRawMetadata()) {
+    <div class="metadata--actions">
+      <button class="primary link with-icon p-left-0" (click)="openMetadataDialog()">
+        <i class="icon-code-3" aria-hidden="true"></i>
+        {{ 'metadata--button' | translate }}
+      </button>
+    </div>
+  }
 
 </div>

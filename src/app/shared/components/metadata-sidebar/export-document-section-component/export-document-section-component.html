@@ -1,6 +1,6 @@
 <div class="export-document--container">
 
-  @if (printEnabled && printAllowed() && !detailViewService.isPdf) {
+  @if (printEnabled() && !detailViewService.isPdf) {
   <app-export-document-section-item-component
     [title]="'export-print-title'"
     [icon]="'icon-printer'"
@@ -14,7 +14,7 @@
   </app-export-document-section-item-component>
   }
 
-  @if (jpegEnabled && jpegAllowed() && !detailViewService.isPdf) {
+  @if (jpegEnabled() && !detailViewService.isPdf) {
   <app-export-document-section-item-component [title]="'export-jpeg-title'" [icon]="'icon-gallery-import'"
                                               [options]="jpegOptions()" [groupName]="'jpeg-export'"
                                               [selectedOption]="selectedJpegOption" [collapsible]="true"
@@ -24,7 +24,7 @@
                                               (submit)="onJpegSubmit($event)"></app-export-document-section-item-component>
   }
 
-  @if (pdfEnabled() && pdfAllowed()) {
+  @if (pdfEnabled()) {
   <app-export-document-section-item-component
     [title]="'export-pdf-title'"
     [icon]="'icon-document-download'"
@@ -40,7 +40,7 @@
   </app-export-document-section-item-component>
   }
 
-  @if (epubEnabled() && textAllowed() && !detailViewService.isPdf) {
+  @if (epubEnabled() && !detailViewService.isPdf) {
   <app-export-document-section-item-component
     [title]="'export-epub-title'"
     [icon]="'icon-book-export'"
@@ -55,7 +55,7 @@
   </app-export-document-section-item-component>
   }
 
-  @if (txtEnabled && textAllowed() && !detailViewService.isPdf) {
+  @if (txtEnabled() && !detailViewService.isPdf) {
   <app-export-document-section-item-component
     [title]="'export-text-title'"
     [icon]="'icon-document-text'"

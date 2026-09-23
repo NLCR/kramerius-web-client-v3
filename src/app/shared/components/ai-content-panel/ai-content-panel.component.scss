@@ -17,6 +17,13 @@
   background: var(--color-bg-base);
   overflow: hidden;
 
+  // The license bar is absolutely positioned across the top of the whole
+  // content area, so without this it lies over this panel's toolbar and hides
+  // close, copy and the read-aloud controls. Push the panel down by the bar's
+  // height, the same way the floating viewer controls do via
+  // --viewer-controls-offset. Resolves to 0px whenever no bar is shown.
+  padding-top: var(--license-bar-offset, 0px);
+
   &__body {
     flex: 1;
     min-height: 0;

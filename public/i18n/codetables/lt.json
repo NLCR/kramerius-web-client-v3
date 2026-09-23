@@ -41,6 +41,7 @@
   "sources": "Šaltiniai",
   "licences": "Licencijos",
   "genres": "Žanrai",
-  "locations": "Saugojimo vietos",
+  "locations": "Saugojimo vieta",
+  "shelf-locator": "Šifras",
   "geonames": "Geografiniai pavadinimai"
 }

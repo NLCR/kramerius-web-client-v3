@@ -55,20 +55,23 @@ export class RecordExportPanelComponent implements OnInit {
   private router = inject(Router);
   private configService = inject(ConfigService);
 
-  // Tracks the selected CDK member library: PDF/EPUB availability depends on whether
-  // THAT library's backend runs the public worker, so the flags below must be
-  // re-evaluated whenever the source changes.
+  // Tracks the selected CDK member library: EPUB/TXT availability and which
+  // whole-document PDF flavour applies depend on whether THAT library's backend
+  // runs the public worker, so everything below must be re-evaluated whenever the
+  // source changes.
   private cdkSource = inject(CdkSourceService);
   private cdkSourceCode = toSignal(this.cdkSource.code$, { initialValue: this.cdkSource.getCode() });
 
   // Per-format visibility driven by the instance's export config (config-main.json),
-  // plus — for pdf/epub — the serving library's public-worker support.
+  // plus — for epub/txt — the serving library's public-worker support.
   printEnabled = this.configService.isExportFormatEnabled('print');
-  txtEnabled = this.configService.isExportFormatEnabled('txt');
-  pdfEnabled = computed(() => {
+  txtEnabled = computed(() => {
     this.cdkSourceCode();
-    return this.configService.isExportFormatEnabled('pdf');
+    return this.configService.isExportFormatEnabled('txt');
   });
+  // PDF is not worker-gated: the synchronous `/pdf/selection` download works
+  // everywhere, so only the options differ by library (see pdfOptions).
+  pdfEnabled = computed(() => this.configService.isExportFormatEnabled('pdf'));
   epubEnabled = computed(() => {
     this.cdkSourceCode();
     return this.configService.isExportFormatEnabled('epub');
@@ -96,16 +99,29 @@ export class RecordExportPanelComponent implements OnInit {
   textAllowed = computed(() => this.configService.isLicenseActionAllowed(this.getRecordLicenses(), 'text'));
 
   pdfOptions = computed(() => {
+    // Which whole-document flavour applies depends on the serving library.
+    this.cdkSourceCode();
+
     const pages = this.pages();
     const loaded = this.pagesLoaded();
     const exportable = pages.filter(p => this.exportService.hasExportableLicense(p, 'pdf'));
+    const max = this.maxRange();
     const hasExportable = exportable.length > 0;
 
+    // The legacy flavour is a synchronous `/pdf/selection` call, so pdfMaxRange caps it.
+    const disableLegacy = !loaded || !hasExportable || pages.length > max || exportable.length > max;
     const disableSelect = !loaded || !hasExportable;
+
+    // Mutually exclusive, both labelled plainly "whole-document": the worker job
+    // by e-mail where the worker exists, the synchronous `/pdf/selection` download
+    // otherwise. The distinct value routes onPdfSubmit to the right path.
+    const wholeDocument = this.configService.hasPublicWorkerExports()
+      ? { label: 'whole-document', value: 'whole-document', disabled: !loaded }
+      : { label: 'whole-document', value: 'whole-document-legacy', disabled: disableLegacy };
 
     return [
       { label: 'select-pages', value: 'select-pages', disabled: disableSelect },
-      { label: 'whole-document', value: 'whole-document', disabled: !loaded || !this.pdfAllowed() },
+      { ...wholeDocument, disabled: wholeDocument.disabled || !this.pdfAllowed() },
     ];
   });
 
@@ -170,7 +186,14 @@ export class RecordExportPanelComponent implements OnInit {
       this.openLoginPrompt();
       return;
     }
-    if (value === 'select-pages') {
+    if (value === 'whole-document-legacy') {
+      const exportable = this.pages().filter(p => this.exportService.hasExportableLicense(p, 'pdf'));
+      this.pdfLoading.set(true);
+      this.exportService.exportPdfSelection(exportable.map(p => p.pid), this.record.title).subscribe({
+        next: () => this.pdfLoading.set(false),
+        error: () => this.pdfLoading.set(false),
+      });
+    } else if (value === 'select-pages') {
       this.openPageSelectionDialog('page-selection-dialog--header-pdf', 'pdf');
     } else if (value === 'whole-document') {
       this.openEmailExportDialog('pdf');

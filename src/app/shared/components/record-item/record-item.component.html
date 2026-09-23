@@ -98,7 +98,7 @@
 
       @if (!loading && item?.model === DocumentTypeEnum.page && item?.highlighting) {
       @for (text of item!.highlighting; track $index) {
-      <div class="text-ocr" [innerHTML]="text"></div>
+      <div class="text-ocr" [innerHTML]="getOcrSnippet(text)"></div>
       }
       }
 

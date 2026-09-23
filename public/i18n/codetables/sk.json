@@ -41,6 +41,7 @@
   "languages": "Jazyky",
   "licences": "Licencie",
   "genres": "Žánre",
-  "locations": "Miesta uloženia",
+  "locations": "Miesto uloženia",
+  "shelf-locator": "Signatúra",
   "geonames": "Geografické názvy"
 }

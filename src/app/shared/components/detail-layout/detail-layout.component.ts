@@ -26,6 +26,16 @@ export class DetailLayoutComponent {
 
   @Input() hideFilterToggle = false;
 
+  /** Forwarded to the left filter-sidebar's mobile slide-up header. */
+  @Input() leftSidebarMobileTitleKey = 'filters';
+
+  /**
+   * Drops the left slide-up's caption on mobile, keeping only its close button.
+   * The document/recording panels below are self-describing, so the caption was
+   * both redundant and a waste of phone height (GitHub issue #177).
+   */
+  @Input() hideLeftSidebarMobileTitle = false;
+
   private detailViewService = inject(DetailViewService);
 
   @HostListener('document:keydown', ['$event'])

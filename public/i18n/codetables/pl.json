@@ -41,6 +41,7 @@
   "sources": "Źródła",
   "licences": "Licencje",
   "genres": "Gatunki",
-  "locations": "Lokalizacje",
+  "locations": "Lokalizacja",
+  "shelf-locator": "Sygnatura",
   "geonames": "Nazwy geograficzne"
 }

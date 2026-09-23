@@ -822,15 +822,29 @@ export class MetadataSection implements OnInit, OnChanges {
     return items;
   }
 
+  /**
+   * Primary line of a location: the holding institution. This is the part the
+   * facet search filters on, so it is the only clickable text; the shelf
+   * locator goes on the secondary line via `getLocationSubtext`.
+   */
   getLocationLabel = (location: Location): string => {
-    let parts = [];
     if (location.physicalLocation) {
-      parts.push(this.translate.instant(location.physicalLocation));
+      return this.translate.instant(location.physicalLocation);
     }
-    if (location.shelfLocator) {
-      parts.push(location.shelfLocator);
+    return location.shelfLocator || '';
+  }
+
+  /**
+   * Secondary line of a location: the shelf locator, spelled out ("Signatura:
+   * PE 265") so the bare call number is not left unexplained. Omitted when
+   * there is no institution above it, since the locator is then the primary
+   * line already.
+   */
+  getLocationSubtext = (location: Location): string => {
+    if (!location.physicalLocation || !location.shelfLocator) {
+      return '';
     }
-    return parts.join(': ');
+    return `${this.translate.instant('shelf-locator')}: ${location.shelfLocator}`;
   }
 
   get solrData(): Metadata | null { return this._solrData(); }
@@ -1006,8 +1020,12 @@ export class MetadataSection implements OnInit, OnChanges {
   languageHref = (language: string): string =>
     this.searchHref(`?fq=${facetKeysEnum.languages}:${encodeURIComponent(language)}&${facetKeysEnum.languages}_operator=OR`);
 
-  locationHref = (location: Location): string =>
-    this.searchHref(`?fq=${facetKeysEnum.physical_locations}:${encodeURIComponent(location.physicalLocation)}&${facetKeysEnum.physical_locations}_operator=OR`);
+  // Only the institution is a facet value, so a location that carries just a
+  // shelf locator has nothing to search for and stays plain text.
+  locationHref = (location: Location): string | null =>
+    location.physicalLocation
+      ? this.searchHref(`?fq=${facetKeysEnum.physical_locations}:${encodeURIComponent(location.physicalLocation)}&${facetKeysEnum.physical_locations}_operator=OR`)
+      : null;
 
   keywordHref = (keyword: string): string =>
     this.searchHref(`?fq=${facetKeysEnum.keywords}:${encodeURIComponent(keyword)}&${facetKeysEnum.keywords}_operator=OR`);
@@ -1093,6 +1111,7 @@ export class MetadataSection implements OnInit, OnChanges {
   }
 
   clickedLocation = (location: Location): void => {
+    if (!location.physicalLocation) return;
     const url = `?fq=${facetKeysEnum.physical_locations}:${encodeURIComponent(location.physicalLocation)}&${facetKeysEnum.physical_locations}_operator=OR`;
     this.searchService.redirectDirectlyToUrl(url);
   }
@@ -1134,7 +1153,18 @@ export class MetadataSection implements OnInit, OnChanges {
     this.searchService.redirectDirectlyToUrl(url);
   };
 
+  /**
+   * Whether the raw MODS/XML metadata dialog may be opened for this document
+   * (`metadata` in the license matrix). Drives the trigger's visibility in the
+   * template as well as the guard in `openMetadataDialog`.
+   */
+  canShowRawMetadata(): boolean {
+    return this.configService.isLicenseActionAllowed(this._data()?.licences, 'metadata');
+  }
+
   openMetadataDialog() {
+    if (!this.canShowRawMetadata()) return;
+
     this.dialog.open(MetadataDialogComponent, {
       data: {
         document: this._solrData() ?? this.data

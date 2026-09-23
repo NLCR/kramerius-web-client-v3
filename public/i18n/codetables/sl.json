@@ -41,6 +41,7 @@
   "sources": "Viri",
   "licences": "Licence",
   "genres": "Zvrsti",
-  "locations": "Lokacije",
+  "locations": "Lokacija",
+  "shelf-locator": "Signatura",
   "geonames": "Zemljepisna imena"
 }

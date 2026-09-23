@@ -21,6 +21,12 @@ export class MetadataSectionItem {
   @Input() items?: any[];
   @Input() keyValuePairs?: { [key: string]: any };
   @Input() displayFn?: (item: any) => string;
+  /**
+   * Optional secondary line rendered under a clickable-list item: plain,
+   * non-interactive text (e.g. a shelf locator under its holding library) that
+   * must not inherit the item's link styling or click target.
+   */
+  @Input() itemSubtextFn?: (item: any) => string | null | undefined;
   @Input() onItemClick?: (item: any) => void;
   /**
    * When set, each clickable item (clickable-list / badge) renders as a real
@@ -99,6 +105,22 @@ export class MetadataSectionItem {
 
   getItemHref(item: any): string | null {
     return this.itemHref?.(item) ?? null;
+  }
+
+  getItemSubtext(item: any): string | null {
+    const subtext = this.itemSubtextFn?.(item);
+    return subtext ? subtext : null;
+  }
+
+  /**
+   * An item is only presented as interactive when there is somewhere to go.
+   * With `itemHref` supplied it is the authority per item, so an item it
+   * declines (e.g. a location with no searchable institution) renders as plain
+   * text rather than a focusable control that does nothing. Without it, the
+   * section relies on `onItemClick` for every item alike.
+   */
+  isItemInteractive(item: any): boolean {
+    return this.itemHref ? !!this.getItemHref(item) : !!this.onItemClick;
   }
 
   /**

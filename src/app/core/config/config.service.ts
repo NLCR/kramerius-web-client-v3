@@ -510,8 +510,20 @@ export class ConfigService {
    */
   private static readonly PUBLIC_WORKER_LIBRARIES = ['knav', 'nkp'];
 
-  /** Export formats produced by the public worker. */
-  private static readonly PUBLIC_WORKER_FORMATS: ExportFormat[] = ['pdf', 'epub'];
+  /**
+   * Export formats that exist ONLY as a public-worker job — there is no other way
+   * to produce them, so without the worker the format has to disappear entirely.
+   *
+   * PDF is deliberately absent even though a worker-backed whole-document PDF
+   * exists: the synchronous `/pdf/selection` download covers PDF at every library,
+   * so gating the format here hid a working export. Which of the two PDF flavours
+   * to offer is decided in the UI via `hasPublicWorkerExports()`.
+   *
+   * TXT belongs here for the same reason EPUB does — both are the same worker job
+   * (`requests/special_needs_text` / `special_needs_ebook`), just a different
+   * rendition.
+   */
+  private static readonly PUBLIC_WORKER_FORMATS: ExportFormat[] = ['epub', 'txt'];
 
   /**
    * True when the library that actually serves the open document runs the public
@@ -522,7 +534,7 @@ export class ConfigService {
    * loaded from, which is also the backend that would have to produce the export.
    * Off CDK there is no source, so the instance's own code decides.
    */
-  private hasPublicWorker(): boolean {
+  hasPublicWorkerExports(): boolean {
     // Some embedders and older test doubles implement the pre-getKrameriusId
     // EnvService contract. Keep the worker gate backwards compatible with them.
     const envId = typeof this.envService.getKrameriusId === 'function'
@@ -535,13 +547,13 @@ export class ConfigService {
   /**
    * Check whether a document export format (print/jpeg/pdf/epub/txt) is enabled.
    *
-   * PDF and EPUB additionally require the serving library's backend to run the
+   * EPUB and TXT additionally require the serving library's backend to run the
    * public worker — config alone cannot enable them for a library that has none.
    * Because that depends on the selected CDK source, callers must re-evaluate this
    * when the source changes (see `CdkSourceService.code$`).
    */
   isExportFormatEnabled(format: ExportFormat): boolean {
-    if (ConfigService.PUBLIC_WORKER_FORMATS.includes(format) && !this.hasPublicWorker()) {
+    if (ConfigService.PUBLIC_WORKER_FORMATS.includes(format) && !this.hasPublicWorkerExports()) {
       return false;
     }
     return this.export[format] ?? true;
@@ -557,42 +569,6 @@ export class ConfigService {
     // a library whose only configured formats are pdf/epub must not show an empty
     // export tab.
     return formats.some(f => this.isExportFormatEnabled(f));
-  }
-
-  /**
-   * Checks a concrete operation against the primary effective license.
-   *
-   * The configured license order is also the access priority: an open/public
-   * license wins over a secondary restrictive license. Unknown or missing
-   * licenses are denied, so an incomplete Solr response cannot accidentally
-   * enable a protected export.
-   */
-  isLicenseActionAllowed(
-    licenseIds: string[] | null | undefined,
-    action: keyof LicenseActionsConfig,
-  ): boolean {
-    const uniqueIds = Array.from(new Set((licenseIds ?? []).filter(Boolean)));
-    if (uniqueIds.length === 0) return false;
-
-    const order = this.getLicenseOrder();
-    const openIds = uniqueIds.filter(id => this.getLicenseConfig(id)?.accessType === 'open');
-    const candidates = openIds.length > 0 ? openIds : uniqueIds;
-    const primaryId = [...candidates].sort((a, b) => {
-      const aIndex = order.indexOf(a);
-      const bIndex = order.indexOf(b);
-      if (aIndex === -1 && bIndex === -1) return 0;
-      if (aIndex === -1) return 1;
-      if (bIndex === -1) return -1;
-      return aIndex - bIndex;
-    })[0];
-
-    const license = this.getLicenseConfig(primaryId);
-
-    // A login-only document may be read by an authenticated user, but PDF
-    // generation is categorically forbidden even if a future config is wrong.
-    if (action === 'pdf' && license?.accessType === 'login') return false;
-
-    return license?.actions?.[action] === true;
   }
 
   /** True when at least one globally enabled export format is also licensed. */
@@ -750,6 +726,42 @@ export class ConfigService {
    */
   getLicenseBars(): LicenseBarConfig[] {
     return this.licenses.filter(l => l.bar).map(l => l.bar!);
+  }
+
+  /**
+   * Whether a document under `docLicenses` permits `action`.
+   *
+   * The permission matrix in `config-licenses.json` is the only thing standing
+   * between a restricted document and the reader: the API serves the ALTO text
+   * and the IIIF crop regardless of license, so a `false` here is the actual
+   * enforcement, not a cosmetic hint. Every entry point for a restricted action
+   * must route through this method.
+   *
+   * Semantics — most restrictive license wins:
+   *  - No licenses at all (plain public document) → permitted. Restrictions only
+   *    ever come from a license that is actually present.
+   *  - Several licenses → the action needs *every* recognised one to allow it.
+   *    A `dnnto` document that also carries an open license must not have the
+   *    open half unlock text selection; that would defeat the whole matrix.
+   *  - An unrecognised license id contributes nothing — it has no matrix to
+   *    consult, so it can neither allow nor deny.
+   *
+   * Licenses are resolved through `resolveLicense`, so a source-scoped variant's
+   * `actions` override applies here exactly as it does for the license's texts.
+   */
+  isLicenseActionAllowed(docLicenses: string[] | null | undefined, action: keyof LicenseActionsConfig): boolean {
+    if (!docLicenses?.length) return true;
+
+    for (const licId of docLicenses) {
+      const lic = this.resolveLicense(licId);
+      if (lic?.actions?.[action] === false) return false;
+      // A login-only document may be read by an authenticated user, but PDF
+      // generation is categorically forbidden even if a future config is wrong.
+      if (action === 'pdf' && lic?.accessType === 'login') return false;
+    }
+
+    // No recognised license denied it.
+    return true;
   }
 
   /**
