@@ -119,6 +119,7 @@
   "advanced-filter-keyword-placeholder": "Wprowadź słowo kluczowe",
   "advanced-filter-genre-placeholder": "Wprowadź gatunek",
   "advanced-filter-geoName-placeholder": "Wprowadź nazwę geograficzną",
+  "advanced-filter-identifier-placeholder": "Wprowadź identyfikator",
   "author-not-filled": "Autor nie wypełniony",
   "record-info-dialog-title": "Szczegółowy opis",
   "record-info-section-meta": "Informacje meta",

@@ -122,6 +122,7 @@
   "advanced-filter-keyword-placeholder": "Schlagwort eingeben",
   "advanced-filter-genre-placeholder": "Genre eingeben",
   "advanced-filter-geoName-placeholder": "Geografischen Namen eingeben",
+  "advanced-filter-identifier-placeholder": "Identifikator eingeben",
   "author-not-filled": "Autor nicht ausgefüllt",
   "record-info-dialog-title": "Detaillierte Beschreibung",
   "record-info-section-meta": "Metainformationen",

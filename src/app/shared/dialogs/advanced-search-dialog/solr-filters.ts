@@ -109,7 +109,10 @@ export const ADVANCED_FILTERS: AdvancedFilterDefinition[] = [
   { key: SolrFacetKey.Genre, label: `filter-${SolrFacetKey.Genre}-label`, inputType: FilterElementType.Autocomplete, placeholder: `advanced-filter-${SolrFacetKey.Genre}-placeholder`, dynamicOptions: true, elementValue: '', solrValue: '', solrField: 'genres.facet', isEquals: true },
   { key: SolrFacetKey.GeoName, label: `filter-${SolrFacetKey.GeoName}-label`, inputType: FilterElementType.Autocomplete, placeholder: `advanced-filter-${SolrFacetKey.GeoName}-placeholder`, dynamicOptions: true, elementValue: '', solrValue: '', solrField: 'geographic_names.facet', isEquals: true },
   // { key: AdvancedFilterKey.SearchScope, label: `advanced-filter-${AdvancedFilterKey.SearchScope}-label`, inputType: AdvancedFilterType.Dropdown, dynamicOptions: true, value: '', isEquals: true },
-  { key: SolrFacetKey.Identifier, label: `filter-${SolrFacetKey.Identifier}-label`, inputType: FilterElementType.Autocomplete, elementValue: '', solrValue: '', solrField: 'dc.identifier', isEquals: true },
+  // `id_all` is the only identifier field in the K7 schema; `dc.identifier` does not
+  // exist and made Solr reject the whole query with a 400 (issue #193). The field is
+  // not facetable, so this is a free-text input rather than an autocomplete.
+  { key: SolrFacetKey.Identifier, label: `filter-${SolrFacetKey.Identifier}-label`, inputType: FilterElementType.Text, placeholder: `advanced-filter-${SolrFacetKey.Identifier}-placeholder`, elementValue: '', solrValue: '', solrField: 'id_all', isEquals: true },
   { key: SolrFacetKey.SubjectNamesPersonal, label: `filter-${SolrFacetKey.SubjectNamesPersonal}-label`, inputType: FilterElementType.Autocomplete, elementValue: '', solrValue: '', solrField: `${SolrFacetKey.SubjectNamesPersonal}.facet`, isEquals: true },
   { key: SolrFacetKey.SubjectNamesCorporate, label: `filter-${SolrFacetKey.SubjectNamesCorporate}-label`, inputType: FilterElementType.Autocomplete, elementValue: '', solrValue: '', solrField: `${SolrFacetKey.SubjectNamesCorporate}.facet`, isEquals: true },
   { key: SolrFacetKey.SubjectTemporals, label: `filter-${SolrFacetKey.SubjectTemporals}-label`, inputType: FilterElementType.Autocomplete, elementValue: '', solrValue: '', solrField: `${SolrFacetKey.SubjectTemporals}.facet`, isEquals: true }

@@ -127,6 +127,7 @@
   "advanced-filter-keyword-placeholder": "Enter keyword",
   "advanced-filter-genre-placeholder": "Enter genre",
   "advanced-filter-geoName-placeholder": "Enter geographic name",
+  "advanced-filter-identifier-placeholder": "Enter identifier",
   "author-not-filled": "Author not filled",
   "record-info-dialog-title": "Detailed description",
   "record-info-section-meta": "Meta information",

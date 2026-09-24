@@ -122,6 +122,7 @@
   "advanced-filter-keyword-placeholder": "Zadejte klíčové slovo",
   "advanced-filter-genre-placeholder": "Zadejte žánr",
   "advanced-filter-geoName-placeholder": "Zadejte geografický název",
+  "advanced-filter-identifier-placeholder": "Zadejte identifikátor",
   "author-not-filled": "Autor nevyplněn",
   "record-info-dialog-title": "Podrobný popis",
   "record-info-section-meta": "Meta informace",
