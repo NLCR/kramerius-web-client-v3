@@ -554,6 +554,8 @@
   "error.server_error.suggestion_3_prefix": "nebo nás kontaktujte na e-mail",
   "error.server_error.footer": "Děkujeme za pochopení. Na nápravě pracujeme.",
   "viewer-controls.zoom-in": "Přiblížit",
+  "viewer-controls.more-tools": "Další nástroje",
+  "viewer-controls.fewer-tools": "Méně nástrojů",
   "viewer-controls.zoom-out": "Oddálit",
   "viewer-controls.fullscreen": "Celá obrazovka",
   "viewer-controls.fit-to-screen": "Přizpůsobit obrazovce",

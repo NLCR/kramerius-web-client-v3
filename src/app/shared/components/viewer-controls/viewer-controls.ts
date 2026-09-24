@@ -1,4 +1,4 @@
-import { Component, Input, inject } from '@angular/core';
+import { Component, Input, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { map } from 'rxjs/operators';
 import { PdfService } from '../../services/pdf.service';
@@ -13,6 +13,7 @@ import { MapViewerService } from '../../services/map-viewer.service';
 import { TtsService } from '../../services/tts.service';
 import { SliderComponent } from '../slider/slider.component';
 import { ToolbarAction } from '../toolbar-controls/toolbar-controls.component';
+import { LocalStorageService } from '../../services/local-storage.service';
 
 @Component({
   selector: 'app-viewer-controls',
@@ -35,6 +36,7 @@ export class ViewerControls {
   public ttsService = inject(TtsService);
   private detailViewService = inject(DetailViewService, { optional: true });
   private mapViewerService = inject(MapViewerService, { optional: true });
+  private localStorage = inject(LocalStorageService);
   public iiifBookMode$ = this.iiifViewerService.bookMode$;
   public iiifZoomLock$ = this.iiifViewerService.zoomLock$;
   public iiifMapMode$ = this.iiifViewerService.mapMode$;
@@ -42,6 +44,100 @@ export class ViewerControls {
 
   /** Background-removal strength for the georeferenced map layer (0..100). */
   backgroundRemovalPercent = 0;
+
+  /**
+   * The column floats over the viewer and grew long enough to cover the page
+   * it serves (issue #185). Rather than fold away wholesale, it keeps the
+   * three controls a reader reaches for constantly and tucks the rest behind
+   * a "more tools" toggle. The choice is shared by every viewer and kept
+   * across reloads, since a reader who wants the image clear wants it clear
+   * everywhere.
+   */
+  static readonly EXPANDED_STORAGE_KEY = 'viewer-controls.extras-expanded';
+
+  /** Ids of the tools that stay out of the collapsed panel. */
+  private static readonly EXTRA_TOOL_IDS = [
+    'select-area', 'fit-to-screen', 'fit-to-width', 'zoom-lock',
+    'scroll-mode', 'rotate', 'page-text', 'book-mode',
+  ] as const;
+
+  readonly extrasExpanded = signal<boolean>(this.readStoredExpanded());
+
+  /** Ties the toggle to the list it controls for assistive tech. */
+  readonly extrasId = `viewer-controls-extras-${ViewerControls.nextId++}`;
+
+  private static nextId = 0;
+
+  /**
+   * Reading is guarded because a browser with storage blocked throws on
+   * access rather than returning null; a reader in that state still gets a
+   * working panel, collapsed as the default.
+   */
+  private readStoredExpanded(): boolean {
+    try {
+      return this.localStorage.get<boolean>(ViewerControls.EXPANDED_STORAGE_KEY) === true;
+    } catch {
+      return false;
+    }
+  }
+
+  toggleExtras(): void {
+    const next = !this.extrasExpanded();
+    this.extrasExpanded.set(next);
+    try {
+      this.localStorage.set(ViewerControls.EXPANDED_STORAGE_KEY, next);
+    } catch {
+      // A blocked store only costs the reader their preference next load.
+    }
+  }
+
+  /**
+   * How many tools the collapsed panel is hiding. Counted from the same
+   * conditions the template renders on, so a tool that is unavailable for
+   * this document is not promised by the badge.
+   */
+  get hiddenToolCount(): number {
+    return this.visibleExtraIds().length;
+  }
+
+  /**
+   * Whether a hidden tool is currently switched on. The badge turns active to
+   * say so, which suits this panel better than forcing the tool to stay
+   * visible: the toggles are sticky modes, and pulling one out of the list
+   * would reorder the column under the reader every time they used one.
+   */
+  get hasActiveHiddenTool(): boolean {
+    if (this.extrasExpanded()) return false;
+    const ids = this.visibleExtraIds();
+    return (ids.includes('zoom-lock') && this.iiifViewerService.isZoomLocked())
+      || (ids.includes('book-mode') && this.isBookModeActive);
+  }
+
+  private get isBookModeActive(): boolean {
+    return this.type === 'pdf'
+      ? !!this.pdfService.pdfProperties?.bookMode
+      : this.iiifViewerService.isBookMode();
+  }
+
+  /** Extra tools the template would render right now, in panel order. */
+  private visibleExtraIds(): string[] {
+    const imageNotMap = this.type === 'image' && !this.isMapMode;
+    const notImageOrNotMap = this.type !== 'image' || !this.isMapMode;
+    const bookMode = this.isBookModeActive;
+
+    const shown: Record<string, boolean> = {
+      'select-area': imageNotMap && this.showCrop && this.showSelectArea && !this.iiifViewerService.isBookMode(),
+      'fit-to-screen': this.showFitToScreen,
+      'fit-to-width': this.showFitToWidth && !bookMode && notImageOrNotMap,
+      'zoom-lock': imageNotMap,
+      'scroll-mode': this.type === 'pdf' && this.showScrollMode,
+      'rotate': this.showRotate && notImageOrNotMap,
+      'page-text': this.showPageText && notImageOrNotMap,
+      'book-mode': this.showBookModeButton && notImageOrNotMap,
+    };
+
+    return ViewerControls.EXTRA_TOOL_IDS.filter(id => shown[id]);
+  }
 
   // Viewer control visibility getters
   get showZoomIn(): boolean {

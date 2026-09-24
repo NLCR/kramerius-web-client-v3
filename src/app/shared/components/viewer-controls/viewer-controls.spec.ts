@@ -10,6 +10,8 @@ import { AiPanelService } from '../../services/ai-panel.service';
 import { DetailViewService } from '../../../modules/detail-view-page/services/detail-view.service';
 import { MapViewerService } from '../../services/map-viewer.service';
 import { TtsService } from '../../services/tts.service';
+import { LocalStorageService } from '../../services/local-storage.service';
+import { TranslateModule } from '@ngx-translate/core';
 
 /**
  * Regression test for issue #161: on compact viewports the floating viewer
@@ -240,4 +242,231 @@ describe('viewer menu action ids are routable', () => {
     }
   });
 
+});
+
+
+/**
+ * Issue #185: the floating column is absolutely positioned over the viewer, so
+ * once the reader zooms in far enough for the scan to fill the width, its ten
+ * or so buttons sit on top of the page text. Zoom and fullscreen stay out; the
+ * rest fold behind a "more tools" toggle whose badge counts what is hidden.
+ */
+describe('ViewerControls extra-tools toggle', () => {
+  const KEY = 'viewer-controls.extras-expanded';
+
+  let store: Record<string, string>;
+  let storage: { get: jasmine.Spy; set: jasmine.Spy };
+  let iiif: any;
+  let config: { isViewerControlEnabled: jasmine.Spy; isFeatureEnabled: jasmine.Spy; isViewerModeAvailable: jasmine.Spy };
+
+  const build = (setup: (c: ViewerControls) => void = () => {}) => {
+    TestBed.configureTestingModule({
+      imports: [ViewerControls, TranslateModule.forRoot()],
+      providers: [
+        { provide: PdfService, useValue: { properties$: of({}), pdfProperties: { bookMode: false } } },
+        { provide: IIIFViewerService, useValue: iiif },
+        { provide: EpubService, useValue: {} },
+        { provide: ConfigService, useValue: config },
+        { provide: AiPanelService, useValue: { panelVisible: signal(false) } },
+        { provide: DetailViewService, useValue: { isActionAllowed: () => true } },
+        { provide: MapViewerService, useValue: {} },
+        { provide: TtsService, useValue: {
+          isReading: signal(false), isPaused: signal(false), playbackBlocked: signal(false),
+          togglePlayPause: () => {}, stop: () => {},
+        } },
+        { provide: LocalStorageService, useValue: storage },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(ViewerControls);
+    fixture.componentInstance.type = 'image';
+    setup(fixture.componentInstance);
+    fixture.detectChanges();
+    return fixture;
+  };
+
+  const toggle = (f: any): HTMLElement =>
+    f.nativeElement.querySelector('.viewer-controls__toggle');
+  const extras = (f: any): HTMLElement =>
+    f.nativeElement.querySelector('.viewer-controls__extras');
+
+  /**
+   * Asserts on what the reader actually sees. The element's `hidden` property
+   * alone is not enough: a `display` rule from a class outranks the user
+   * agent's [hidden] style, which is exactly how the collapsed list stayed on
+   * screen the first time round.
+   */
+  const isRendered = (el: HTMLElement): boolean =>
+    getComputedStyle(el).display !== 'none';
+
+  beforeEach(() => {
+    store = {};
+    storage = {
+      get: jasmine.createSpy('get').and.callFake((k: string) =>
+        k in store ? JSON.parse(store[k]) : null),
+      set: jasmine.createSpy('set').and.callFake((k: string, v: unknown) => {
+        store[k] = JSON.stringify(v);
+      }),
+    };
+    iiif = {
+      bookMode$: of(false), zoomLock$: of(false), mapMode$: of(false),
+      isMapMode: () => false, isBookMode: () => false, isZoomLocked: () => false,
+    };
+    config = {
+      isViewerControlEnabled: jasmine.createSpy('isViewerControlEnabled').and.returnValue(true),
+      isFeatureEnabled: jasmine.createSpy('isFeatureEnabled').and.returnValue(true),
+      isViewerModeAvailable: jasmine.createSpy('isViewerModeAvailable').and.returnValue(true),
+    };
+    TestBed.resetTestingModule();
+  });
+
+  it('starts collapsed when nothing was stored', () => {
+    expect(build().componentInstance.extrasExpanded()).toBe(false);
+  });
+
+  it('restores a stored expanded state', () => {
+    store[KEY] = JSON.stringify(true);
+
+    expect(build().componentInstance.extrasExpanded()).toBe(true);
+  });
+
+  it('falls back to collapsed when storage throws', () => {
+    storage.get.and.throwError('storage blocked');
+
+    expect(build().componentInstance.extrasExpanded()).toBe(false);
+  });
+
+  it('survives a storage failure while saving', () => {
+    const fixture = build();
+    storage.set.and.throwError('storage blocked');
+
+    expect(() => fixture.componentInstance.toggleExtras()).not.toThrow();
+    expect(fixture.componentInstance.extrasExpanded()).toBe(true);
+  });
+
+  it('keeps the primary tools out of the collapsible list', () => {
+    const fixture = build();
+    const primary: HTMLElement = fixture.nativeElement.querySelector('.viewer-controls');
+    const outside = Array.from(primary.children)
+      .filter(el => el.tagName === 'BUTTON' && !el.classList.contains('viewer-controls__toggle'));
+
+    expect(outside.length).toBe(3);
+    expect(isRendered(extras(fixture))).toBe(false);
+  });
+
+  it('reveals the extras on toggle and hides them again', () => {
+    const fixture = build();
+
+    fixture.componentInstance.toggleExtras();
+    fixture.detectChanges();
+    expect(isRendered(extras(fixture))).toBe(true);
+
+    fixture.componentInstance.toggleExtras();
+    fixture.detectChanges();
+    expect(isRendered(extras(fixture))).toBe(false);
+  });
+
+  it('persists the choice across reloads', () => {
+    const fixture = build();
+
+    fixture.componentInstance.toggleExtras();
+
+    expect(storage.set).toHaveBeenCalledWith(KEY, true);
+  });
+
+  it('counts every hidden tool in the badge', () => {
+    const fixture = build();
+    // image + not map + not book: crop, fit-to-screen, fit-to-width,
+    // zoom-lock, rotate, page-text, book-mode. scroll-mode is pdf-only.
+    expect(fixture.componentInstance.hiddenToolCount).toBe(7);
+    expect(fixture.nativeElement.querySelector('.viewer-controls__badge').textContent.trim())
+      .toBe('7');
+  });
+
+  it('leaves a tool the document cannot offer out of the count', () => {
+    const fixture = build(c => {
+      config.isViewerControlEnabled.and.callFake((id: string) =>
+        id !== 'rotate' && id !== 'selectArea');
+      c.type = 'image';
+    });
+
+    expect(fixture.componentInstance.hiddenToolCount).toBe(5);
+  });
+
+  it('counts the pdf-only scroll mode for a pdf, and drops image-only tools', () => {
+    const fixture = build(c => { c.type = 'pdf'; });
+
+    // fit-to-screen, fit-to-width, scroll-mode, rotate, book-mode.
+    // page-text is scans-only; crop and zoom-lock are image-only.
+    expect(fixture.componentInstance.hiddenToolCount).toBe(5);
+  });
+
+  it('flags the badge when a hidden tool is switched on', () => {
+    iiif.isZoomLocked = () => true;
+    const fixture = build();
+
+    expect(fixture.componentInstance.hasActiveHiddenTool).toBe(true);
+    expect(fixture.nativeElement.querySelector('.viewer-controls__badge')
+      .classList.contains('viewer-controls__badge--active')).toBe(true);
+  });
+
+  it('stops flagging once the list is open and the tool is visible', () => {
+    iiif.isZoomLocked = () => true;
+    const fixture = build();
+
+    fixture.componentInstance.toggleExtras();
+
+    expect(fixture.componentInstance.hasActiveHiddenTool).toBe(false);
+  });
+
+  it('wires the toggle to the extras it controls', () => {
+    const fixture = build();
+    const id = extras(fixture).getAttribute('id');
+
+    expect(toggle(fixture).getAttribute('aria-controls')).toBe(id);
+    expect(toggle(fixture).getAttribute('aria-expanded')).toBe('false');
+
+    fixture.componentInstance.toggleExtras();
+    fixture.detectChanges();
+
+    expect(toggle(fixture).getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('gives each instance its own extras id', () => {
+    const first = extras(build()).getAttribute('id');
+    TestBed.resetTestingModule();
+    const second = extras(build()).getAttribute('id');
+
+    expect(first).not.toBe(second);
+  });
+
+  it('places the toggle between the primary tools and the extras for Tab order', () => {
+    const fixture = build();
+    fixture.componentInstance.toggleExtras();
+    fixture.detectChanges();
+
+    const panel: HTMLElement = fixture.nativeElement.querySelector('.viewer-controls');
+    const kids = Array.from(panel.children);
+
+    expect(kids.indexOf(toggle(fixture))).toBeGreaterThan(0);
+    expect(kids.indexOf(toggle(fixture))).toBeLessThan(kids.indexOf(extras(fixture)));
+  });
+
+  // The DOM keeps Tab running primary -> toggle -> extras, while CSS order
+  // drops the expanded toggle below the list it closes.
+  it('marks the expanded toggle for reordering below the extras', () => {
+    const fixture = build();
+    expect(toggle(fixture).classList.contains('viewer-controls__toggle--expanded')).toBe(false);
+
+    fixture.componentInstance.toggleExtras();
+    fixture.detectChanges();
+
+    expect(toggle(fixture).classList.contains('viewer-controls__toggle--expanded')).toBe(true);
+  });
+
+  it('renders no toggle in mobile menu mode, where actions live in the toolbar menu', () => {
+    const fixture = build(c => { c.mobileMenuMode = true; });
+
+    expect(toggle(fixture)).toBeNull();
+  });
 });

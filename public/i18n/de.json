@@ -554,6 +554,8 @@
   "error.server_error.suggestion_3_prefix": "oder kontaktieren Sie uns per E-Mail",
   "error.server_error.footer": "Vielen Dank für Ihr Verständnis. Wir arbeiten daran.",
   "viewer-controls.zoom-in": "Vergrößern",
+  "viewer-controls.more-tools": "Weitere Werkzeuge",
+  "viewer-controls.fewer-tools": "Weniger Werkzeuge",
   "viewer-controls.zoom-out": "Verkleinern",
   "viewer-controls.fullscreen": "Vollbild",
   "viewer-controls.fit-to-screen": "An Bildschirm anpassen",
