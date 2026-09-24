@@ -36,6 +36,26 @@
     cursor: pointer;
     flex: 1;
 
+    // Icon-only tabs match the Figma spec: a 20px glyph in a 44px-tall tab.
+    // The inherited --font-size-small sizes the tab's *label*, so without this
+    // the glyph renders at 14px. Padding drops to x3 so the taller icon keeps
+    // the tab at 44px instead of pushing it to 52px.
+    &.only-icon {
+      padding: var(--spacing-x3) var(--spacing-x4);
+
+      @include m.respond(md) {
+        padding: var(--spacing-x2) var(--spacing-x3);
+      }
+
+      i {
+        display: block;
+        // --font-size-xlarge is 20px, and already carries the accessibility
+        // text scale, so the glyph grows with the setting like the labels do.
+        font-size: var(--font-size-xlarge);
+        line-height: 1;
+      }
+    }
+
     &.active {
       color: var(--color-text-btn-secondary-default);
 
