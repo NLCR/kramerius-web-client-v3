@@ -1,4 +1,4 @@
-import { Component, Input, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, Input, NgZone, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { map } from 'rxjs/operators';
 import { PdfService } from '../../services/pdf.service';
@@ -13,7 +13,7 @@ import { MapViewerService } from '../../services/map-viewer.service';
 import { TtsService } from '../../services/tts.service';
 import { SliderComponent } from '../slider/slider.component';
 import { ToolbarAction } from '../toolbar-controls/toolbar-controls.component';
-import { LocalStorageService } from '../../services/local-storage.service';
+import { AccessibilityService } from '../../services/accessibility.service';
 
 @Component({
   selector: 'app-viewer-controls',
@@ -22,7 +22,7 @@ import { LocalStorageService } from '../../services/local-storage.service';
   templateUrl: './viewer-controls.html',
   styleUrl: './viewer-controls.scss'
 })
-export class ViewerControls {
+export class ViewerControls implements OnInit {
   @Input() type: 'pdf' | 'image' | 'epub' = 'pdf';
   @Input() showCrop: boolean = true;
   /** When true, the component renders no floating UI; its actions are surfaced via getMenuItems()/handleMenuAction() for the mobile toolbar menu. */
@@ -36,7 +36,9 @@ export class ViewerControls {
   public ttsService = inject(TtsService);
   private detailViewService = inject(DetailViewService, { optional: true });
   private mapViewerService = inject(MapViewerService, { optional: true });
-  private localStorage = inject(LocalStorageService);
+  private accessibility = inject(AccessibilityService);
+  private zone = inject(NgZone);
+  private destroyRef = inject(DestroyRef);
   public iiifBookMode$ = this.iiifViewerService.bookMode$;
   public iiifZoomLock$ = this.iiifViewerService.zoomLock$;
   public iiifMapMode$ = this.iiifViewerService.mapMode$;
@@ -46,97 +48,131 @@ export class ViewerControls {
   backgroundRemovalPercent = 0;
 
   /**
-   * The column floats over the viewer and grew long enough to cover the page
-   * it serves (issue #185). Rather than fold away wholesale, it keeps the
-   * three controls a reader reaches for constantly and tucks the rest behind
-   * a "more tools" toggle. The choice is shared by every viewer and kept
-   * across reloads, since a reader who wants the image clear wants it clear
-   * everywhere.
+   * The column floats over the page it serves, and at the left edge it cuts
+   * across several lines of text at once when the reader zooms in (issue
+   * #185). It now fades out once the reader stops moving the pointer and
+   * comes back the moment they move again, so the scan is unobstructed while
+   * it is being read and the tools are there whenever a hand reaches for
+   * them. Every tool stays in the column: an earlier attempt folded the less
+   * common ones behind a toggle, which buried the page-text button that
+   * readers depend on when a document has no ALTO layer.
    */
-  static readonly EXPANDED_STORAGE_KEY = 'viewer-controls.extras-expanded';
+  private static readonly IDLE_DELAY_MS = 4000;
 
-  /** Ids of the tools that stay out of the collapsed panel. */
-  private static readonly EXTRA_TOOL_IDS = [
-    'select-area', 'fit-to-screen', 'fit-to-width', 'zoom-lock',
-    'scroll-mode', 'rotate', 'page-text', 'book-mode',
-  ] as const;
-
-  readonly extrasExpanded = signal<boolean>(this.readStoredExpanded());
-
-  /** Ties the toggle to the list it controls for assistive tech. */
-  readonly extrasId = `viewer-controls-extras-${ViewerControls.nextId++}`;
-
-  private static nextId = 0;
+  /** Faded out because the pointer has been still; see IDLE_DELAY_MS. */
+  readonly idle = signal(false);
 
   /**
-   * Reading is guarded because a browser with storage blocked throws on
-   * access rather than returning null; a reader in that state still gets a
-   * working panel, collapsed as the default.
+   * Suppresses the fade while the pointer is over the column itself, so it
+   * cannot vanish from under a reader who is aiming at a button.
    */
-  private readStoredExpanded(): boolean {
-    try {
-      return this.localStorage.get<boolean>(ViewerControls.EXPANDED_STORAGE_KEY) === true;
-    } catch {
-      return false;
+  private pointerInside = false;
+
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * A touch user has no pointer to move, so there is no "wake" gesture short
+   * of tapping -- and a tap on an invisible column would fire whatever
+   * button happened to be under the finger. On touch the column simply stays
+   * put; the compact layouts route these actions into the toolbar menu
+   * anyway. Re-read per interaction rather than cached, since a hybrid
+   * laptop can gain and lose a mouse mid-session.
+   */
+  private get isTouchOnly(): boolean {
+    return typeof window !== 'undefined'
+      && !!window.matchMedia?.('(hover: none), (pointer: coarse)').matches;
+  }
+
+  /**
+   * Readers who asked for less motion, through the app's own setting or the
+   * OS, keep a column that never moves on its own.
+   */
+  private get prefersReducedMotion(): boolean {
+    return this.accessibility.settings().reduceMotion
+      || (typeof window !== 'undefined'
+        && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  private get autoHideEnabled(): boolean {
+    return !this.mobileMenuMode && !this.isTouchOnly && !this.prefersReducedMotion;
+  }
+
+  ngOnInit(): void {
+    if (!this.mobileMenuMode) {
+      this.scheduleIdle();
+    }
+    this.destroyRef.onDestroy(() => this.clearIdleTimer());
+  }
+
+  /**
+   * Pointer movement anywhere in the document wakes the column. It is bound
+   * on the document rather than the viewer because the column is a sibling
+   * of the viewer, not a child, in all three host pages -- and a reader
+   * moving toward it from the toolbar should find it already visible.
+   *
+   * Runs outside Angular: mousemove fires continuously, and waking an
+   * already-visible column must not cost a change-detection pass per event.
+   */
+  @HostListener('document:mousemove')
+  @HostListener('document:wheel')
+  onPointerActivity(): void {
+    if (!this.autoHideEnabled) return;
+    if (this.idle()) {
+      this.zone.run(() => this.idle.set(false));
+    }
+    this.scheduleIdle();
+  }
+
+  /** Keyboard users wake it too, so Tab never lands on a faded control. */
+  @HostListener('document:keydown')
+  onKeyboardActivity(): void {
+    this.onPointerActivity();
+  }
+
+  @HostListener('mouseenter')
+  onPointerEnter(): void {
+    this.pointerInside = true;
+    this.clearIdleTimer();
+    if (this.idle()) {
+      this.idle.set(false);
     }
   }
 
-  toggleExtras(): void {
-    const next = !this.extrasExpanded();
-    this.extrasExpanded.set(next);
-    try {
-      this.localStorage.set(ViewerControls.EXPANDED_STORAGE_KEY, next);
-    } catch {
-      // A blocked store only costs the reader their preference next load.
+  @HostListener('mouseleave')
+  onPointerLeave(): void {
+    this.pointerInside = false;
+    this.scheduleIdle();
+  }
+
+  /**
+   * Focus moving into the column pins it open for assistive tech and
+   * keyboard users, who have no pointer to hold it there.
+   */
+  @HostListener('focusin')
+  onFocusIn(): void {
+    this.onPointerEnter();
+  }
+
+  @HostListener('focusout')
+  onFocusOut(): void {
+    this.onPointerLeave();
+  }
+
+  private scheduleIdle(): void {
+    this.clearIdleTimer();
+    if (!this.autoHideEnabled || this.pointerInside) return;
+    this.zone.runOutsideAngular(() => {
+      this.idleTimer = setTimeout(() => {
+        this.zone.run(() => this.idle.set(true));
+      }, ViewerControls.IDLE_DELAY_MS);
+    });
+  }
+
+  private clearIdleTimer(): void {
+    if (this.idleTimer !== null) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
     }
-  }
-
-  /**
-   * How many tools the collapsed panel is hiding. Counted from the same
-   * conditions the template renders on, so a tool that is unavailable for
-   * this document is not promised by the badge.
-   */
-  get hiddenToolCount(): number {
-    return this.visibleExtraIds().length;
-  }
-
-  /**
-   * Whether a hidden tool is currently switched on. The badge turns active to
-   * say so, which suits this panel better than forcing the tool to stay
-   * visible: the toggles are sticky modes, and pulling one out of the list
-   * would reorder the column under the reader every time they used one.
-   */
-  get hasActiveHiddenTool(): boolean {
-    if (this.extrasExpanded()) return false;
-    const ids = this.visibleExtraIds();
-    return (ids.includes('zoom-lock') && this.iiifViewerService.isZoomLocked())
-      || (ids.includes('book-mode') && this.isBookModeActive);
-  }
-
-  private get isBookModeActive(): boolean {
-    return this.type === 'pdf'
-      ? !!this.pdfService.pdfProperties?.bookMode
-      : this.iiifViewerService.isBookMode();
-  }
-
-  /** Extra tools the template would render right now, in panel order. */
-  private visibleExtraIds(): string[] {
-    const imageNotMap = this.type === 'image' && !this.isMapMode;
-    const notImageOrNotMap = this.type !== 'image' || !this.isMapMode;
-    const bookMode = this.isBookModeActive;
-
-    const shown: Record<string, boolean> = {
-      'select-area': imageNotMap && this.showCrop && this.showSelectArea && !this.iiifViewerService.isBookMode(),
-      'fit-to-screen': this.showFitToScreen,
-      'fit-to-width': this.showFitToWidth && !bookMode && notImageOrNotMap,
-      'zoom-lock': imageNotMap,
-      'scroll-mode': this.type === 'pdf' && this.showScrollMode,
-      'rotate': this.showRotate && notImageOrNotMap,
-      'page-text': this.showPageText && notImageOrNotMap,
-      'book-mode': this.showBookModeButton && notImageOrNotMap,
-    };
-
-    return ViewerControls.EXTRA_TOOL_IDS.filter(id => shown[id]);
   }
 
   // Viewer control visibility getters

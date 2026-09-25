@@ -24,10 +24,17 @@
     flex-shrink: 0;
   }
 
-  // Ordered after the extras/toggle pair, which reorder themselves above.
-  &__background-removal,
-  .button.primary {
-    order: 3;
+  // Faded out after the reader has been still (issue #185), so the column
+  // stops cutting across the lines of text it floats over. pointer-events is
+  // dropped with it: an invisible column must not swallow a click meant for
+  // the scan underneath, nor fire a button the reader cannot see. Kept
+  // visible to assistive tech -- this is a visual affordance, not a state
+  // change, and the panel wakes on focus before anyone tabs into it.
+  transition: opacity 400ms ease;
+
+  &--idle {
+    opacity: 0;
+    pointer-events: none;
   }
 
   &__background-removal {
@@ -44,111 +51,15 @@
     height: 200px;
   }
 
-  // Splitting the column (issue #185): the three primary tools stay out, the
-  // rest live behind the toggle below.
-  &__divider {
-    width: var(--spacing-x8);
-    height: 1px;
-    margin: 0;
-    border: none;
-    flex-shrink: 0;
-    background-color: var(--color-border-bright);
-  }
-
-  // Deliberately not a .button: a filled ground instead of an outline marks it
-  // as acting on the panel rather than on the document.
-  &__toggle {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: var(--spacing-x8);
-    height: var(--spacing-x8);
-    padding: 0;
-    // Same box as the outlined tools beside it: a transparent border keeps the
-    // content box identical, so the filled ground reads as the same size and
-    // the corners match rather than looking squarer at 32px.
-    border: 1px solid transparent;
-    border-radius: var(--base-border-radius);
-    background-color: var(--color-bg-light);
-    color: var(--color-text-btn-tertiary-default);
-    cursor: pointer;
-
-    &:hover {
-      color: var(--color-text-btn-tertiary-hover);
-      filter: brightness(0.96);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-border-tertiary-hover);
-      outline-offset: 2px;
-    }
-
-    // Shorter when it only has to close the list, and moved below it: the
-    // "fewer tools" affordance belongs at the foot of what it closes. Done
-    // with order rather than markup so the DOM keeps Tab running primary ->
-    // toggle -> extras in both states.
-    &--expanded {
-      height: var(--spacing-x6);
-      border-radius: var(--base-border-radius);
-      order: 2;
-    }
-  }
-
-  &__badge {
-    position: absolute;
-    top: calc(var(--spacing-x1) * -1);
-    right: calc(var(--spacing-x1) * -1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    min-width: var(--spacing-x4);
-    height: var(--spacing-x4);
-    padding: 0 var(--spacing-x1);
-    border-radius: var(--spacing-x2);
-    background-color: var(--color-primary);
-    color: #fff;
-    font-size: 10px;
-    line-height: 1;
-    font-weight: 600;
-
-    // A hidden tool is switched on; see hasActiveHiddenTool().
-    &--active {
-      background-color: var(--color-warning, #E8833A);
-    }
-  }
-
-  &__extras {
-    // Paired with the expanded toggle's order below: the list renders above
-    // it, while both stay ahead of the slider and read-aloud buttons (order 3)
-    // that follow in the DOM.
-    order: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-x2);
-    // Its own scroller, so a short viewport scrolls the extras rather than the
-    // whole panel: the primary tools and the toggle stay put. min-height:0
-    // lets this flex child shrink below its content instead of overflowing the
-    // cap the panel inherits from issue #162.
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: thin;
-    animation: viewer-controls-extras-in 150ms ease;
-
-    // [hidden] is only display:none in the user-agent sheet, which the class
-    // above outranks -- without this the collapsed list stays on screen.
-    &[hidden] {
-      display: none;
-    }
-  }
-
+  // A reader who asked for less motion keeps a column that never fades. The
+  // component also refuses to arm the timer in that case, so this only has to
+  // cover a preference that changes after the column is already faded.
   @media (prefers-reduced-motion: reduce) {
-    &__extras {
-      animation: none;
+    transition: none;
+
+    &--idle {
+      opacity: 1;
+      pointer-events: auto;
     }
   }
 
@@ -164,15 +75,4 @@
   //  flex-direction: row;
   //  gap: var(--spacing-x2);
   //}
-}
-
-@keyframes viewer-controls-extras-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }

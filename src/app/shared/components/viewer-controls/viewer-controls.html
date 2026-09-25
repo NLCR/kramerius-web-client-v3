@@ -1,9 +1,8 @@
 @if (!mobileMenuMode) {
 <div class="viewer-controls" [class.pdf-layout]="type === 'pdf'" [class.image-layout]="type === 'image'"
+     [class.viewer-controls--idle]="idle()"
      role="toolbar" [attr.aria-label]="'viewer-controls--arialabel' | translate">
 
-  <!-- Primary tools: the ones a reader reaches for constantly, so they stay
-       out of the collapsible list (issue #185). -->
 
   <button *ngIf="showZoomIn" (click)="onZoomIn()" class="button tertiary outlined"
           [appCdkTooltip]="'viewer-controls.zoom-in' | translate"
@@ -26,113 +25,83 @@
     <i class="icon icon-maximize-3" aria-hidden="true"></i>
   </button>
 
-  <hr class="viewer-controls__divider" aria-hidden="true">
+  <ng-container *ngIf="type === 'image' && (iiifMapMode$ | async) === false">
+    <button *ngIf="showCrop && showSelectArea && (iiifBookMode$ | async) === false" (click)="onSelectArea()"
+            class="button tertiary outlined"
+            [appCdkTooltip]="'viewer-controls.select-area' | translate"
+            [title]="'viewer-controls.select-area' | translate"
+            [attr.aria-label]="'viewer-controls.select-area' | translate">
+      <i class="icon icon-crop" aria-hidden="true"></i>
+    </button>
+  </ng-container>
 
-  <!-- Toggle sits between the two groups so Tab order runs primary -> toggle
-       -> extras, matching the visual order in both states. -->
-  @let extrasKey = extrasExpanded() ? 'viewer-controls.fewer-tools' : 'viewer-controls.more-tools';
-  <button type="button" class="viewer-controls__toggle"
-          [class.viewer-controls__toggle--expanded]="extrasExpanded()"
-          (click)="toggleExtras()"
-          [appCdkTooltip]="extrasKey | translate"
-          [title]="extrasKey | translate"
-          [attr.aria-label]="extrasKey | translate"
-          [attr.aria-expanded]="extrasExpanded()"
-          [attr.aria-controls]="extrasId">
-    @if (extrasExpanded()) {
-      <i class="icon icon-arrow-up" aria-hidden="true"></i>
-    } @else {
-      <i class="icon icon-more-vertical" aria-hidden="true"></i>
-      @if (hiddenToolCount > 0) {
-        <span class="viewer-controls__badge"
-              [class.viewer-controls__badge--active]="hasActiveHiddenTool"
-              aria-hidden="true">{{ hiddenToolCount }}</span>
-      }
-    }
+  <button *ngIf="showFitToScreen" (click)="onFitToScreen()" class="button tertiary outlined"
+          [appCdkTooltip]="'viewer-controls.fit-to-screen' | translate"
+          [title]="'viewer-controls.fit-to-screen' | translate"
+          [attr.aria-label]="'viewer-controls.fit-to-screen' | translate">
+    <i class="icon icon-pharagraphspacing" aria-hidden="true"></i>
   </button>
 
-  <!-- Kept in the DOM while collapsed so aria-controls always resolves. -->
-  <div class="viewer-controls__extras" [id]="extrasId" [hidden]="!extrasExpanded()">
+  <button
+    *ngIf="showFitToWidth && (type === 'pdf' ? (pdfBookMode$ | async) === false : (iiifBookMode$ | async) === false) && (type !== 'image' || (iiifMapMode$ | async) === false)"
+    (click)="onToggleFitToWidth()" class="button tertiary outlined"
+    [appCdkTooltip]="'viewer-controls.fit-to-width' | translate"
+    [title]="'viewer-controls.fit-to-width' | translate"
+    [attr.aria-label]="'viewer-controls.fit-to-width' | translate">
+    <i class="icon icon-grid-lock" aria-hidden="true"></i>
+  </button>
 
-    <ng-container *ngIf="type === 'image' && (iiifMapMode$ | async) === false">
-      <button *ngIf="showCrop && showSelectArea && (iiifBookMode$ | async) === false" (click)="onSelectArea()"
-              class="button tertiary outlined"
-              [appCdkTooltip]="'viewer-controls.select-area' | translate"
-              [title]="'viewer-controls.select-area' | translate"
-              [attr.aria-label]="'viewer-controls.select-area' | translate">
-        <i class="icon icon-crop" aria-hidden="true"></i>
-      </button>
-    </ng-container>
+  <ng-container *ngIf="type === 'image' && (iiifMapMode$ | async) === false">
+    <button (click)="onZoomLock()"
+            [class.primary]="(iiifZoomLock$ | async) === true"
+            [class.tertiary]="(iiifZoomLock$ | async) === false"
+            [class.outlined]="(iiifZoomLock$ | async) === false"
+            class="button"
+            [appCdkTooltip]="'viewer-controls.zoom-lock' | translate"
+            [title]="'viewer-controls.zoom-lock' | translate"
+            [attr.aria-label]="'viewer-controls.zoom-lock' | translate"
+            [attr.aria-pressed]="(iiifZoomLock$ | async) === true">
+      <i class="icon icon-maximize-lock" aria-hidden="true"></i>
+    </button>
+  </ng-container>
 
-    <button *ngIf="showFitToScreen" (click)="onFitToScreen()" class="button tertiary outlined"
-            [appCdkTooltip]="'viewer-controls.fit-to-screen' | translate"
-            [title]="'viewer-controls.fit-to-screen' | translate"
-            [attr.aria-label]="'viewer-controls.fit-to-screen' | translate">
+  <!-- PDF-specific buttons -->
+  <ng-container *ngIf="type === 'pdf'">
+
+    <button *ngIf="showScrollMode" (click)="onScrollMode()" class="button tertiary outlined"
+            [appCdkTooltip]="'viewer-controls.toggle-scroll-mode' | translate"
+            [title]="'viewer-controls.toggle-scroll-mode' | translate"
+            [attr.aria-label]="'viewer-controls.toggle-scroll-mode' | translate">
       <i class="icon icon-pharagraphspacing" aria-hidden="true"></i>
     </button>
 
-    <button
-      *ngIf="showFitToWidth && (type === 'pdf' ? (pdfBookMode$ | async) === false : (iiifBookMode$ | async) === false) && (type !== 'image' || (iiifMapMode$ | async) === false)"
-      (click)="onToggleFitToWidth()" class="button tertiary outlined"
-      [appCdkTooltip]="'viewer-controls.fit-to-width' | translate"
-      [title]="'viewer-controls.fit-to-width' | translate"
-      [attr.aria-label]="'viewer-controls.fit-to-width' | translate">
-      <i class="icon icon-grid-lock" aria-hidden="true"></i>
-    </button>
+  </ng-container>
 
-    <ng-container *ngIf="type === 'image' && (iiifMapMode$ | async) === false">
-      <button (click)="onZoomLock()"
-              [class.primary]="(iiifZoomLock$ | async) === true"
-              [class.tertiary]="(iiifZoomLock$ | async) === false"
-              [class.outlined]="(iiifZoomLock$ | async) === false"
-              class="button"
-              [appCdkTooltip]="'viewer-controls.zoom-lock' | translate"
-              [title]="'viewer-controls.zoom-lock' | translate"
-              [attr.aria-label]="'viewer-controls.zoom-lock' | translate"
-              [attr.aria-pressed]="(iiifZoomLock$ | async) === true">
-        <i class="icon icon-maximize-lock" aria-hidden="true"></i>
-      </button>
-    </ng-container>
+  <button *ngIf="showRotate && (type !== 'image' || (iiifMapMode$ | async) === false)" class="button tertiary outlined" (click)="onRotate()"
+          [appCdkTooltip]="'viewer-controls.rotate' | translate"
+          [title]="'viewer-controls.rotate' | translate"
+          [attr.aria-label]="'viewer-controls.rotate' | translate">
+    <i class="icon icon-rotate-right1" aria-hidden="true"></i>
+  </button>
 
-    <!-- PDF-specific buttons -->
-    <ng-container *ngIf="type === 'pdf'">
+  <button *ngIf="showPageText && (type !== 'image' || (iiifMapMode$ | async) === false)" class="button tertiary outlined" (click)="onPageText()"
+          [appCdkTooltip]="'viewer-controls.page-text' | translate"
+          [title]="'viewer-controls.page-text' | translate"
+          [attr.aria-label]="'viewer-controls.page-text' | translate">
+    <i class="icon icon-text" aria-hidden="true"></i>
+  </button>
 
-      <button *ngIf="showScrollMode" (click)="onScrollMode()" class="button tertiary outlined"
-              [appCdkTooltip]="'viewer-controls.toggle-scroll-mode' | translate"
-              [title]="'viewer-controls.toggle-scroll-mode' | translate"
-              [attr.aria-label]="'viewer-controls.toggle-scroll-mode' | translate">
-        <i class="icon icon-pharagraphspacing" aria-hidden="true"></i>
-      </button>
-
-    </ng-container>
-
-    <button *ngIf="showRotate && (type !== 'image' || (iiifMapMode$ | async) === false)" class="button tertiary outlined" (click)="onRotate()"
-            [appCdkTooltip]="'viewer-controls.rotate' | translate"
-            [title]="'viewer-controls.rotate' | translate"
-            [attr.aria-label]="'viewer-controls.rotate' | translate">
-      <i class="icon icon-rotate-right1" aria-hidden="true"></i>
-    </button>
-
-    <button *ngIf="showPageText && (type !== 'image' || (iiifMapMode$ | async) === false)" class="button tertiary outlined" (click)="onPageText()"
-            [appCdkTooltip]="'viewer-controls.page-text' | translate"
-            [title]="'viewer-controls.page-text' | translate"
-            [attr.aria-label]="'viewer-controls.page-text' | translate">
-      <i class="icon icon-text" aria-hidden="true"></i>
-    </button>
-
-    <button *ngIf="showBookModeButton && (type !== 'image' || (iiifMapMode$ | async) === false)" (click)="onBookMode()"
-            [class.primary]="(iiifBookMode$ | async) === true"
-            [class.tertiary]="(iiifBookMode$ | async) === false"
-            [class.outlined]="(iiifBookMode$ | async) === false"
-            class="button"
-            [appCdkTooltip]="'viewer-controls.book-mode' | translate"
-            [title]="'viewer-controls.book-mode' | translate"
-            [attr.aria-label]="'viewer-controls.book-mode' | translate"
-            [attr.aria-pressed]="(iiifBookMode$ | async) === true">
-      <i class="icon icon-book-1" aria-hidden="true"></i>
-    </button>
-
-  </div>
+  <button *ngIf="showBookModeButton && (type !== 'image' || (iiifMapMode$ | async) === false)" (click)="onBookMode()"
+          [class.primary]="(iiifBookMode$ | async) === true"
+          [class.tertiary]="(iiifBookMode$ | async) === false"
+          [class.outlined]="(iiifBookMode$ | async) === false"
+          class="button"
+          [appCdkTooltip]="'viewer-controls.book-mode' | translate"
+          [title]="'viewer-controls.book-mode' | translate"
+          [attr.aria-label]="'viewer-controls.book-mode' | translate"
+          [attr.aria-pressed]="(iiifBookMode$ | async) === true">
+    <i class="icon icon-book-1" aria-hidden="true"></i>
+  </button>
 
   @if (type === 'image' && (iiifMapMode$ | async)) {
     <div class="viewer-controls__background-removal">
