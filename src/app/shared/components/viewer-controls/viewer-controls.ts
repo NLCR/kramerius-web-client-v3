@@ -59,6 +59,9 @@ export class ViewerControls implements OnInit {
    */
   private static readonly IDLE_DELAY_MS = 4000;
 
+  /** See idleDelay(): waking by tap is more deliberate than a mouse twitch. */
+  private static readonly TOUCH_IDLE_DELAY_MS = 6000;
+
   /** Faded out because the pointer has been still; see IDLE_DELAY_MS. */
   readonly idle = signal(false);
 
@@ -71,12 +74,16 @@ export class ViewerControls implements OnInit {
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
-   * A touch user has no pointer to move, so there is no "wake" gesture short
-   * of tapping -- and a tap on an invisible column would fire whatever
-   * button happened to be under the finger. On touch the column simply stays
-   * put; the compact layouts route these actions into the toolbar menu
-   * anyway. Re-read per interaction rather than cached, since a hybrid
-   * laptop can gain and lose a mouse mid-session.
+   * Touch fades the column too -- a tablet is exactly where the column covers
+   * the most of the page, so exempting touch would skip the readers who need
+   * it most. What differs is the wake gesture: there is no pointer to move,
+   * so any touch on the page brings it back. That is safe only because the
+   * faded column sets `pointer-events: none`, which lets the waking tap pass
+   * through to the scan instead of firing whichever button sat under the
+   * finger -- the failure mode raised in review of the first attempt.
+   *
+   * Re-read per interaction rather than cached, since a hybrid laptop can
+   * gain and lose a mouse mid-session.
    */
   private get isTouchOnly(): boolean {
     return typeof window !== 'undefined'
@@ -94,7 +101,19 @@ export class ViewerControls implements OnInit {
   }
 
   private get autoHideEnabled(): boolean {
-    return !this.mobileMenuMode && !this.isTouchOnly && !this.prefersReducedMotion;
+    return !this.mobileMenuMode && !this.prefersReducedMotion;
+  }
+
+  /**
+   * Touch gets longer to react. Waking with a mouse costs a twitch, so a
+   * short delay there is cheap; on touch it costs a deliberate tap, and the
+   * reader has usually just finished panning the scan into place when the
+   * timer starts.
+   */
+  private get idleDelay(): number {
+    return this.isTouchOnly
+      ? ViewerControls.TOUCH_IDLE_DELAY_MS
+      : ViewerControls.IDLE_DELAY_MS;
   }
 
   ngOnInit(): void {
@@ -129,8 +148,41 @@ export class ViewerControls implements OnInit {
     this.onPointerActivity();
   }
 
+  /**
+   * Touch wake. A finger going down anywhere brings the column back and
+   * holds it there for as long as the gesture lasts -- a reader panning or
+   * pinching the scan is working, and the column must not fade out from
+   * under the gesture that just summoned it.
+   *
+   * `touchstart` rather than a synthesised click, so the column is already
+   * on screen by the time the finger lifts.
+   */
+  @HostListener('document:touchstart')
+  onTouchStart(): void {
+    if (!this.autoHideEnabled) return;
+    this.clearIdleTimer();
+    if (this.idle()) {
+      this.zone.run(() => this.idle.set(false));
+    }
+  }
+
+  /** The gesture is over, so the column may start counting down again. */
+  @HostListener('document:touchend')
+  @HostListener('document:touchcancel')
+  onTouchEnd(): void {
+    this.scheduleIdle();
+  }
+
+  /**
+   * Holding the column open under a resting pointer is a mouse affordance.
+   * On touch it is skipped deliberately: tapping a button emits a synthetic
+   * mouseenter with no mouseleave to answer it when the finger moves away,
+   * which would pin the column open for good. There, touchend restarts the
+   * countdown instead.
+   */
   @HostListener('mouseenter')
   onPointerEnter(): void {
+    if (this.isTouchOnly) return;
     this.pointerInside = true;
     this.clearIdleTimer();
     if (this.idle()) {
@@ -146,11 +198,17 @@ export class ViewerControls implements OnInit {
 
   /**
    * Focus moving into the column pins it open for assistive tech and
-   * keyboard users, who have no pointer to hold it there.
+   * keyboard users, who have no pointer to hold it there. Unlike hover this
+   * applies on touch as well -- focusout always answers focusin, so the flag
+   * cannot be left stuck the way a synthetic mouseenter would leave it.
    */
   @HostListener('focusin')
   onFocusIn(): void {
-    this.onPointerEnter();
+    this.pointerInside = true;
+    this.clearIdleTimer();
+    if (this.idle()) {
+      this.idle.set(false);
+    }
   }
 
   @HostListener('focusout')
@@ -164,7 +222,7 @@ export class ViewerControls implements OnInit {
     this.zone.runOutsideAngular(() => {
       this.idleTimer = setTimeout(() => {
         this.zone.run(() => this.idle.set(true));
-      }, ViewerControls.IDLE_DELAY_MS);
+      }, this.idleDelay);
     });
   }
 

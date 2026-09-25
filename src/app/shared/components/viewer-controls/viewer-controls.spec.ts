@@ -297,9 +297,13 @@ describe('ViewerControls idle auto-hide', () => {
    */
   const host = (f: any): HTMLElement => f.nativeElement;
 
-  /** Drives the idle timer without waiting out the real delay. */
+  /**
+   * Drives the idle timer without waiting out the real delay. Ticks past the
+   * touch delay, which is the longer of the two, so it settles the column in
+   * either mode.
+   */
   const goIdle = (f: any) => {
-    jasmine.clock().tick(4000);
+    jasmine.clock().tick(6000);
     f.detectChanges();
   };
 
@@ -421,14 +425,90 @@ describe('ViewerControls idle auto-hide', () => {
   });
 
   /**
-   * A tap on an invisible column would fire whatever button sat under the
-   * finger, and a touch user has no pointer to wake it with -- so on touch it
-   * simply stays put (raised in review of the first attempt at this issue).
+   * Touch fades too -- a tablet is where the column covers the most of the
+   * page. The review concern was that a touch reader could be left with no
+   * way back (no pointer to move) or could fire a button with the very tap
+   * that wakes it; the three tests below pin down both.
    */
-  it('never fades on a touch-only device', () => {
+  it('fades on a touch device, where the column covers the most of the page', () => {
     touchOnly = true;
     const fixture = build();
 
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(true);
+  });
+
+  it('gives a touch reader longer to react than a mouse user', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    // Past the mouse delay, short of the touch one.
+    jasmine.clock().tick(4500);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  it('comes back on a tap anywhere, so it is never lost without a mouse', () => {
+    touchOnly = true;
+    const fixture = build();
+    goIdle(fixture);
+
+    document.dispatchEvent(new Event('touchstart'));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  /**
+   * The waking tap must reach the scan, not a button: the faded column drops
+   * pointer-events precisely so the tap passes through it.
+   */
+  it('lets the waking tap through instead of firing a hidden button', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    goIdle(fixture);
+
+    expect(getComputedStyle(panel(fixture)).pointerEvents).toBe('none');
+  });
+
+  it('holds still for the length of a pan or pinch, then resumes', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    document.dispatchEvent(new Event('touchstart'));
+    goIdle(fixture);
+    expect(fixture.componentInstance.idle()).toBe(false);
+
+    document.dispatchEvent(new Event('touchend'));
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(true);
+  });
+
+  /**
+   * Tapping a button emits a synthetic mouseenter that no mouseleave ever
+   * answers, which would pin the column open for the rest of the session.
+   */
+  it('still fades after a tap on the column itself', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    host(fixture).dispatchEvent(new MouseEvent('mouseenter'));
+    document.dispatchEvent(new Event('touchend'));
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(true);
+  });
+
+  /** focusout always answers focusin, so this hold is safe on touch too. */
+  it('holds still while focus is inside on touch as well', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    panel(fixture).dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     goIdle(fixture);
 
     expect(fixture.componentInstance.idle()).toBe(false);
