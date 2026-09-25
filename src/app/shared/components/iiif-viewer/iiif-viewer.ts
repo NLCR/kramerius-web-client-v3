@@ -450,17 +450,24 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       // The thumbnail background covers the gap until the first tiles arrive.
       immediateRender: false,
       // OpenSeadragon's default is 0 (unlimited), which fires every tile of the
-      // visible grid at once — ~54 parallel requests for a full page. Each one
-      // pays the CDK proxy's per-request overhead, so the burst is what makes
-      // page loads feel slow. Cap the concurrency instead.
+      // visible grid at once. Each one pays the CDK proxy's per-request
+      // overhead, so the burst is what makes page loads feel slow — capping
+      // concurrency spreads it out without dropping any tile. This is the knob
+      // to reach for when proxy load is the problem: prefer it over coarsening
+      // minPixelRatio below, which pays for fewer requests with image quality.
       imageLoaderLimit: 6,
       // Caps the pyramid level OSD targets: highestLevel is clamped by
       // log2(zeroRatio / minPixelRatio), so raising this picks a coarser level.
-      // At the default 0.5 a full page targets level 3 — 54 tiles, each a proxy
-      // round-trip. At 1.0 it targets level 2, so the whole progressive run
-      // (levels 0→2) costs 23 tiles and still sharpens step by step. Zooming in
-      // raises zeroRatio and brings the finer levels back as needed.
-      minPixelRatio: 1.0,
+      // Kept at OpenSeadragon's default. It was raised to 1.0 to cut proxy
+      // round-trips, but that drops the finest pyramid level the viewport can
+      // actually use, which is what made pages look soft at typical laptop
+      // resolutions (issue #183) — zooming only partly recovers it. The saving
+      // was small: a page at fit-to-screen needs on the order of ten tiles
+      // either way, and one level down removes only a handful. Use
+      // imageLoaderLimit above to bound proxy load instead; it costs no
+      // quality. Note that tiles are fetched via AJAX and are HTTP-cached, so
+      // measuring this needs a page not yet visited in the session.
+      minPixelRatio: 0.5,
       gestureSettingsMouse: {
         clickToZoom: false,
         dblClickToZoom: true,
