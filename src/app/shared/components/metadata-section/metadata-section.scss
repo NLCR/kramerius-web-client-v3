@@ -1,3 +1,4 @@
+@use './_metadata-link' as links;
 @use "variables.scss";
 @use "mixins.scss";
 
@@ -16,6 +17,9 @@
     font-weight: 600;
     margin: 0;
 
+    // Deliberate exception to the shared metadata-link treatment (#194): a
+    // heading at this size reads as a banner, not a link, if it is permanently
+    // blue and underlined. It reveals the underline on hover instead.
     &.clickable-title {
       cursor: pointer;
 
@@ -46,6 +50,9 @@
     }
   }
 
+  // Deliberate exception to the shared metadata-link treatment (#194): this is
+  // a navigation action with its own icon, not a metadata value, so it keeps
+  // the primary color and a hover-only underline.
   .go-to-parent {
     text-decoration: none;
     display: inline-flex;
@@ -231,13 +238,17 @@
     }
 
     .article-title {
+      // Deliberate exception to the shared metadata-link treatment (#194):
+      // this is the article card's heading, not a metadata value, so it keeps
+      // its prominent color and reveals the underline on hover.
       a {
         font-size: var(--font-size-large);
         font-weight: 600;
-        color: var(--color-primary);
+        color: var(--color-text-link);
         text-decoration: none;
 
-        &:hover {
+        &:hover,
+        &:focus-visible {
           text-decoration: underline;
         }
       }
@@ -269,8 +280,7 @@
           min-width: 0;
 
           a {
-            color: #333;
-            text-decoration: underline;
+            @include links.metadata-link;
             overflow-wrap: anywhere;
             word-break: break-word;
             min-width: 0;
@@ -308,13 +318,16 @@
     }
 
     &__link {
-      color: var(--color-text-primary);
-      text-decoration: underline;
+      @include links.metadata-link;
       font-size: var(--font-size-small);
+    }
 
-      &:hover {
-        text-decoration: none;
-      }
+    // A licence with no info dialog and no external URL. Plain text, so it
+    // must not borrow the link treatment from its two interactive siblings.
+    &__text {
+      color: var(--color-text-base);
+      text-decoration: none;
+      font-size: var(--font-size-small);
     }
 
     &__info {
@@ -325,10 +338,9 @@
       text-align: left;
       font-family: inherit;
 
-      &:focus-visible {
-        outline: none;
-        text-decoration: none;
-      }
+      // Keep the shared link focus ring from `&__link` (#194): this is a
+      // button with no other focus indicator, so suppressing the outline here
+      // would leave keyboard users with nothing to follow.
     }
 
     &__logo {
@@ -373,14 +385,7 @@
 }
 
 .volume-year-link {
-  cursor: pointer;
-  text-decoration: underline;
-  color: var(--color-text-primary);
-  transition: color 0.2s ease;
-
-  &:hover {
-    color: var(--color-primary);
-  }
+  @include links.metadata-link;
 }
 
 .cdk-source-select app-select {

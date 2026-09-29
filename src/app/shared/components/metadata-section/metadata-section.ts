@@ -1028,18 +1028,6 @@ export class MetadataSection implements OnInit, OnChanges {
     this.router.navigate(this.libraryContext.prependLibraryPrefix(['/collection', collection.uuid]));
   }
 
-  clickedDocumentType = (model: string): void => {
-    console.log('document type clicked:', model);
-    const url = `?fq=model:${encodeURIComponent(model)}`;
-    this.searchService.redirectDirectlyToUrl(url);
-  };
-
-  clickedAccessibility = (accessibility: string): void => {
-    console.log('accessibility clicked:', accessibility);
-    const url = `?fq=${facetKeysEnum.accessibility}:${encodeURIComponent(accessibility)}`;
-    this.searchService.redirectDirectlyToUrl(url);
-  };
-
   clickedLicense = (license: string): void => {
     console.log('license clicked:', license);
     const url = `?fq=${facetKeysEnum.license}:${encodeURIComponent(license)}&${facetKeysEnum.license}_operator=OR`;

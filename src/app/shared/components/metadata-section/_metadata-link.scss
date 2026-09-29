@@ -1,0 +1,38 @@
+// Issue #194 — one definition of "this row is clickable" for the whole object
+// metadata panel. Before this existed the underline was redeclared in eight
+// places and drifted apart, so some dead rows looked like links and the most
+// important live row (collections) did not. Anything interactive in the panel
+// includes this; nothing else may underline itself.
+@mixin metadata-link {
+  // Underline at rest carries the affordance; the color stays the body text
+  // color per Figma and the rest of the app (see record-item, which only goes
+  // to --color-text-link on hover). Blue-at-rest would make a panel that is
+  // mostly links read as a wall of blue.
+  //
+  // --color-text-base, not --color-text-primary: the latter is referenced in
+  // ~10 stylesheets but defined nowhere, so it silently resolves to nothing.
+  color: var(--color-text-base);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--color-text-link);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-text-link);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+// For an element that sits inside a link-styled ancestor but is itself plain
+// text (e.g. the shelf-locator subtext under a holding library). Descendants
+// cannot cancel an inherited `text-decoration`, so it must be reset explicitly.
+@mixin metadata-link-reset {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  cursor: default;
+}
