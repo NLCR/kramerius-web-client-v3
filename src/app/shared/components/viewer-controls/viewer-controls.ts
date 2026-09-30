@@ -1,4 +1,4 @@
-import { Component, Input, inject } from '@angular/core';
+import { Component, DestroyRef, HostListener, Input, NgZone, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { map } from 'rxjs/operators';
 import { PdfService } from '../../services/pdf.service';
@@ -13,6 +13,7 @@ import { MapViewerService } from '../../services/map-viewer.service';
 import { TtsService } from '../../services/tts.service';
 import { SliderComponent } from '../slider/slider.component';
 import { ToolbarAction } from '../toolbar-controls/toolbar-controls.component';
+import { AccessibilityService } from '../../services/accessibility.service';
 
 @Component({
   selector: 'app-viewer-controls',
@@ -21,7 +22,7 @@ import { ToolbarAction } from '../toolbar-controls/toolbar-controls.component';
   templateUrl: './viewer-controls.html',
   styleUrl: './viewer-controls.scss'
 })
-export class ViewerControls {
+export class ViewerControls implements OnInit {
   @Input() type: 'pdf' | 'image' | 'epub' = 'pdf';
   @Input() showCrop: boolean = true;
   /** When true, the component renders no floating UI; its actions are surfaced via getMenuItems()/handleMenuAction() for the mobile toolbar menu. */
@@ -35,6 +36,9 @@ export class ViewerControls {
   public ttsService = inject(TtsService);
   private detailViewService = inject(DetailViewService, { optional: true });
   private mapViewerService = inject(MapViewerService, { optional: true });
+  private accessibility = inject(AccessibilityService);
+  private zone = inject(NgZone);
+  private destroyRef = inject(DestroyRef);
   public iiifBookMode$ = this.iiifViewerService.bookMode$;
   public iiifZoomLock$ = this.iiifViewerService.zoomLock$;
   public iiifMapMode$ = this.iiifViewerService.mapMode$;
@@ -42,6 +46,192 @@ export class ViewerControls {
 
   /** Background-removal strength for the georeferenced map layer (0..100). */
   backgroundRemovalPercent = 0;
+
+  /**
+   * The column floats over the page it serves, and at the left edge it cuts
+   * across several lines of text at once when the reader zooms in (issue
+   * #185). It now fades out once the reader stops moving the pointer and
+   * comes back the moment they move again, so the scan is unobstructed while
+   * it is being read and the tools are there whenever a hand reaches for
+   * them. Every tool stays in the column: an earlier attempt folded the less
+   * common ones behind a toggle, which buried the page-text button that
+   * readers depend on when a document has no ALTO layer.
+   */
+  private static readonly IDLE_DELAY_MS = 4000;
+
+  /** See idleDelay(): waking by tap is more deliberate than a mouse twitch. */
+  private static readonly TOUCH_IDLE_DELAY_MS = 6000;
+
+  /** Faded out because the pointer has been still; see IDLE_DELAY_MS. */
+  readonly idle = signal(false);
+
+  /**
+   * Suppresses the fade while the pointer is over the column itself, so it
+   * cannot vanish from under a reader who is aiming at a button.
+   */
+  private pointerInside = false;
+
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Touch fades the column too -- a tablet is exactly where the column covers
+   * the most of the page, so exempting touch would skip the readers who need
+   * it most. What differs is the wake gesture: there is no pointer to move,
+   * so any touch on the page brings it back. That is safe only because the
+   * faded column sets `pointer-events: none`, which lets the waking tap pass
+   * through to the scan instead of firing whichever button sat under the
+   * finger -- the failure mode raised in review of the first attempt.
+   *
+   * Re-read per interaction rather than cached, since a hybrid laptop can
+   * gain and lose a mouse mid-session.
+   */
+  private get isTouchOnly(): boolean {
+    return typeof window !== 'undefined'
+      && !!window.matchMedia?.('(hover: none), (pointer: coarse)').matches;
+  }
+
+  /**
+   * Readers who asked for less motion, through the app's own setting or the
+   * OS, keep a column that never moves on its own.
+   */
+  private get prefersReducedMotion(): boolean {
+    return this.accessibility.settings().reduceMotion
+      || (typeof window !== 'undefined'
+        && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  private get autoHideEnabled(): boolean {
+    return !this.mobileMenuMode && !this.prefersReducedMotion;
+  }
+
+  /**
+   * Touch gets longer to react. Waking with a mouse costs a twitch, so a
+   * short delay there is cheap; on touch it costs a deliberate tap, and the
+   * reader has usually just finished panning the scan into place when the
+   * timer starts.
+   */
+  private get idleDelay(): number {
+    return this.isTouchOnly
+      ? ViewerControls.TOUCH_IDLE_DELAY_MS
+      : ViewerControls.IDLE_DELAY_MS;
+  }
+
+  ngOnInit(): void {
+    if (!this.mobileMenuMode) {
+      this.scheduleIdle();
+    }
+    this.destroyRef.onDestroy(() => this.clearIdleTimer());
+  }
+
+  /**
+   * Pointer movement anywhere in the document wakes the column. It is bound
+   * on the document rather than the viewer because the column is a sibling
+   * of the viewer, not a child, in all three host pages -- and a reader
+   * moving toward it from the toolbar should find it already visible.
+   *
+   * Runs outside Angular: mousemove fires continuously, and waking an
+   * already-visible column must not cost a change-detection pass per event.
+   */
+  @HostListener('document:mousemove')
+  @HostListener('document:wheel')
+  onPointerActivity(): void {
+    if (!this.autoHideEnabled) return;
+    if (this.idle()) {
+      this.zone.run(() => this.idle.set(false));
+    }
+    this.scheduleIdle();
+  }
+
+  /** Keyboard users wake it too, so Tab never lands on a faded control. */
+  @HostListener('document:keydown')
+  onKeyboardActivity(): void {
+    this.onPointerActivity();
+  }
+
+  /**
+   * Touch wake. A finger going down anywhere brings the column back and
+   * holds it there for as long as the gesture lasts -- a reader panning or
+   * pinching the scan is working, and the column must not fade out from
+   * under the gesture that just summoned it.
+   *
+   * `touchstart` rather than a synthesised click, so the column is already
+   * on screen by the time the finger lifts.
+   */
+  @HostListener('document:touchstart')
+  onTouchStart(): void {
+    if (!this.autoHideEnabled) return;
+    this.clearIdleTimer();
+    if (this.idle()) {
+      this.zone.run(() => this.idle.set(false));
+    }
+  }
+
+  /** The gesture is over, so the column may start counting down again. */
+  @HostListener('document:touchend')
+  @HostListener('document:touchcancel')
+  onTouchEnd(): void {
+    this.scheduleIdle();
+  }
+
+  /**
+   * Holding the column open under a resting pointer is a mouse affordance.
+   * On touch it is skipped deliberately: tapping a button emits a synthetic
+   * mouseenter with no mouseleave to answer it when the finger moves away,
+   * which would pin the column open for good. There, touchend restarts the
+   * countdown instead.
+   */
+  @HostListener('mouseenter')
+  onPointerEnter(): void {
+    if (this.isTouchOnly) return;
+    this.pointerInside = true;
+    this.clearIdleTimer();
+    if (this.idle()) {
+      this.idle.set(false);
+    }
+  }
+
+  @HostListener('mouseleave')
+  onPointerLeave(): void {
+    this.pointerInside = false;
+    this.scheduleIdle();
+  }
+
+  /**
+   * Focus moving into the column pins it open for assistive tech and
+   * keyboard users, who have no pointer to hold it there. Unlike hover this
+   * applies on touch as well -- focusout always answers focusin, so the flag
+   * cannot be left stuck the way a synthetic mouseenter would leave it.
+   */
+  @HostListener('focusin')
+  onFocusIn(): void {
+    this.pointerInside = true;
+    this.clearIdleTimer();
+    if (this.idle()) {
+      this.idle.set(false);
+    }
+  }
+
+  @HostListener('focusout')
+  onFocusOut(): void {
+    this.onPointerLeave();
+  }
+
+  private scheduleIdle(): void {
+    this.clearIdleTimer();
+    if (!this.autoHideEnabled || this.pointerInside) return;
+    this.zone.runOutsideAngular(() => {
+      this.idleTimer = setTimeout(() => {
+        this.zone.run(() => this.idle.set(true));
+      }, this.idleDelay);
+    });
+  }
+
+  private clearIdleTimer(): void {
+    if (this.idleTimer !== null) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
+  }
 
   // Viewer control visibility getters
   get showZoomIn(): boolean {

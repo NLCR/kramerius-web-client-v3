@@ -10,6 +10,8 @@ import { AiPanelService } from '../../services/ai-panel.service';
 import { DetailViewService } from '../../../modules/detail-view-page/services/detail-view.service';
 import { MapViewerService } from '../../services/map-viewer.service';
 import { TtsService } from '../../services/tts.service';
+import { AccessibilityService } from '../../services/accessibility.service';
+import { TranslateModule } from '@ngx-translate/core';
 
 /**
  * Regression test for issue #161: on compact viewports the floating viewer
@@ -240,4 +242,304 @@ describe('viewer menu action ids are routable', () => {
     }
   });
 
+});
+
+/**
+ * Issue #185: the floating column is absolutely positioned over the viewer, so
+ * once the reader zooms in far enough for the scan to fill the width its
+ * buttons sit on top of the page text, cutting across several lines at once at
+ * the left edge. It now fades out while the reader is still and returns on the
+ * next pointer move -- the approach the old client used, and the one the
+ * reporters asked for. Every tool stays in the column: the previous attempt
+ * folded the rarer ones behind a toggle, which buried the page-text button
+ * readers rely on when a scan has no ALTO layer.
+ */
+describe('ViewerControls idle auto-hide', () => {
+  let iiif: any;
+  let config: any;
+  let reduceMotion: boolean;
+  let touchOnly: boolean;
+
+  const build = (setup: (c: ViewerControls) => void = () => {}) => {
+    TestBed.configureTestingModule({
+      imports: [ViewerControls, TranslateModule.forRoot()],
+      providers: [
+        { provide: PdfService, useValue: { properties$: of({}), pdfProperties: { bookMode: false } } },
+        { provide: IIIFViewerService, useValue: iiif },
+        { provide: EpubService, useValue: {} },
+        { provide: ConfigService, useValue: config },
+        { provide: AiPanelService, useValue: { panelVisible: signal(false) } },
+        { provide: DetailViewService, useValue: { isActionAllowed: () => true } },
+        { provide: MapViewerService, useValue: {} },
+        { provide: TtsService, useValue: {
+          isReading: signal(false), isPaused: signal(false), playbackBlocked: signal(false),
+          togglePlayPause: () => {}, stop: () => {},
+        } },
+        { provide: AccessibilityService, useValue: {
+          settings: () => ({ reduceMotion }),
+        } },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(ViewerControls);
+    fixture.componentInstance.type = 'image';
+    setup(fixture.componentInstance);
+    fixture.detectChanges();
+    return fixture;
+  };
+
+  const panel = (f: any): HTMLElement =>
+    f.nativeElement.querySelector('.viewer-controls');
+
+  /**
+   * mouseenter/mouseleave do not bubble, and the listeners sit on the host
+   * element rather than the inner panel -- so they must be dispatched there.
+   */
+  const host = (f: any): HTMLElement => f.nativeElement;
+
+  /**
+   * Drives the idle timer without waiting out the real delay. Ticks past the
+   * touch delay, which is the longer of the two, so it settles the column in
+   * either mode.
+   */
+  const goIdle = (f: any) => {
+    jasmine.clock().tick(6000);
+    f.detectChanges();
+  };
+
+  beforeEach(() => {
+    reduceMotion = false;
+    touchOnly = false;
+    iiif = {
+      bookMode$: of(false), zoomLock$: of(false), mapMode$: of(false),
+      isMapMode: () => false, isBookMode: () => false, isZoomLocked: () => false,
+    };
+    config = {
+      isViewerControlEnabled: jasmine.createSpy('isViewerControlEnabled').and.returnValue(true),
+      isFeatureEnabled: jasmine.createSpy('isFeatureEnabled').and.returnValue(true),
+      isViewerModeAvailable: jasmine.createSpy('isViewerModeAvailable').and.returnValue(true),
+    };
+    // Both media queries the component consults, answered from the flags above.
+    spyOn(window, 'matchMedia').and.callFake((q: string) => ({
+      matches: q.includes('reduce') ? reduceMotion : touchOnly,
+      media: q,
+    }) as MediaQueryList);
+    jasmine.clock().install();
+    TestBed.resetTestingModule();
+  });
+
+  afterEach(() => jasmine.clock().uninstall());
+
+  it('starts visible', () => {
+    const fixture = build();
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+    expect(panel(fixture).classList.contains('viewer-controls--idle')).toBe(false);
+  });
+
+  it('fades out once the reader has been still', () => {
+    const fixture = build();
+
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(true);
+    expect(panel(fixture).classList.contains('viewer-controls--idle')).toBe(true);
+  });
+
+  it('stops swallowing clicks meant for the scan underneath while faded', () => {
+    const fixture = build();
+
+    goIdle(fixture);
+
+    expect(getComputedStyle(panel(fixture)).pointerEvents).toBe('none');
+  });
+
+  it('comes back on the next pointer move', () => {
+    const fixture = build();
+    goIdle(fixture);
+
+    document.dispatchEvent(new MouseEvent('mousemove'));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  it('comes back when the reader scrolls the scan rather than moving the mouse', () => {
+    const fixture = build();
+    goIdle(fixture);
+
+    document.dispatchEvent(new WheelEvent('wheel'));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  it('comes back on a keypress, so Tab never lands on a faded control', () => {
+    const fixture = build();
+    goIdle(fixture);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  it('fades again after the reader goes still once more', () => {
+    const fixture = build();
+    goIdle(fixture);
+    document.dispatchEvent(new MouseEvent('mousemove'));
+    fixture.detectChanges();
+
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(true);
+  });
+
+  it('never vanishes from under a pointer resting on it', () => {
+    const fixture = build();
+
+    host(fixture).dispatchEvent(new MouseEvent('mouseenter'));
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  it('resumes fading once the pointer leaves again', () => {
+    const fixture = build();
+    host(fixture).dispatchEvent(new MouseEvent('mouseenter'));
+    goIdle(fixture);
+
+    host(fixture).dispatchEvent(new MouseEvent('mouseleave'));
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(true);
+  });
+
+  it('holds still while focus is inside, for readers with no pointer to hold it there', () => {
+    const fixture = build();
+
+    panel(fixture).dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  /**
+   * Touch fades too -- a tablet is where the column covers the most of the
+   * page. The review concern was that a touch reader could be left with no
+   * way back (no pointer to move) or could fire a button with the very tap
+   * that wakes it; the three tests below pin down both.
+   */
+  it('fades on a touch device, where the column covers the most of the page', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(true);
+  });
+
+  it('gives a touch reader longer to react than a mouse user', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    // Past the mouse delay, short of the touch one.
+    jasmine.clock().tick(4500);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  it('comes back on a tap anywhere, so it is never lost without a mouse', () => {
+    touchOnly = true;
+    const fixture = build();
+    goIdle(fixture);
+
+    document.dispatchEvent(new Event('touchstart'));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  /**
+   * The waking tap must reach the scan, not a button: the faded column drops
+   * pointer-events precisely so the tap passes through it.
+   */
+  it('lets the waking tap through instead of firing a hidden button', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    goIdle(fixture);
+
+    expect(getComputedStyle(panel(fixture)).pointerEvents).toBe('none');
+  });
+
+  it('holds still for the length of a pan or pinch, then resumes', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    document.dispatchEvent(new Event('touchstart'));
+    goIdle(fixture);
+    expect(fixture.componentInstance.idle()).toBe(false);
+
+    document.dispatchEvent(new Event('touchend'));
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(true);
+  });
+
+  /**
+   * Tapping a button emits a synthetic mouseenter that no mouseleave ever
+   * answers, which would pin the column open for the rest of the session.
+   */
+  it('still fades after a tap on the column itself', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    host(fixture).dispatchEvent(new MouseEvent('mouseenter'));
+    document.dispatchEvent(new Event('touchend'));
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(true);
+  });
+
+  /** focusout always answers focusin, so this hold is safe on touch too. */
+  it('holds still while focus is inside on touch as well', () => {
+    touchOnly = true;
+    const fixture = build();
+
+    panel(fixture).dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  it('never fades for a reader who asked for reduced motion', () => {
+    reduceMotion = true;
+    const fixture = build();
+
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+  });
+
+  it('arms no timer in mobile menu mode, where there is no floating column', () => {
+    const fixture = build(c => { c.mobileMenuMode = true; });
+
+    goIdle(fixture);
+
+    expect(fixture.componentInstance.idle()).toBe(false);
+    expect(panel(fixture)).toBeNull();
+  });
+
+  /** The regression annie-cz reported: page-text must never be tucked away. */
+  it('keeps every tool in the column, page-text included', () => {
+    const fixture = build();
+    const icons = Array.from(panel(fixture).querySelectorAll('button i'))
+      .map(i => (i as HTMLElement).className);
+
+    expect(icons.some(c => c.includes('icon-text'))).toBe(true);
+    expect(panel(fixture).querySelector('.viewer-controls__toggle')).toBeNull();
+    expect(panel(fixture).querySelector('.viewer-controls__extras')).toBeNull();
+  });
 });

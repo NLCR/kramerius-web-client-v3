@@ -23,6 +23,8 @@ import { DatePickerComponent } from '../date-picker/date-picker.component';
 import { FilterElementType } from '../../dialogs/advanced-search-dialog/solr-filters';
 import { getModelColor, getModelIcon, getLanguageFlagIcon } from '../../utils/filter-icons.utils';
 import { SkeletonListPipe } from '../../pipes/skeleton-list.pipe';
+import { CdkTooltipDirective } from '../../directives/cdk-tooltip/cdk-tooltip.directive';
+import { FACET_HEADING_TOOLTIPS } from '../../../modules/search-results-page/const/facet-tooltips';
 
 @Component({
   selector: 'app-filter-category',
@@ -35,7 +37,8 @@ import { SkeletonListPipe } from '../../pipes/skeleton-list.pipe';
     FilterItemsRadioComponent,
     RangeSliderComponent,
     DatePickerComponent,
-    SkeletonListPipe
+    SkeletonListPipe,
+    CdkTooltipDirective
   ],
   templateUrl: './filter-category.component.html',
   styleUrl: './filter-category.component.scss',
@@ -58,6 +61,17 @@ export class FilterCategoryComponent implements OnChanges {
   @Input() showBottomBorder = true;
   /** Keep the category heading available to screen readers but hide it visually. */
   @Input() hideLabelVisually = false;
+
+  /**
+   * Translation key of an explanatory tooltip shown next to the heading. Falls
+   * back to the per-facet default in FACET_HEADING_TOOLTIPS, which is how
+   * "Zdroj" and "Místo uložení" get theirs — the two are easy to confuse.
+   */
+  @Input() tooltipTextKey?: string;
+
+  get headingTooltipKey(): string | null {
+    return this.tooltipTextKey ?? FACET_HEADING_TOOLTIPS[this.facetKey] ?? null;
+  }
   @Input() type: FacetElementType = FacetElementType.checkbox;
   @Input() loading = false;
 

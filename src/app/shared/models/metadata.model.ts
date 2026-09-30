@@ -470,13 +470,27 @@ export function mergeMetadata(solrMetadata: Metadata, modsMetadata: Metadata): M
   }
 
   // Publishers
+  //
+  // Solr only carries `publishers.search`, a bare list of names, so a Solr
+  // publisher has a name but never a place or a date. Keying on
+  // `name|place|date` therefore treated "Aventinum||" and "Aventinum|Praha|1934"
+  // as two different publishers: the incomplete Solr entry stayed and the rich
+  // MODS one was appended beside it, so the sidebar showed a publisher with no
+  // place and no year (issue #190). Match on name and enrich in place instead,
+  // exactly as the authors branch above does, and only fall back to appending
+  // when MODS really does describe a publisher Solr did not list.
   if (modsMetadata.publishers && modsMetadata.publishers.length > 0) {
     merged.publishers = [...merged.publishers];
-    const existingPublishers = new Set(merged.publishers.map(p => `${p.name}|${p.place}|${p.date}`));
-    for (const publisher of modsMetadata.publishers) {
-      const key = `${publisher.name}|${publisher.place}|${publisher.date}`;
-      if (!existingPublishers.has(key)) {
-        merged.publishers.push(publisher);
+    const existingPublishersByName = new Map(merged.publishers.map(p => [p.name, p]));
+    for (const modsPublisher of modsMetadata.publishers) {
+      const existing = modsPublisher.name ? existingPublishersByName.get(modsPublisher.name) : undefined;
+      if (existing) {
+        // Enrich the name-only Solr publisher; never overwrite a value Solr had.
+        if (!existing.place && modsPublisher.place) existing.place = modsPublisher.place;
+        if (!existing.date && modsPublisher.date) existing.date = modsPublisher.date;
+      } else {
+        merged.publishers.push(modsPublisher);
+        if (modsPublisher.name) existingPublishersByName.set(modsPublisher.name, modsPublisher);
       }
     }
   }

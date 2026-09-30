@@ -1,3 +1,5 @@
+@use '../_metadata-link' as links;
+
 .metadata-section--item {
   display: flex;
   flex-direction: column;
@@ -86,7 +88,8 @@ app-collapsible-content {
 // Clickable list items
 .clickable-list {
   li {
-    color: var(--color-text-primary);
+    // --color-text-base, not the undefined --color-text-primary (#194).
+    color: var(--color-text-base);
 
     .item-content {
       display: inline-flex;
@@ -103,41 +106,31 @@ app-collapsible-content {
     // color and cursor even while sitting inside a clickable <li>.
     .item-subtext {
       display: block;
-      cursor: default;
-      text-decoration: none;
-      color: var(--color-text-secondary);
+      @include links.metadata-link-reset;
     }
   }
 
   li.clickable {
-    cursor: pointer;
-    transition: color 0.2s ease;
-
     // Underline the interactive content only. A decoration set on the <li>
     // would be inherited by the plain `.item-subtext` line below it, which
-    // descendants cannot cancel.
+    // descendants cannot cancel. The pointer rides along with the treatment so
+    // it appears over the link text rather than over the inert subtext line.
     .item-content {
-      text-decoration: underline;
+      @include links.metadata-link;
     }
 
-    &:hover {
-      color: var(--color-primary);
-
-      .item-subtext {
-        color: var(--color-text-secondary);
-      }
+    &:hover .item-subtext {
+      color: var(--color-text-secondary);
     }
 
-    // Item rendered as a real link (openable in a new tab). Inherit the list
-    // item's color/underline so it looks identical to the button variant.
+    // Item rendered as a real link (openable in a new tab). It must re-apply
+    // the treatment rather than inherit it: `a.item-link` outranks
+    // `.item-content`, and the global `a { text-decoration: none }` reset in
+    // _typography.scss means an inherited decoration resolves against the
+    // plain <li> — which is why href-backed rows (collections, languages,
+    // locations) rendered with no underline at all (#194).
     a.item-link {
-      color: inherit;
-      text-decoration: inherit;
-
-      &:focus-visible {
-        outline: none;
-        color: var(--color-primary);
-      }
+      @include links.metadata-link;
     }
   }
 }

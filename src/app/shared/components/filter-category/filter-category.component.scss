@@ -18,6 +18,25 @@
     font-weight: 500;
   }
 
+  /*
+   * The heading is a space-between flex row (label left, and-indicator right),
+   * so the tooltip icon needs margin-right:auto to stay glued to the label
+   * instead of being pushed to the opposite edge.
+   */
+  .tooltip-icon {
+    display: inline-flex;
+    align-items: center;
+    margin-left: var(--spacing-x1);
+    margin-right: auto;
+    color: var(--icon-grey);
+    cursor: help;
+    font-size: var(--font-size-xxsmall);
+
+    &:hover {
+      color: var(--color-text-tertiary);
+    }
+  }
+
   .and-indicator {
     background-color: var(--color-bg-contrast);
     color: var(--color-text-base);

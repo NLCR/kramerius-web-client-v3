@@ -1,10 +1,7 @@
 @font-face {
   font-family: 'cdk-icons';
-  src:  url('./icon-font.eot?f0lu1c');
-  src:  url('./icon-font.eot?f0lu1c#iefix') format('embedded-opentype'),
-    url('./icon-font.ttf?f0lu1c') format('truetype'),
-    url('./icon-font.woff?f0lu1c') format('woff'),
-    url('./icon-font.svg?f0lu1c#cdk-icons') format('svg');
+  src:  url('./icon-font.woff?f0lu1c') format('woff'),
+    url('./icon-font.ttf?f0lu1c') format('truetype');
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -25,11 +22,18 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.icon-rotate-right1:before {
+  content: "\ec70";
+}
+.icon-rotate-left1:before {
+  content: "\ec71";
+}
+.icon-maximize-lock:before {
+  content: "\ec6f";
+}
 .icon-stop-x:before {
   content: "\e900";
-}.icon-stop-x:before {
-   content: "\e900";
- }
+}
 .icon-cd:before {
   content: "\e901";
 }
@@ -1562,6 +1566,7 @@
 }
 .icon-quote-down:before {
   content: "\eaff";
+  color: #fff;
 }
 .icon-table:before {
   content: "\eb00";
@@ -1880,12 +1885,6 @@
 }
 .icon-maximize-4:before {
   content: "\eb69";
-}
-.icon-rotate-right1:before {
-  content: "\ec70";
-}
-.icon-rotate-left1:before {
-  content: "\ec71";
 }
 .icon-rotate-left:before {
   content: "\eb6a";
@@ -2670,7 +2669,10 @@
 .icon-search-normal-1:before {
   content: "\ec6e";
 }
-.icon-maximize-lock:before {
-  content: "\ec6f";
-}
 
+.icon-frame-download:before {
+  content: "\ec72";
+}
+.icon-magic:before {
+  content: "\ec73";
+}

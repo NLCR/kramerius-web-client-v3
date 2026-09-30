@@ -279,7 +279,10 @@ export class SearchEffects {
     if (set.size === 0) {
       return this.withCdkFacets(DEFAULT_FACET_FIELDS);
     }
-    return this.withCdkFacets(Array.from(set));
+    // `cdk.collection` is part of the configured filters now, so it is already in
+    // the set when visible — and must stay out when the user unticked it. Only the
+    // fallback paths above, which bypass the user's config, still need it appended.
+    return Array.from(set);
   }
 
   private withCdkFacets(fields: string[]): string[] {

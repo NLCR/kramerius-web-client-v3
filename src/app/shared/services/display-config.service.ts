@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import {
   DisplayConfig,
@@ -8,15 +8,31 @@ import {
   DEFAULT_FACET_FILTERS
 } from '../models/display-config.model';
 import { OPTIONAL_SOLR_FIELDS } from '../../modules/search-results-page/const/search-return-fields';
+import { ConfigService } from '../../core/config/config.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class DisplayConfigService {
+  private configService = inject(ConfigService);
+
   private _displayConfig = new BehaviorSubject<DisplayConfig>(this.getDefaultConfig());
   public displayConfig$ = this._displayConfig.asObservable();
 
   constructor() {}
+
+  /**
+   * Drops filters that only exist on the CDK aggregator when running elsewhere.
+   * `cdk.collection` ("Zdroj") is the only such filter today: outside CDK the
+   * facet is never rendered, so offering a visibility toggle for it would be a
+   * switch with nothing behind it.
+   */
+  private filterByInstance(filters: FacetFilterConfig[]): FacetFilterConfig[] {
+    if (this.configService.isCdk()) {
+      return filters;
+    }
+    return filters.filter(f => !f.cdkOnly);
+  }
 
   /**
    * Gets the current display configuration
@@ -255,9 +271,9 @@ export class DisplayConfigService {
   getAllFacetFilters(): FacetFilterConfig[] {
     const config = this._displayConfig.value;
     if (!config.facetFilters || config.facetFilters.length === 0) {
-      return [...DEFAULT_FACET_FILTERS];
+      return this.filterByInstance([...DEFAULT_FACET_FILTERS]);
     }
-    return config.facetFilters.sort((a, b) => a.order - b.order);
+    return this.filterByInstance(config.facetFilters.sort((a, b) => a.order - b.order));
   }
 
   /**
