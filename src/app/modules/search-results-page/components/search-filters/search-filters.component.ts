@@ -195,20 +195,14 @@ export class SearchFiltersComponent extends BaseFiltersComponent implements OnIn
       ? this.visibleFacetKeys
       : [...customDefinedFacetsKeys, ...this.facetKeys];
 
-    const filtered = base.filter(key =>
+    // `cdk.collection` ("Zdroj") is a configurable filter like any other, so it
+    // arrives through `visibleFacetKeys` and is dropped when the user unticks it
+    // in settings. It stays excluded outside CDK, where the facet has no data.
+    return base.filter(key =>
       key !== facetKeysEnum.license
-      && key !== facetKeysEnum.cdkCollection
       && key !== customDefinedFacetsEnum.whereToSearchModel
+      && (key !== facetKeysEnum.cdkCollection || this.configService.isCdk())
     );
-
-    if (this.configService.isCdk()) {
-      // Insert right after document-type facet (customDefinedFacetsEnum.model).
-      const docTypeIdx = filtered.indexOf(customDefinedFacetsEnum.model);
-      const insertAt = docTypeIdx >= 0 ? docTypeIdx + 1 : filtered.length;
-      filtered.splice(insertAt, 0, facetKeysEnum.cdkCollection);
-    }
-
-    return filtered;
   }
 
   getElementTypeByFacetKey(facetKey: string): FacetElementType {

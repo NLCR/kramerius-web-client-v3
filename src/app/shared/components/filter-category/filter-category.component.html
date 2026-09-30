@@ -9,6 +9,12 @@
 
           {{label | translate}}
 
+          <span *ngIf="headingTooltipKey" class="tooltip-icon"
+            role="img" [attr.aria-label]="headingTooltipKey | translate"
+            [appCdkTooltip]="headingTooltipKey | translate" [tooltipPosition]="'right'">
+            <i class="icon-question" aria-hidden="true"></i>
+          </span>
+
           <span *ngIf="hasAndOperator" class="and-indicator">{{ 'and-operator' | translate }}</span>
 
         </h2>
