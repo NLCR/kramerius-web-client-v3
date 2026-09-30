@@ -375,11 +375,90 @@ describe('ViewerWatermarkComponent geometry', () => {
     });
   });
 
-  it('draws nothing before a viewer is available', () => {
-    // Without a viewer there is no image geometry to align with, and drawing
-    // anyway is what produced the floating overlay.
+  it('draws nothing when it has neither a viewer nor a placeholder', () => {
+    // With no geometry at all there is nothing to align to, and drawing anyway
+    // is what produced the floating overlay.
     (component as any).osdViewer = null;
+    (component as any).placeholderImage = null;
     (component as any).drawCanvas({ type: 'image', logo: 'l.png' }, squareLogo);
     expect(recorder.drawnImages.length).toBe(0);
+  });
+
+  /**
+   * The tiled image does not exist until `info.json` has been fetched, but the
+   * viewer shows the thumbnail as a background placeholder immediately. Leaving
+   * that placeholder unstamped puts an unwatermarked page on screen for a whole
+   * round-trip, so the watermark falls back to the thumbnail's own geometry.
+   */
+  describe('draws on the thumbnail placeholder before info.json returns', () => {
+    /** A thumbnail with the same aspect ratio as the scan it stands in for. */
+    const thumb = { naturalWidth: 200, naturalHeight: 300 } as HTMLImageElement;
+
+    /** Draw with only a placeholder available — no OpenSeadragon viewer yet. */
+    function drawPlaceholder(config: LicenseWatermarkConfig) {
+      watermarkConfig = config;
+      (component as any).osdViewer = null;
+      (component as any).placeholderImage = thumb;
+      (component as any).drawCanvas(config, config.type === 'image' ? squareLogo : null);
+    }
+
+    it('stamps the page while no tiled image exists yet', () => {
+      drawPlaceholder({ type: 'image', logo: 'l.png', rowCount: 1, colCount: 1, probability: 100 });
+      expect(recorder.drawnImages.length)
+        .withContext('the placeholder must carry the watermark too')
+        .toBe(1);
+    });
+
+    it('lays the watermark out on the contain-fitted thumbnail rectangle', () => {
+      // 200x300 contained in 800x600 fits by height: scale 2, so 400x600
+      // centred horizontally at x=200. A 1x1 grid at scale 1.0 spans that
+      // rectangle's full width and centres on it.
+      drawPlaceholder({
+        type: 'image', logo: 'l.png', rowCount: 1, colCount: 1, probability: 100, scale: 1.0
+      });
+
+      const drawn = recorder.drawnImages[0];
+      expect(drawn.w).withContext('spans the fitted page width').toBe(400);
+      expect(drawn.x + drawn.w / 2).withContext('centred on the fitted page').toBe(400);
+      expect(drawn.y + drawn.h / 2).withContext('centred vertically').toBe(300);
+    });
+
+    it('clips to the fitted page so the grey surround stays clean', () => {
+      drawPlaceholder({ type: 'image', logo: 'l.png', rowCount: 1, colCount: 1, probability: 100 });
+      expect(recorder.clips[0]).toEqual({ x: 200, y: 0, w: 400, h: 600 });
+    });
+
+    it('hands over to the viewer geometry as soon as the tiled image exists', () => {
+      const config: LicenseWatermarkConfig = {
+        type: 'image', logo: 'l.png', rowCount: 1, colCount: 1, probability: 100, scale: 1.0
+      };
+      watermarkConfig = config;
+      (component as any).placeholderImage = thumb;
+
+      // The real scan is 1000x1500 — the same 2:3 ratio as the thumbnail — and
+      // OpenSeadragon fits it to the same rectangle, so the handoff must not
+      // move the watermark.
+      (component as any).osdViewer = fakeViewer(0.4, 200, 0);
+      (component as any).drawCanvas(config, squareLogo);
+
+      const drawn = recorder.drawnImages[0];
+      expect(drawn.w).withContext('same width as on the placeholder').toBe(400);
+      expect(drawn.x + drawn.w / 2).withContext('same centre, so nothing jumps').toBe(400);
+    });
+
+    it('prefers the viewer over a stale placeholder once both are present', () => {
+      const config: LicenseWatermarkConfig = {
+        type: 'image', logo: 'l.png', rowCount: 1, colCount: 1, probability: 100, scale: 1.0
+      };
+      watermarkConfig = config;
+      (component as any).placeholderImage = thumb;
+      // A zoomed-in viewport: only the authoritative geometry produces this.
+      (component as any).osdViewer = fakeViewer(2);
+      (component as any).drawCanvas(config, squareLogo);
+
+      expect(recorder.drawnImages[0].w)
+        .withContext('viewport zoom wins over the placeholder fit')
+        .toBe(IMAGE_W * 2);
+    });
   });
 });

@@ -85,6 +85,15 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   public fallbackImageUrl = signal<string | null>(null);
 
   /**
+   * The thumbnail currently painted as the container's background placeholder.
+   *
+   * Handed to the watermark overlay so it can stamp that placeholder too: the
+   * tiled image does not exist until `info.json` returns, and without this the
+   * page would be on screen unwatermarked for that whole round-trip.
+   */
+  public readonly placeholderUrl = signal<string | null>(null);
+
+  /**
    * Object URL of the direct-image fallback currently held by OpenSeadragon.
    * ImageTileSource loads via a plain `new Image()`, which cannot carry an
    * Authorization header, so licensed images are fetched as a blob instead
@@ -363,6 +372,9 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
    */
   private setThumbnailBackground(pid: string): void {
     const thumbnailUrl = this.iiifViewerService.getThumbnailUrl(pid);
+    // The watermark lays itself out on this thumbnail until the tiled image
+    // exists, so it has to learn the URL at the same moment the background does.
+    this.placeholderUrl.set(thumbnailUrl);
     const container = this.viewerContainer.nativeElement;
     container.style.backgroundImage = `url('${thumbnailUrl}')`;
     container.style.backgroundSize = 'contain';
@@ -374,6 +386,9 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
    * Clear the thumbnail background after IIIF tiles have loaded
    */
   private clearThumbnailBackground(): void {
+    // Only the placeholder goes away; the watermark has the real geometry by
+    // now and keeps drawing from the viewport.
+    this.placeholderUrl.set(null);
     const container = this.viewerContainer.nativeElement;
     container.style.backgroundImage = '';
   }

@@ -15,6 +15,19 @@ import { TranslateService } from '@ngx-translate/core';
 import { LicenseWatermarkConfig, LocalizedLabel } from '../../../core/config/config.interfaces';
 
 /**
+ * The page geometry the watermark lays itself out on: the scan's size in image
+ * pixels, plus the projection from image pixels to viewer-element pixels.
+ *
+ * `drawCanvas` needs nothing else about the image, which is what lets the same
+ * drawing code serve both the OpenSeadragon viewport and the thumbnail
+ * placeholder shown before the tiled image exists.
+ */
+interface PageGeometry {
+  contentSize: { x: number; y: number };
+  toScreen(imageX: number, imageY: number): { x: number; y: number };
+}
+
+/**
  * Watermark drawn *onto* the scan rather than floating over the viewport.
  *
  * The overlay is the condition under which some scans may be published at all,
@@ -26,6 +39,21 @@ import { LicenseWatermarkConfig, LocalizedLabel } from '../../../core/config/con
  * The grid is therefore laid out in **image pixel coordinates** and converted to
  * screen coordinates on every viewport change, instead of being spread across
  * the viewer element.
+ *
+ * ## Why the thumbnail placeholder is also watermarked
+ *
+ * The tiled image only exists after `info.json` has been fetched and parsed, so
+ * a watermark that waits for it is absent for a whole network round-trip —
+ * while the reader is already looking at the page, because the viewer paints
+ * the thumbnail as a CSS background before that request even starts. That gap
+ * is exactly when an unwatermarked page is on screen, which defeats the point
+ * of the overlay.
+ *
+ * So the component draws against the *thumbnail's* geometry until the real one
+ * arrives. The thumbnail is laid out with `background-size: contain`, whose
+ * rectangle is computable locally from the thumbnail's intrinsic size — the
+ * same rectangle OpenSeadragon will project once it opens, so the handoff is
+ * invisible rather than a jump.
  */
 @Component({
   selector: 'app-viewer-watermark',
@@ -36,6 +64,19 @@ import { LicenseWatermarkConfig, LocalizedLabel } from '../../../core/config/con
 export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() docLicenses: string[] = [];
   @Input() pagePid: string | null = null;
+
+  /**
+   * URL of the thumbnail the viewer paints as a background placeholder while
+   * `info.json` is in flight. Supplying it lets the watermark appear on that
+   * placeholder instead of waiting for the tiled image; without it the
+   * watermark simply starts at `add-item` as before.
+   */
+  @Input() set placeholderSrc(src: string | null) {
+    if (this.placeholderUrl === src) return;
+    this.placeholderUrl = src;
+    this.placeholderImage = null;
+    this.loadPlaceholder();
+  }
 
   /**
    * The viewer whose image this watermark is glued to. Supplied by the parent
@@ -59,6 +100,14 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
   private loadedImage: HTMLImageElement | null = null;
   private loadedImageSrc: string | null = null;
   private rafId: number | null = null;
+
+  /**
+   * The placeholder thumbnail, kept only for its intrinsic dimensions — the
+   * pixels themselves are painted by the viewer's CSS background, not here.
+   */
+  private placeholderUrl: string | null = null;
+  private placeholderImage: HTMLImageElement | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   /**
    * Which grid cells are stamped, decided once per page.
@@ -90,7 +139,23 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
     // Start fetching the logo before the viewer geometry is ready, so the first
     // draw is not delayed by the logo's own round-trip on top of it.
     this.preloadLogo();
+    this.observeResize();
     this.scheduleRender();
+  }
+
+  /**
+   * Keep the placeholder watermark aligned while the container changes size.
+   *
+   * OpenSeadragon's own `resize` handler covers this once it exists, but the
+   * placeholder is drawn before that — and its rectangle is derived from the
+   * container's dimensions, so a resize in that window would leave the stamp
+   * off the page.
+   */
+  private observeResize(): void {
+    const parent = this.canvasRef?.nativeElement?.parentElement;
+    if (!parent || typeof ResizeObserver === 'undefined') return;
+    this.resizeObserver = new ResizeObserver(() => this.scheduleRender());
+    this.resizeObserver.observe(parent);
   }
 
   /**
@@ -112,6 +177,83 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
     img.src = config.logo;
   }
 
+  /**
+   * Learn the placeholder's intrinsic size so its on-screen rectangle can be
+   * reproduced. The viewer is already loading this exact URL as a CSS
+   * background, so this resolves from the HTTP cache rather than costing a
+   * second round-trip.
+   */
+  private loadPlaceholder(): void {
+    const src = this.placeholderUrl;
+    if (!src) {
+      this.scheduleRender();
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      // A later page may have swapped the URL out while this was in flight.
+      if (this.placeholderUrl !== src) return;
+      this.placeholderImage = img;
+      this.scheduleRender();
+    };
+    img.src = src;
+  }
+
+  /**
+   * The geometry to draw against, preferring the real image once it exists.
+   *
+   * OpenSeadragon wins as soon as it has a tiled image: it is the authoritative
+   * projection and it tracks pan and zoom. Until then the placeholder stands in
+   * so the watermark is on screen for the same frames the page is.
+   */
+  private resolveGeometry(): PageGeometry | null {
+    const item = this.osdViewer?.world?.getItemAt(0);
+    if (item) {
+      const contentSize = item.getContentSize();
+      if (contentSize.x > 0 && contentSize.y > 0) {
+        return {
+          contentSize,
+          toScreen: (x, y) =>
+            item.imageToViewerElementCoordinates(new OpenSeadragon.Point(x, y)),
+        };
+      }
+    }
+    return this.placeholderGeometry();
+  }
+
+  /**
+   * Reproduce the rectangle `background-size: contain` gives the thumbnail:
+   * scaled to fit inside the viewer element without cropping, and centred.
+   *
+   * Laid out in the thumbnail's own pixels, so the watermark grid divides the
+   * page by the same proportions it will once the full scan opens — the two
+   * share an aspect ratio, so the rectangles coincide and the handoff does not
+   * move anything.
+   */
+  private placeholderGeometry(): PageGeometry | null {
+    const img = this.placeholderImage;
+    const parent = this.canvasRef?.nativeElement?.parentElement;
+    if (!img || !parent) return null;
+
+    const imgW = img.naturalWidth;
+    const imgH = img.naturalHeight;
+    const cw = parent.clientWidth;
+    const ch = parent.clientHeight;
+    if (imgW === 0 || imgH === 0 || cw === 0 || ch === 0) return null;
+
+    const scale = Math.min(cw / imgW, ch / imgH);
+    const drawW = imgW * scale;
+    const drawH = imgH * scale;
+    const offsetX = (cw - drawW) / 2;
+    const offsetY = (ch - drawH) / 2;
+
+    return {
+      contentSize: { x: imgW, y: imgH },
+      toScreen: (x, y) => ({ x: offsetX + x * scale, y: offsetY + y * scale }),
+    };
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['docLicenses'] || changes['pagePid']) {
       // A new page or license means a fresh roll of the probability mask.
@@ -125,6 +267,8 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
 
   ngOnDestroy(): void {
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this.detachViewer();
   }
 
@@ -220,11 +364,15 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
 
   private drawCanvas(config: LicenseWatermarkConfig, img: HTMLImageElement | null): void {
     const canvas = this.canvasRef?.nativeElement;
-    const viewer = this.osdViewer;
-    if (!canvas || !viewer) return;
+    if (!canvas) return;
 
     const parent = canvas.parentElement;
     if (!parent) return;
+
+    // Either the live viewport or the thumbnail placeholder standing in for it
+    // until `info.json` lands; null means there is no page on screen yet.
+    const geometry = this.resolveGeometry();
+    if (!geometry) return;
 
     // The canvas still covers the viewer element — it is only the *content* that
     // is placed in image space.
@@ -244,10 +392,7 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    const item = viewer.world.getItemAt(0);
-    if (!item) return;
-
-    const imageSize = item.getContentSize();
+    const imageSize = geometry.contentSize;
     if (imageSize.x === 0 || imageSize.y === 0) return;
 
     const rows = config.rowCount ?? 3;
@@ -266,8 +411,8 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
     // How many screen pixels one image pixel currently occupies. Everything is
     // sized in image pixels and multiplied by this, which is what makes the
     // watermark grow and shrink with the scan.
-    const originScreen = item.imageToViewerElementCoordinates(new OpenSeadragon.Point(0, 0));
-    const unitScreen = item.imageToViewerElementCoordinates(new OpenSeadragon.Point(imageSize.x, 0));
+    const originScreen = geometry.toScreen(0, 0);
+    const unitScreen = geometry.toScreen(imageSize.x, 0);
     const pxPerImagePx = (unitScreen.x - originScreen.x) / imageSize.x;
     if (!Number.isFinite(pxPerImagePx) || pxPerImagePx <= 0) return;
 
@@ -283,10 +428,8 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
 
     // Clip to the page: the watermark belongs to the scan, so it must not spill
     // onto the grey surround when the image is zoomed out.
-    const pageTopLeft = item.imageToViewerElementCoordinates(new OpenSeadragon.Point(0, 0));
-    const pageBottomRight = item.imageToViewerElementCoordinates(
-      new OpenSeadragon.Point(imageSize.x, imageSize.y)
-    );
+    const pageTopLeft = geometry.toScreen(0, 0);
+    const pageBottomRight = geometry.toScreen(imageSize.x, imageSize.y);
     ctx.save();
     ctx.beginPath();
     ctx.rect(
@@ -304,7 +447,7 @@ export class ViewerWatermarkComponent implements OnChanges, AfterViewInit, OnDes
         // Cell centre in image pixels, then projected onto the screen.
         const imgCx = cellW * c + cellW / 2;
         const imgCy = cellH * r + cellH / 2;
-        const screen = item.imageToViewerElementCoordinates(new OpenSeadragon.Point(imgCx, imgCy));
+        const screen = geometry.toScreen(imgCx, imgCy);
 
         // Skip cells whose watermark cannot reach the visible area — a zoomed-in
         // page keeps most of its grid off-screen and drawing it is wasted work
