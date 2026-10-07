@@ -31,6 +31,12 @@ describe('MetadataSectionItem clickable-list subtext', () => {
 
   const location = { physicalLocation: 'Knihovna AV ČR', shelfLocator: 'PE 265' };
 
+  it('preserves the NKP value displayed beside the section heading', async () => {
+    const el = await render({ headerValue: '12', items: [] });
+
+    expect(el.querySelector('.metadata-section--item-header-value')?.textContent).toBe(': 12');
+  });
+
   it('renders the subtext on its own line outside the link', async () => {
     const el = await render({
       items: [location],
@@ -100,5 +106,101 @@ describe('MetadataSectionItem clickable-list subtext', () => {
     expect(li.classList).toContain('clickable');
     expect(li.getAttribute('role')).toBe('button');
     expect(li.getAttribute('tabindex')).toBe('0');
+  });
+});
+
+/**
+ * Issue #194: the panel's link appearance moved into a single shared mixin
+ * (`_metadata-link.scss`). These lock in the structural contract that mixin
+ * hangs off, so a future restyle cannot silently make a dead row look like a
+ * link or strip the affordance off a live one.
+ *
+ * Colors are deliberately not asserted: `public/styles/main.scss` — which
+ * defines every `--color-*` token — is in angular.json `build.options.styles`
+ * but not in `test.options.styles`, so under Karma the tokens resolve to an
+ * empty string and a computed-color expectation would be vacuous. The visual
+ * result is verified in the browser instead.
+ */
+describe('MetadataSectionItem link affordance', () => {
+  async function render(inputs: Record<string, unknown>) {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MetadataSectionItem, TranslateModule.forRoot()],
+      providers: [AppMissingTranslationService],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MetadataSectionItem);
+    fixture.componentRef.setInput('label', 'collections');
+    fixture.componentRef.setInput('type', 'clickable-list');
+    fixture.componentRef.setInput('disableTranslate', true);
+    for (const [key, value] of Object.entries(inputs)) {
+      fixture.componentRef.setInput(key, value);
+    }
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('marks every interactive row as clickable and renders it as a real anchor', async () => {
+    const el = await render({
+      items: ['Sbírka Kevorka Marouchiana', 'České muzeum hudby'],
+      itemHref: (c: string) => `/search?fq=collection:${c}`,
+    });
+
+    const rows = Array.from(el.querySelectorAll('li'));
+    expect(rows.length).toBe(2);
+    for (const row of rows) {
+      expect(row.classList).withContext('interactive row carries .clickable').toContain('clickable');
+      expect(row.querySelector('a.item-link.item-content'))
+        .withContext('interactive row renders as an anchor carrying .item-content')
+        .toBeTruthy();
+    }
+  });
+
+  it('leaves a non-interactive row unmarked and out of the tab order', async () => {
+    const el = await render({
+      items: ['Knihovna bez odkazu'],
+      itemHref: () => null,
+    });
+
+    const li = el.querySelector('li')!;
+    expect(li.classList).not.toContain('clickable');
+    expect(li.querySelector('a')).withContext('no anchor for a dead row').toBeNull();
+    expect(li.getAttribute('tabindex')).toBeNull();
+    expect(li.getAttribute('role')).toBeNull();
+  });
+
+  it('preserves NKP links without an underline at rest and keeps their pointer affordance', async () => {
+    const el = await render({
+      items: ['Denní tisk'],
+      itemHref: () => '/collection/uuid:1',
+    });
+    document.body.appendChild(el);
+
+    const anchor = el.querySelector('a.item-link') as HTMLElement;
+    expect(anchor).withContext('href row renders as an anchor').toBeTruthy();
+    expect(getComputedStyle(anchor).textDecorationLine)
+      .withContext('NKP reveals the underline on hover')
+      .toBe('none');
+    expect(getComputedStyle(anchor).cursor).toBe('pointer');
+
+    el.remove();
+  });
+
+  /**
+   * The underline lives on `.item-content`, never on the <li>: a decoration on
+   * the row would be inherited by `.item-subtext`, and a descendant cannot
+   * cancel an inherited text-decoration.
+   */
+  it('keeps the link treatment off the row itself so subtext can opt out', async () => {
+    const el = await render({
+      items: [{ name: 'Knihovna AV ČR', sig: 'PE 265' }],
+      displayFn: (l: { name: string }) => l.name,
+      itemSubtextFn: (l: { sig: string }) => `Signatura: ${l.sig}`,
+      itemHref: () => '/search?fq=x',
+    });
+
+    const subtext = el.querySelector('.item-subtext')!;
+    expect(subtext.closest('a')).withContext('subtext sits outside the anchor').toBeNull();
+    expect(subtext.closest('.item-content')).withContext('subtext sits outside the link body').toBeNull();
   });
 });

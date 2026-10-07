@@ -7,10 +7,9 @@ import * as SearchActions from './search.actions';
 import { SolrResponseParser } from '../../../core/solr/solr-response-parser';
 import { Store } from '@ngrx/store';
 import * as SearchSelectors from './search.selectors';
-import { DEFAULT_FACET_FIELDS } from '../const/facet-fields';
+import { DEFAULT_FACET_FIELDS, withCdkFacetFields } from '../const/facet-fields';
 import {
   getCustomDefinedFacets,
-  facetKeysEnum,
   mapOperatorsToSearchFields,
 } from '../const/facets';
 import { SearchService } from '../../../shared/services/search.service';
@@ -280,13 +279,13 @@ export class SearchEffects {
     if (set.size === 0) {
       return this.withCdkFacets(DEFAULT_FACET_FIELDS);
     }
-    return this.withCdkFacets(Array.from(set));
+    // `cdk.collection` is part of the configured filters now, so it is already in
+    // the set when visible — and must stay out when the user unticked it. Only the
+    // fallback paths above, which bypass the user's config, still need it appended.
+    return Array.from(set);
   }
 
   private withCdkFacets(fields: string[]): string[] {
-    if (!this.configService.isCdk() || fields.includes(facetKeysEnum.cdkCollection)) {
-      return fields;
-    }
-    return [...fields, facetKeysEnum.cdkCollection];
+    return withCdkFacetFields(fields, this.configService.isCdk());
   }
 }

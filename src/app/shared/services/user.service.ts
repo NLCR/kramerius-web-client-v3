@@ -82,7 +82,12 @@ export class UserService {
   public async loadUserData(): Promise<void> {
     const previousLicenses = this._licenses();
     const session = await firstValueFrom(this.getUserSession());
-    const newLicenses = session.licenses || [];
+    // The session lists licenses per library, so the same value repeats for
+    // every library granting it (44 entries, 8 distinct, for a typical user).
+    // Deduplicate here: every consumer treats this as a set, and the duplicates
+    // otherwise bloat the `licenses.facet:"..." OR ...` clauses in search URLs,
+    // which are already near the server's ~8 KB request-URI limit.
+    const newLicenses = Array.from(new Set(session.licenses || []));
 
     this._userSession.set(session);
     this._licenses.set(newLicenses);

@@ -39,6 +39,13 @@ export interface FacetFilterConfig extends ConfigurableItem {
   facetKey: string;
   defaultVisible: boolean;
   isCustomDefined: boolean;
+  /**
+   * When true, the filter only exists on the CDK aggregator instance
+   * (`ConfigService.isCdk()`). It is filtered out of the settings list and of the
+   * requested facet fields elsewhere, so a non-CDK deployment never offers a
+   * toggle for a filter it cannot render.
+   */
+  cdkOnly?: boolean;
 }
 
 /**
@@ -262,12 +269,22 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     isCustomDefined: true
   },
   {
+    id: 'cdk.collection',
+    labelKey: 'cdk.collection',
+    facetKey: 'cdk.collection',
+    visible: true,
+    defaultVisible: true,
+    order: 5,
+    isCustomDefined: false,
+    cdkOnly: true
+  },
+  {
     id: 'authors.facet',
     labelKey: 'filter-author-label',
     facetKey: 'authors.facet',
     visible: true,
     defaultVisible: true,
-    order: 5,
+    order: 6,
     isCustomDefined: false
   },
   {
@@ -276,7 +293,7 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     facetKey: 'languages.facet',
     visible: true,
     defaultVisible: true,
-    order: 6,
+    order: 7,
     isCustomDefined: false
   },
   {
@@ -285,7 +302,7 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     facetKey: 'genres.facet',
     visible: true,
     defaultVisible: true,
-    order: 7,
+    order: 8,
     isCustomDefined: false
   },
   {
@@ -294,7 +311,7 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     facetKey: 'keywords.facet',
     visible: true,
     defaultVisible: true,
-    order: 8,
+    order: 9,
     isCustomDefined: false
   },
   {
@@ -303,7 +320,7 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     facetKey: 'geographic_names.facet',
     visible: true,
     defaultVisible: true,
-    order: 9,
+    order: 10,
     isCustomDefined: false
   },
   {
@@ -312,7 +329,7 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     facetKey: 'publishers.facet',
     visible: true,
     defaultVisible: true,
-    order: 10,
+    order: 11,
     isCustomDefined: false
   },
   {
@@ -321,7 +338,7 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     facetKey: 'publication_places.facet',
     visible: true,
     defaultVisible: true,
-    order: 11,
+    order: 12,
     isCustomDefined: false
   },
   {
@@ -330,7 +347,7 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     facetKey: 'physical_locations.facet',
     visible: false,
     defaultVisible: false,
-    order: 12,
+    order: 13,
     isCustomDefined: false
   },
   {
@@ -339,7 +356,7 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     facetKey: 'subject_names_personal.facet',
     visible: false,
     defaultVisible: false,
-    order: 13,
+    order: 14,
     isCustomDefined: false
   },
   {
@@ -348,7 +365,7 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     facetKey: 'subject_names_corporate.facet',
     visible: false,
     defaultVisible: false,
-    order: 14,
+    order: 15,
     isCustomDefined: false
   },
   {
@@ -357,7 +374,7 @@ export const DEFAULT_FACET_FILTERS: FacetFilterConfig[] = [
     facetKey: 'subject_temporals.facet',
     visible: false,
     defaultVisible: false,
-    order: 15,
+    order: 16,
     isCustomDefined: false
   }
 ];

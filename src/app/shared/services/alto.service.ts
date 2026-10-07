@@ -240,6 +240,73 @@ export class AltoService {
   }
 
   /**
+   * The page's text, with its formatting when the source allows it.
+   *
+   * ALTO is tried first because it carries font sizes and line structure, which
+   * `getStyledHtml` turns into a readable rendition rather than a wall of words.
+   * When a page has no ALTO the plain `/ocr/text` datastream still has the text,
+   * so callers that only need words — the transcript panel, translation,
+   * summarisation — degrade to unstyled text instead of failing outright.
+   *
+   * This split is real in the data, not defensive coding: in a CDK document held
+   * by several libraries the same page exists once per source, and one source's
+   * copy can have ALTO while another's has only the text.
+   *
+   * `html` is empty whenever the text came from the fallback, so callers should
+   * render `text` in that case. Both empty means the page genuinely has no OCR;
+   * a failure of BOTH requests surfaces as an error, so a restricted page is not
+   * silently reported as an empty one.
+   */
+  fetchPageText(pid: string): Observable<{ text: string; html: string }> {
+    return this.fetchOcrContent(pid).pipe(
+      map(({ text, altoXml }) => ({
+        text,
+        html: altoXml ? this.getStyledHtml(altoXml) : '',
+      }))
+    );
+  }
+
+  /**
+   * The page's reading blocks, falling back to the plain OCR text.
+   *
+   * Read-aloud needs the text split into chunks it can speak one at a time; the
+   * geometry on each block is what lets the viewer highlight the passage being
+   * read. ALTO supplies both, so it is tried first.
+   *
+   * Without ALTO the words are still available from `/ocr/text`, so the fallback
+   * splits that on blank lines into paragraph-sized blocks with ZERO geometry.
+   * Reading then works and only the highlight is lost: `showTtsHighlight` bails
+   * out on a zero-size block, so a block with no coordinates is simply not drawn
+   * rather than drawn in the wrong place.
+   */
+  fetchBlocksForReading(pid: string): Observable<AltoTextBlock[]> {
+    return this.fetchOcrContent(pid).pipe(
+      map(({ text, altoXml }) => altoXml
+        ? this.getBlocksForReading(altoXml)
+        : this.textToReadingBlocks(text))
+    );
+  }
+
+  /**
+   * Splits plain OCR text into geometry-less reading blocks, one per paragraph.
+   *
+   * Paragraph-sized rather than line-sized: a block is one TTS request and one
+   * highlight step, and speaking a scan line by line breaks sentences apart mid
+   * clause. Blank lines are the only structure `/ocr/text` offers, so they are
+   * what the split has to use.
+   */
+  private textToReadingBlocks(text: string): AltoTextBlock[] {
+    return (text ?? '')
+      .split(/\n\s*\n/)
+      .map(part => part.replace(/\s+/g, ' ').trim())
+      .filter(part => part.length > 0)
+      .map(part => ({
+        text: part,
+        hMin: 0, hMax: 0, vMin: 0, vMax: 0, width: 0, height: 0,
+      }));
+  }
+
+  /**
    * Parses ALTO XML and extracts bounding boxes for matched words
    * Returns boxes in ALTO pixel coordinates
    *

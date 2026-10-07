@@ -35,8 +35,11 @@ describe('ExportDocumentSectionComponent PDF options', () => {
   let hasWorker: boolean;
   let pages: any[];
   let isPdf: boolean;
+  // Page scope vs document scope — the split the options are gated on.
+  let pageAllowed: boolean;
+  let documentAllowed: boolean;
 
-  function createComponent(): ExportDocumentSectionComponent {
+  function createComponent(bookMode = false): ExportDocumentSectionComponent {
     sourceCode = new BehaviorSubject<string | null>(null);
 
     TestBed.configureTestingModule({
@@ -46,7 +49,7 @@ describe('ExportDocumentSectionComponent PDF options', () => {
         {
           provide: IIIFViewerService,
           useValue: {
-            bookMode$: of(false),
+            bookMode$: of(bookMode),
             isSelectionMode$: of(false),
             selectedArea$: of(null),
             setSelectionMode: () => {},
@@ -61,9 +64,11 @@ describe('ExportDocumentSectionComponent PDF options', () => {
             get pages() { return pages; },
             get isPdf() { return isPdf; },
             currentPageIndex: 0,
+            get currentPagePid() { return pages[0]?.pid ?? null; },
             title: 'Doc',
             document: { uuid: 'uuid:doc' },
-            isActionAllowed: () => true,
+            isActionAllowed: () => pageAllowed,
+            isDocumentActionAllowed: () => documentAllowed,
           },
         },
         { provide: AppConfigService, useValue: { pdfMaxRange: () => 120 } },
@@ -100,6 +105,8 @@ describe('ExportDocumentSectionComponent PDF options', () => {
     TestBed.resetTestingModule();
     hasWorker = false;
     isPdf = false;
+    pageAllowed = true;
+    documentAllowed = true;
     pages = [{ pid: 'p1', exportable: true }, { pid: 'p2', exportable: true }];
   });
 
@@ -164,5 +171,100 @@ describe('ExportDocumentSectionComponent PDF options', () => {
     const component = createComponent();
 
     expect(component.pdfOptions()).toEqual([{ label: 'whole-document', value: 'whole-document', disabled: false }]);
+  });
+
+  it('preserves NKP printing of the current spread without a login dialog', () => {
+    const component = createComponent(true);
+    const viewer = TestBed.inject(IIIFViewerService) as any;
+    viewer.getDirectImageUrl = (pid: string) => `https://images.example.cz/${pid}.jpg`;
+    const printDocument = { write: jasmine.createSpy('write'), close: jasmine.createSpy('close') };
+    spyOn(window, 'open').and.returnValue({ document: printDocument } as unknown as Window);
+    const dialogOpen = spyOn(TestBed.inject(MatDialog), 'open');
+
+    component.onPrintSubmit('current-page');
+
+    const html = printDocument.write.calls.mostRecent().args[0] as string;
+    expect(html).toContain('https://images.example.cz/p1.jpg');
+    expect(html).toContain('https://images.example.cz/p2.jpg');
+    expect(printDocument.close).toHaveBeenCalled();
+    expect(dialogOpen).not.toHaveBeenCalled();
+  });
+
+  it('preserves the NKP runtime licence check for current-page printing', () => {
+    const component = createComponent();
+    const info = TestBed.inject(DocumentInfoService) as any;
+    info.getRuntimeLicenses = () => ['dnnto'];
+    const config = TestBed.inject(ConfigService) as any;
+    config.isLicenseActionAllowed = () => false;
+    const open = spyOn(window, 'open');
+
+    component.onPrintSubmit('current-page');
+
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A page served publicly inside a restricted document unlocks that page, not the
+   * document. The whole-document entry reaches pages the reader never opened, so it
+   * is gated on document scope while the page-scoped options stay available.
+   */
+  describe('page scope vs document scope', () => {
+    it('disables the whole-document option while keeping select-pages on a restricted document', () => {
+      pageAllowed = true;
+      documentAllowed = false;
+      const component = createComponent();
+
+      const whole = wholeDocumentOption(component);
+      const selectPages = component.pdfOptions().find(option => option.value === 'select-pages')!;
+      expect(whole.disabled).toBe(true);
+      expect(selectPages.disabled).toBe(false);
+      // The section itself stays visible — there is still an export to offer.
+      expect(component.pdfEnabled()).toBe(true);
+    });
+
+    it('applies the same split to print', () => {
+      pageAllowed = true;
+      documentAllowed = false;
+      const component = createComponent();
+
+      const whole = component.printOptions().find(option => option.value === 'whole-document')!;
+      const selectPages = component.printOptions().find(option => option.value === 'select-pages')!;
+      expect(whole.disabled).toBe(true);
+      expect(selectPages.disabled).toBe(false);
+      expect(component.printEnabled()).toBe(true);
+    });
+
+    it('hides EPUB and TXT, which only ever produce the whole document', () => {
+      pageAllowed = true;
+      documentAllowed = false;
+      hasWorker = true;
+      const component = createComponent();
+
+      expect(component.epubEnabled()).toBe(false);
+      expect(component.txtEnabled()).toBe(false);
+    });
+
+    it('blocks a whole-document submit that slips past the disabled option', () => {
+      pageAllowed = true;
+      documentAllowed = false;
+      const component = createComponent();
+      const exportService = TestBed.inject(ExportService) as any;
+      let called = false;
+      exportService.exportPdfSelection = () => { called = true; return of(null); };
+
+      component.onPdfSubmit('whole-document-legacy');
+      expect(called).toBe(false);
+    });
+
+    it('still runs a page-scoped submit', () => {
+      pageAllowed = true;
+      documentAllowed = false;
+      const component = createComponent();
+      let opened = false;
+      (component as any).dialog = { open: () => { opened = true; return { afterClosed: () => of(null) }; } };
+
+      component.onPdfSubmit('select-pages');
+      expect(opened).toBe(true);
+    });
   });
 });

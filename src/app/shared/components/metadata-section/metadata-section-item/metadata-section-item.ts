@@ -1,5 +1,5 @@
 import { Component, Input, TemplateRef } from '@angular/core';
-import { NgForOf, NgIf, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { TranslatePipe } from '@ngx-translate/core';
 import { CollapsibleContent } from '../collapsible-content/collapsible-content';
 import { NamespacedTranslatePipe } from '../../../pipes/namespaced-translate.pipe';
@@ -8,7 +8,7 @@ export type MetadataItemType = 'text' | 'list' | 'clickable-list' | 'badge' | 'k
 
 @Component({
   selector: 'app-metadata-section-item',
-  imports: [NgIf, NgForOf, NgTemplateOutlet, TranslatePipe, NamespacedTranslatePipe, CollapsibleContent],
+  imports: [NgTemplateOutlet, TranslatePipe, NamespacedTranslatePipe, CollapsibleContent],
   templateUrl: './metadata-section-item.html',
   styleUrl: './metadata-section-item.scss'
 })

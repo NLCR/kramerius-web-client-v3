@@ -24,6 +24,19 @@
     flex-shrink: 0;
   }
 
+  // Faded out after the reader has been still (issue #185), so the column
+  // stops cutting across the lines of text it floats over. pointer-events is
+  // dropped with it: an invisible column must not swallow a click meant for
+  // the scan underneath, nor fire a button the reader cannot see. Kept
+  // visible to assistive tech -- this is a visual affordance, not a state
+  // change, and the panel wakes on focus before anyone tabs into it.
+  transition: opacity 400ms ease;
+
+  &--idle {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   &__background-removal {
     display: flex;
     justify-content: center;
@@ -36,6 +49,18 @@
 
   &__background-removal-slider {
     height: 200px;
+  }
+
+  // A reader who asked for less motion keeps a column that never fades. The
+  // component also refuses to arm the timer in that case, so this only has to
+  // cover a preference that changes after the column is already faded.
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &--idle {
+      opacity: 1;
+      pointer-events: auto;
+    }
   }
 
   //&.pdf-layout {

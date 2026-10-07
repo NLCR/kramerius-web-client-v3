@@ -18,8 +18,16 @@ export class FolderSearchScope {
   private http = inject(HttpClient);
   private environmentService = inject(EnvironmentService);
 
-  /** Max scope paths per scoped request, keeping the GET URL under the server limit. */
-  static readonly PID_BATCH_SIZE = 50;
+  /**
+   * Max scope paths per scoped request, keeping the GET URL under the server
+   * limit. The API rejects request URIs over ~8.2 KB with HTTP 414 (the standard
+   * nginx 8k header buffer), and the pid scope shares the query string with the
+   * facet fields/queries. A full batch of 25 four-level own_pid_paths lands at
+   * ~6.3 KB, leaving room for the `fq` params that active filters add.
+   *
+   * 50 was too high: a 56-item folder produced a ~9.8 KB URL and failed to load.
+   */
+  static readonly PID_BATCH_SIZE = 25;
 
   /** Splits an array into consecutive chunks of at most `size`. */
   chunk<T>(array: T[], size: number): T[][] {

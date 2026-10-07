@@ -46,14 +46,14 @@
     <app-tabs (tabChanged)="onTabChanged($event)" [initialTab]="uiStateService.metadataSidebarActiveTab() || undefined">
 
       @if (tools.description) {
-      <app-tab-item [id]="'description'" [label]="'description' | translate" [icon]="'icon-note'" [onlyIcon]="true"
+      <app-tab-item [id]="'description'" [label]="'description' | translate" [icon]="'icon-textalign-justifycenter'" [onlyIcon]="true"
         [tooltip]="'description' | translate">
         <ng-container *ngTemplateOutlet="descriptionContent"></ng-container>
       </app-tab-item>
       }
 
       @if (tools.export && exportAllowed()) {
-      <app-tab-item [id]="'export'" [label]="'export' | translate" [icon]="'icon-download'" [onlyIcon]="true"
+      <app-tab-item [id]="'export'" [label]="'export' | translate" [icon]="'icon-frame-download'" [onlyIcon]="true"
         [tooltip]="'export' | translate">
         <app-export-document-section-component
           [pagePid]="detailService?.currentPagePid || null"></app-export-document-section-component>
@@ -61,7 +61,7 @@
       }
 
       @if (tools.ai && configService.isFeatureEnabled('ai')) {
-        <app-tab-item [id]="'ai'" [label]="'ai' | translate" [icon]="'icon-magicpen'" [onlyIcon]="true"
+        <app-tab-item [id]="'ai'" [label]="'ai' | translate" [icon]="'icon-magic'" [onlyIcon]="true"
                       [tooltip]="'ai' | translate">
           <app-ai-actions></app-ai-actions>
         </app-tab-item>

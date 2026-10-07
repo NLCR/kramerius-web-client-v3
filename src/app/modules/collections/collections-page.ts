@@ -14,6 +14,11 @@ import { Subject, takeUntil } from 'rxjs';
 import { UiStateService } from '../../shared/services/ui-state.service';
 import { getLanguageFallbackChain } from '../../shared/translation/translation-fallback-chain';
 import { resolveLocalizedValue } from '../../shared/utils/language-utils';
+import { ActivatedRoute, Router } from '@angular/router';
+import { MapSeriesService } from '../map-series/map-series.service';
+import { APP_ROUTES_ENUM } from '../../app.routes';
+import { MobileNavItem } from '../../shared/components/mobile-nav-bar/mobile-nav-bar.component';
+import { BreakpointService } from '../../shared/services/breakpoint.service';
 
 @Component({
   selector: 'app-collections-page',
@@ -28,6 +33,10 @@ export class CollectionsPage implements OnInit, AfterViewInit, OnDestroy {
   public translationService = inject(AppTranslationService);
   public recordHandler = inject(RecordHandlerService);
   private uiStateService = inject(UiStateService);
+  private mapSeriesService = inject(MapSeriesService);
+  public breakpointService = inject(BreakpointService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   @ViewChild('descriptionElement') descriptionElement?: ElementRef<HTMLElement>;
 
@@ -91,6 +100,50 @@ export class CollectionsPage implements OnInit, AfterViewInit, OnDestroy {
 
   toCuttingRecordItem(cutting: Cutting): RecordItem {
     return cuttingToRecordItem(cutting);
+  }
+
+  /**
+   * True when this collection is a map series, i.e. a grid overlay is
+   * published for it — only those offer the sheet index view.
+   */
+  get isMapSeries(): boolean {
+    const uuid = this.route.snapshot.paramMap.get('uuid');
+    return !!uuid && !!this.mapSeriesService.getShapefileUrl(uuid);
+  }
+
+  goToMapSeries(): void {
+    const uuid = this.route.snapshot.paramMap.get('uuid');
+    if (uuid) {
+      this.router.navigate([APP_ROUTES_ENUM.MAP_SERIES, uuid]);
+    }
+  }
+
+  /**
+   * The toolbar's tab strip is hidden on phones, so map series offer the same
+   * switch in the bottom nav bar — matching the sheet index view.
+   */
+  readonly mobileNavItems: MobileNavItem[] = [
+    { id: 'documents', label: 'map-series--view-documents', icon: 'icon-grid-6' },
+    { id: 'map', label: 'map-series--view-map', icon: 'icon-map' }
+  ];
+
+  /**
+   * Bottom offset for the floating filter toggle when the map-series nav bar is
+   * on screen: its 61px height plus a gap. The sidebar takes the larger of this
+   * and its own 72px mobile default, so anything below that has no effect.
+   */
+  private static readonly NAV_BAR_TOGGLE_OFFSET = 85;
+
+  filterToggleBottomOffset(): number {
+    return this.isMapSeries && this.breakpointService.isMobile()
+      ? CollectionsPage.NAV_BAR_TOGGLE_OFFSET
+      : 0;
+  }
+
+  onMobileNavChange(id: string): void {
+    if (id === 'map') {
+      this.goToMapSeries();
+    }
   }
 
   viewModeOptions: ToggleOption<'documents' | 'cuttings'>[] = [

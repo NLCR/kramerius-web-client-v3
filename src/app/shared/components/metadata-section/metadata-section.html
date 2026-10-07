@@ -154,16 +154,18 @@
     [itemSuffixTpl]="authorIdentifiersTpl">
   </app-metadata-section-item>
 
-  <!-- Document Type -->
-  <app-metadata-section-item *ngIf="data.model" [label]="'model' | translate" [onItemClick]="clickedDocumentType">
-    <div metadata-section-item-content>
-      <app-model-badge [model]="$any(badgeModel)" [monographUnitCount]="badgeUnitCount"></app-model-badge>
-    </div>
-  </app-metadata-section-item>
+  <!-- Document Type — informational chip, not a search entry point (#194) -->
+  @if (data.model) {
+    <app-metadata-section-item [label]="'model' | translate">
+      <div metadata-section-item-content>
+        <app-model-badge [model]="$any(badgeModel)" [monographUnitCount]="badgeUnitCount"></app-model-badge>
+      </div>
+    </app-metadata-section-item>
+  }
 
   <!-- Accessibility — hidden for public documents under a watermarked license (see showAccessibility) -->
   @if (showAccessibility()) {
-    <app-metadata-section-item [label]="'accessibility' | translate" type="badge" [onItemClick]="clickedAccessibility">
+    <app-metadata-section-item [label]="'accessibility' | translate">
       <div class="flex flex--gap-x2" metadata-section-item-content>
         <app-accessibility-badge [isLocked]="!isPublic" [licenses]="data.licences || []" [showText]="true"></app-accessibility-badge>
       </div>
@@ -365,11 +367,13 @@
     [items]="data.geonames" [disableTranslate]="true" [onItemClick]="clickedGeoName" [itemHref]="geoNameHref">
   </app-metadata-section-item>
 
-  <!-- Collections -->
-  <app-metadata-section-item *ngIf="data.inCollections.length" [label]="'collections' | translate" type="clickable-list"
-    [items]="data.inCollections" [disableTranslate]="true" [displayFn]="getCollectionName"
-    [onItemClick]="clickedCollection" [itemHref]="collectionHref">
-  </app-metadata-section-item>
+  <!-- Collections — "Ve sbírce" per Figma; standard link treatment (#194) -->
+  @if (data.inCollections.length) {
+    <app-metadata-section-item [label]="'in-collections--label' | translate" type="clickable-list"
+      [items]="data.inCollections" [disableTranslate]="true" [displayFn]="getCollectionName"
+      [onItemClick]="clickedCollection" [itemHref]="collectionHref">
+    </app-metadata-section-item>
+  }
 
   <!-- Languages -->
   <app-metadata-section-item *ngIf="displayLanguages().length" [label]="'languages' | translate" type="clickable-list"

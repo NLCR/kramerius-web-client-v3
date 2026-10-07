@@ -1,3 +1,18 @@
+// Sized against its container, not the viewport: the navigator sits in the
+// document sidebar, which steps down to 240px between 854px and 1279px
+// (filter-sidebar). At that width nothing in the row was allowed to give - the
+// label was nowrap, the indicator and both buttons flex-shrink: 0 - so the row
+// needed 234px inside a 215px box and the last arrow was clipped by the sidebar
+// edge (GitHub issue #196).
+// The query container has to be the host, not .page-navigator itself: an
+// element cannot respond to its own inline-size, so a @container rule declared
+// on the same box it measures never matches.
+:host {
+  display: block;
+  container-type: inline-size;
+  min-width: 0;
+}
+
 .page-navigator {
   display: flex;
   align-items: center;
@@ -75,5 +90,54 @@
       align-items: center;
       justify-content: center;
     }
+  }
+}
+
+// Narrow sidebar only (the 240px step, and anything tighter). The wide sidebar
+// keeps the original 40px-tall row untouched; this compacts the row just enough
+// to buy back the ~19px it was over by:
+//   - the arrows go square (the global `button` padding of 12px 16px made them
+//     30x40 and 32x40 - taller than wide, and out of line with the indicator),
+//   - the indicator drops to that same height so the three controls line up,
+//   - the gap and side paddings give up what carries no information.
+// Nothing here is dropped, only tightened.
+@container (max-width: 240px) {
+  .page-navigator {
+    --page-navigator-control-size: 32px;
+
+    gap: var(--spacing-x1);
+    min-width: 0;
+
+    // Yields before the controls do, so the arrows stay reachable.
+    .label {
+      flex: 0 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .indicator {
+      padding: 0 var(--spacing-x1);
+      height: var(--page-navigator-control-size);
+      // Shrinkable here, but never below the "NN / NN" it has to show.
+      flex: 1 1 auto;
+      min-width: min-content;
+    }
+
+    button {
+      padding: 0;
+      width: var(--page-navigator-control-size);
+      height: var(--page-navigator-control-size);
+      aspect-ratio: 1;
+    }
+  }
+}
+
+// Below ~190px the caption is what no longer fits. Drop it rather than let the
+// indicator and arrows be squeezed - the field and arrows still say what the
+// row does.
+@container (max-width: 189px) {
+  .page-navigator .label {
+    display: none;
   }
 }

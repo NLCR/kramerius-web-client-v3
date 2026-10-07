@@ -1,5 +1,6 @@
 // Project-local declarations for the vendored @allmaps/viewer-lite build.
 // They intentionally avoid type-only dependencies from the upstream monorepo.
+import type { Map as OLMap } from 'ol';
 
 export interface GeoreferencedMap {
   id: string;
@@ -107,16 +108,7 @@ export interface AllmapsViewer {
   on(eventName: string, handler: (event: CustomEvent) => void): void;
 
   // Internal OpenLayers map (used for programmatic pan/zoom)
-  map: {
-    getView(): {
-      fit(extent: [number, number, number, number], options?: { size?: number[]; padding?: number[] }): void;
-      setCenter(center: [number, number]): void;
-      setZoom(zoom: number): void;
-      getZoom(): number | undefined;
-      animate(options: { zoom?: number; center?: [number, number]; duration?: number }): void;
-    };
-    getSize(): number[];
-  };
+  map: OLMap;
 
   // Lifecycle
   destroy(): void;

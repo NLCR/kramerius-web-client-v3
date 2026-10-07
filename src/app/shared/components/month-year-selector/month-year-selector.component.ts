@@ -54,6 +54,14 @@ export interface MonthYearChange {
       align-items: center;
     }
 
+    // Figma: month/year trigger je 14px bold / 16px line-height, zatimco
+    // app-select dedi vychozich 16px regular.
+    :host ::ng-deep app-select .select-wrapper {
+      font-size: var(--font-size-small);
+      font-weight: var(--font-weight-bold);
+      line-height: var(--line-height-xs);
+    }
+
     .month-navigation {
       display: flex;
       gap: var(--spacing-x1);

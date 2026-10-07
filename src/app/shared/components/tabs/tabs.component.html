@@ -3,6 +3,7 @@
     <button
       class="tab-button"
       [class.active]="i === activeTabIndex()"
+      [class.only-icon]="tab.onlyIcon"
       [appCdkTooltip]="tab.tooltip"
       (click)="selectTab(i)">
       @if (tab.icon) {
