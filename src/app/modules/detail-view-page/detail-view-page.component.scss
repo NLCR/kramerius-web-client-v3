@@ -338,10 +338,20 @@ app-document-access-denied {
   display: flex;
   flex-direction: column;
   pointer-events: none; // only the row and the open menu take touches
+  // Rapid taps on the arrows were read by the browser as double-tap-to-zoom
+  // and zoomed the whole page. manipulation disables that (pinch still works).
+  touch-action: manipulation;
 
+  * {
+    touch-action: manipulation;
+  }
+
+  // Three columns so the page navigation sits in the true centre of the screen
+  // (as a flex item it was centred only in the space left of the Options icon).
   &__row {
     pointer-events: auto;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: var(--spacing-x2);
     height: 56px;
@@ -357,14 +367,15 @@ app-document-access-denied {
   }
 
   &__pages {
-    flex: 1;
+    grid-column: 2;
     min-width: 0;
     display: flex;
     justify-content: center;
   }
 
   &__menu-toggle {
-    flex: 0 0 auto;
+    grid-column: 3;
+    justify-self: end;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -613,9 +613,22 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     // The container changes size without the image reopening — most visibly when
     // the AI panel splits the viewer in half — and minZoomLevel is derived from
     // that size, so recompute it on resize (issue #161).
+    // Entering fullscreen, rotating the phone or opening the AI panel resizes the
+    // container without reopening the image. A page that was at resting zoom
+    // stayed at its old zoom and position, so it ended up off-centre and wider
+    // than the screen; bring it back to "whole page, centred". A page the reader
+    // had zoomed into keeps its zoom and position.
     this.viewer.addHandler('resize', () => {
+      const wasAtRest = this.wasAtRestingZoom;
       this.updateMinZoomLevel();
+      if (wasAtRest) {
+        // Deferred: OSD's own doViewerResize rescales the zoom by the change in
+        // container area right after raising this event, which would undo it.
+        setTimeout(() => this.viewer?.viewport.goHome(true));
+      }
     });
+    this.viewer.addHandler('animation-finish', () => this.rememberRestingState());
+    this.viewer.addHandler('open', () => setTimeout(() => this.rememberRestingState()));
 
     // Page-turn swipe: native pointer listeners decide whether a touch drag turns
     // the page; while they own the gesture, OSD's own drag (pan) and flick are
@@ -1113,6 +1126,17 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     const restingZoom = Math.max(viewport.getHomeZoom(), (this.viewer as any).minZoomLevel || 0);
 
     return currentZoom <= restingZoom * this.SWIPE_CONFIG.zoomTolerance;
+  }
+
+  /**
+   * Whether the page was at resting zoom before the latest resize. Captured
+   * after each zoom/pan settles because during the 'resize' event OSD has
+   * already switched to the new container size (home zoom has moved).
+   */
+  private wasAtRestingZoom = true;
+
+  private rememberRestingState(): void {
+    this.wasAtRestingZoom = this.isAtBaseZoom();
   }
 
   private swipeListenersAttached = false;

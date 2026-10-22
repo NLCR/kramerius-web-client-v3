@@ -23,6 +23,12 @@
 }
 
 .slide-up-panel {
+  // Height comes from the component in "percent of the screen" units. dvh is
+  // the height actually visible on a phone (vh includes the area under the
+  // browser's address bar, so a sheet dragged to 90vh slid its header and close
+  // button out of view and could not be closed). vh stays as the fallback.
+  height: calc(var(--sheet-height, 50) * 1vh);
+  height: calc(var(--sheet-height, 50) * 1dvh);
   position: fixed;
   bottom: 0;
   left: 0;
