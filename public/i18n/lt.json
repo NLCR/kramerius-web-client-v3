@@ -876,5 +876,6 @@
   "shared-folder-banner--saved-success": "Sąrašas \"{{folderName}}\" įrašytas į jūsų biblioteką.",
   "resume-reading--prompt": "Tęsti nuo {{page}} puslapio?",
   "resume-reading--action": "Tęsti",
-  "reader-options": "Parinktys"
+  "reader-options": "Parinktys",
+  "opening-document": "Atidaromas dokumentas…"
 }

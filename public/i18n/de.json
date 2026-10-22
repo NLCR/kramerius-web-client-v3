@@ -895,5 +895,6 @@
   "map-series--filter-series": "Kartenwerk suchen",
   "resume-reading--prompt": "Auf Seite {{page}} weiterlesen?",
   "resume-reading--action": "Weiterlesen",
-  "reader-options": "Optionen"
+  "reader-options": "Optionen",
+  "opening-document": "Dokument wird geöffnet…"
 }

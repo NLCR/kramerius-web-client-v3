@@ -876,5 +876,6 @@
   "shared-folder-banner--saved-success": "A lista \"{{folderName}}\" foi guardada na sua biblioteca.",
   "resume-reading--prompt": "Continuar na página {{page}}?",
   "resume-reading--action": "Continuar",
-  "reader-options": "Opções"
+  "reader-options": "Opções",
+  "opening-document": "A abrir o documento…"
 }

@@ -1,5 +1,12 @@
 @use 'mixins' as m;
 
+// Loading overlays: spinner only. The default translucent white veil turned the
+// grey page background almost white for a moment on every document load and
+// page change, which read as an unpleasant white flash.
+:host {
+  --overlay-bg: transparent;
+}
+
 .sidebar--container {
   height: 100%;
 }

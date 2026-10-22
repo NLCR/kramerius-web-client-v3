@@ -876,5 +876,6 @@
   "shared-folder-banner--saved-success": "Listan \"{{folderName}}\" sparades i ditt bibliotek.",
   "resume-reading--prompt": "Fortsätta på sida {{page}}?",
   "resume-reading--action": "Fortsätt",
-  "reader-options": "Alternativ"
+  "reader-options": "Alternativ",
+  "opening-document": "Öppnar dokumentet…"
 }

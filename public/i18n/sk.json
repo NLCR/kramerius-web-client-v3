@@ -894,5 +894,6 @@
   "map-series--filter-series": "Hľadať mapové dielo",
   "resume-reading--prompt": "Pokračovať na strane {{page}}?",
   "resume-reading--action": "Pokračovať",
-  "reader-options": "Možnosti"
+  "reader-options": "Možnosti",
+  "opening-document": "Otváram dokument…"
 }

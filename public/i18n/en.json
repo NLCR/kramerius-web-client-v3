@@ -903,5 +903,6 @@
   "map-series--filter-series": "Search map series",
   "resume-reading--prompt": "Continue on page {{page}}?",
   "resume-reading--action": "Continue",
-  "reader-options": "Options"
+  "reader-options": "Options",
+  "opening-document": "Opening document…"
 }

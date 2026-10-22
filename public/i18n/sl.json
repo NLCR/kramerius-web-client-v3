@@ -876,5 +876,6 @@
   "shared-folder-banner--saved-success": "Seznam \"{{folderName}}\" je bil shranjen v vašo knjižnico.",
   "resume-reading--prompt": "Nadaljujem na strani {{page}}?",
   "resume-reading--action": "Nadaljuj",
-  "reader-options": "Možnosti"
+  "reader-options": "Možnosti",
+  "opening-document": "Odpiram dokument…"
 }

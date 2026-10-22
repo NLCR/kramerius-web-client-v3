@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { TranslatePipe } from '@ngx-translate/core';
 import { SolrService } from '../../../core/solr/solr.service';
 import { RecordHandlerService } from '../../services/record-handler.service';
 import { switchMap, catchError } from 'rxjs/operators';
@@ -12,12 +13,12 @@ import { LibraryContextService } from '../../services/library-context.service';
 @Component({
   selector: 'app-uuid-redirect',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   template: `
     <div class="uuid-redirect-container">
       <div class="loading-message">
         <div class="spinner"></div>
-        <p>Redirecting...</p>
+        <p>{{ 'opening-document' | translate }}</p>
       </div>
     </div>
   `,
@@ -26,20 +27,26 @@ import { LibraryContextService } from '../../services/library-context.service';
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      /* Same box as the page it redirects to (below the header), so the spinner
+         does not jump when the detail view takes over. */
+      height: calc(100vh - var(--header-height, 56px));
+      height: calc(100dvh - var(--header-height, 56px));
       width: 100%;
     }
     .loading-message {
       text-align: center;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-small);
     }
     .spinner {
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #3498db;
+      /* Matches the app's inline loader (colour, size, speed). */
+      border: 4px solid transparent;
+      border-top: 4px solid var(--color-primary);
       border-radius: 50%;
       width: 40px;
       height: 40px;
-      animation: spin 2s linear infinite;
-      margin: 0 auto 20px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
     }
     @keyframes spin {
       0% { transform: rotate(0deg); }

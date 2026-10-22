@@ -37,11 +37,49 @@
   max-height: 100vh !important;
 }
 
+// Exit button: a light outlined button over a scanned page (often light paper)
+// was barely visible. Dark translucent disc with a white cross and a blurred
+// backdrop reads on light and dark pages alike; tucked into the corner, clear of
+// the notch / status bar on phones.
 .fullscreen-close-button {
   position: absolute;
-  top: 12px;
-  right: 16px;
+  top: max(8px, calc(env(safe-area-inset-top, 0px) + 4px));
+  right: max(8px, calc(env(safe-area-inset-right, 0px) + 4px));
   z-index: 10000;
+
+  &.button {
+    width: 44px;
+    height: 44px;
+    min-width: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    background: rgba(16, 23, 25, 0.55);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    touch-action: manipulation;
+
+    i {
+      font-size: 20px;
+      color: #fff;
+    }
+
+    &:hover,
+    &:focus-visible {
+      background: rgba(16, 23, 25, 0.75);
+      color: #fff;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+  }
 }
 
 // CSS-only fullscreen fallback, used when the browser has no element
@@ -116,7 +154,7 @@
 // document projects nothing into the slot and the button keeps its usual spot.
 @mixin fullscreen-close-below-overlay {
   // license bar height + the button's original 12px breathing room
-  top: calc(var(--license-bar-height) + 12px);
+  top: calc(var(--license-bar-height) + 8px);
 }
 
 .fullscreen-container:fullscreen .fullscreen-overlay { @include fullscreen-overlay-visible; }
@@ -128,11 +166,11 @@
 // close button sits BEFORE the overlay in the template, and no sibling
 // combinator reaches backwards.
 //
-// `:has(.fullscreen-overlay *)` and not `:has(app-license-bar)`: the component
+// `:has(.fullscreen-overlay > * > *)` and not `:has(app-license-bar)`: the component
 // element is always projected, but it renders nothing when the document carries
 // no bar-configured license, so testing for a rendered descendant inside the
 // overlay is what tells "bar shown" from "slot present but empty" apart.
-.fullscreen-container:fullscreen:has(.fullscreen-overlay *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }
-.fullscreen-container:-webkit-full-screen:has(.fullscreen-overlay *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }
-.fullscreen-container:-ms-fullscreen:has(.fullscreen-overlay *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }
-.fullscreen-container.fullscreen-fallback:has(.fullscreen-overlay *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }
+.fullscreen-container:fullscreen:has(.fullscreen-overlay > * > *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }
+.fullscreen-container:-webkit-full-screen:has(.fullscreen-overlay > * > *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }
+.fullscreen-container:-ms-fullscreen:has(.fullscreen-overlay > * > *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }
+.fullscreen-container.fullscreen-fallback:has(.fullscreen-overlay > * > *) .fullscreen-close-button { @include fullscreen-close-below-overlay; }

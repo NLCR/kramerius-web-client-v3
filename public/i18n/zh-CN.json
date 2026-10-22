@@ -876,5 +876,6 @@
   "shared-folder-banner--saved-success": "列表“{{folderName}}”已保存到您的图书馆。",
   "resume-reading--prompt": "从第 {{page}} 页继续阅读？",
   "resume-reading--action": "继续",
-  "reader-options": "选项"
+  "reader-options": "选项",
+  "opening-document": "正在打开文档…"
 }

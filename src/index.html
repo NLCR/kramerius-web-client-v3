@@ -39,6 +39,9 @@
     })();
   </script>
 
+  <!-- First paint in the app's background colour instead of the browser's white
+       (the styles load a moment later); avoids a white flash on every page load. -->
+  <style>html { background: #f4f7f8; }</style>
 </head>
 <body>
   <app-root></app-root>

@@ -876,5 +876,6 @@
   "shared-folder-banner--saved-success": "Loend \"{{folderName}}\" salvestati teie raamatukokku.",
   "resume-reading--prompt": "Kas jätkata lehel {{page}}?",
   "resume-reading--action": "Jätka",
-  "reader-options": "Valikud"
+  "reader-options": "Valikud",
+  "opening-document": "Dokumendi avamine…"
 }

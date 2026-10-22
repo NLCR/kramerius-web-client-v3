@@ -893,5 +893,6 @@
   "map-series--filter-series": "Szukaj dzieła kartograficznego",
   "resume-reading--prompt": "Kontynuować na stronie {{page}}?",
   "resume-reading--action": "Kontynuuj",
-  "reader-options": "Opcje"
+  "reader-options": "Opcje",
+  "opening-document": "Otwieranie dokumentu…"
 }

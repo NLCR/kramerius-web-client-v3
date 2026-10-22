@@ -876,5 +876,6 @@
   "shared-folder-banner--saved-success": "A(z) \"{{folderName}}\" lista mentve a könyvtárába.",
   "resume-reading--prompt": "Folytatja a(z) {{page}}. oldalon?",
   "resume-reading--action": "Folytatás",
-  "reader-options": "Beállítások"
+  "reader-options": "Beállítások",
+  "opening-document": "Dokumentum megnyitása…"
 }
