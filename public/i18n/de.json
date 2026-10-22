@@ -892,5 +892,8 @@
   "map-series--close": "Schließen",
   "map-series--view-documents": "Dokumente",
   "map-series--change-series": "Kartenwerk wechseln",
-  "map-series--filter-series": "Kartenwerk suchen"
+  "map-series--filter-series": "Kartenwerk suchen",
+  "resume-reading--prompt": "Auf Seite {{page}} weiterlesen?",
+  "resume-reading--action": "Weiterlesen",
+  "reader-options": "Optionen"
 }

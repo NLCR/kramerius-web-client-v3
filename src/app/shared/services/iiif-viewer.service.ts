@@ -251,6 +251,11 @@ export class IIIFViewerService {
   private isSelectionModeSubject = new BehaviorSubject<boolean>(false);
   public isSelectionMode$ = this.isSelectionModeSubject.asObservable();
 
+  /** Synchronous read of the selection mode, for per-pointer gesture checks. */
+  get selectionModeActive(): boolean {
+    return this.isSelectionModeSubject.value;
+  }
+
   private isDraggingSubject = new BehaviorSubject<boolean>(false);
   // distinctUntilChanged: a BehaviorSubject re-emits even when the value is
   // unchanged, and each emission drives an async pipe that triggers change

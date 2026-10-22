@@ -64,7 +64,8 @@ export class ViewerTapToggleDirective implements OnInit, OnDestroy {
     };
 
     private onPointerUp = (event: PointerEvent): void => {
-        if (!this.breakpointService.isMobile()) return;
+        // Compact reader only: phones in portrait and in landscape.
+        if (!this.breakpointService.isCompactViewer()) return;
 
         const movedX = Math.abs(event.clientX - this.tapStartX);
         const movedY = Math.abs(event.clientY - this.tapStartY);

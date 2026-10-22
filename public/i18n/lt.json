@@ -873,5 +873,8 @@
   "shared-folder-banner--save-action": "Įrašyti į mano biblioteką",
   "shared-folder-banner--remove-action": "Pašalinti iš bendrinamų",
   "shared-folder-menu--aria-label": "Bendrinamo aplanko parinktys",
-  "shared-folder-banner--saved-success": "Sąrašas \"{{folderName}}\" įrašytas į jūsų biblioteką."
+  "shared-folder-banner--saved-success": "Sąrašas \"{{folderName}}\" įrašytas į jūsų biblioteką.",
+  "resume-reading--prompt": "Tęsti nuo {{page}} puslapio?",
+  "resume-reading--action": "Tęsti",
+  "reader-options": "Parinktys"
 }

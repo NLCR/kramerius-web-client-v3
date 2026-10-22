@@ -892,5 +892,8 @@
   "map-series--close": "Zavřít",
   "map-series--view-documents": "Dokumenty",
   "map-series--change-series": "Změnit mapové dílo",
-  "map-series--filter-series": "Hledat mapové dílo"
+  "map-series--filter-series": "Hledat mapové dílo",
+  "resume-reading--prompt": "Pokračovat na straně {{page}}?",
+  "resume-reading--action": "Pokračovat",
+  "reader-options": "Možnosti"
 }

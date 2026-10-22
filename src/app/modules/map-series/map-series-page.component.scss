@@ -10,6 +10,7 @@
 // against the viewport instead, the way the other full-height views do.
 .app-map-series {
   height: calc(100vh - var(--header-height) - var(--playback-bar-height, 0px));
+  height: calc(100dvh - var(--header-height) - var(--playback-bar-height, 0px));
   width: 100%;
   display: flex;
   flex-direction: column;

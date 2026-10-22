@@ -9,6 +9,8 @@
     background: var(--color-bg-base);
     border-top: 1px solid var(--color-border-light);
     width: 100%;
+    // Pinned to the screen bottom on its pages: clear the iPhone home indicator.
+    padding-bottom: var(--bottom-safe-area, env(safe-area-inset-bottom, 0px));
 
     &__tab {
         flex: 1;

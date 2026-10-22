@@ -28,6 +28,7 @@ app-mobile-nav-bar {
 :host:has(app-mobile-nav-bar) {
   .page-container {
     height: calc(100vh - var(--header-height) - var(--playback-bar-height, 0px) - 60px);
+    height: calc(100dvh - var(--header-height) - var(--playback-bar-height, 0px) - 60px - var(--bottom-safe-area, env(safe-area-inset-bottom, 0px)));
   }
 }
 

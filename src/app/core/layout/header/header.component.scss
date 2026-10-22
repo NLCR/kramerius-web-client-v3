@@ -8,6 +8,9 @@
   height: var(--header-height);
   gap: var(--spacing-x4);
   position: relative;
+  // Landscape iPhone: keep logo and menu out of the notch (viewport-fit=cover).
+  padding-left: max(var(--spacing-x3), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--spacing-x3), env(safe-area-inset-right, 0px));
 
   &.transparent {
     background-color: transparent;
@@ -283,4 +286,67 @@
 :host-context(.dark) .app-header,
 :host-context(.dark) .app-header.transparent {
   background: rgba(14, 18, 22, 0.92);
+}
+
+// Narrow phones (e.g. 360-480px): the logo, search, favorites, settings, language
+// and hamburger did not fit in one row (409px on a 390px screen), so the page grew
+// wider than the display and the browser zoomed it out. Favorites, settings and
+// language move into the hamburger menu; the row keeps logo, search and menu.
+.app-header .compact-only {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    .compact-hide {
+      display: none !important;
+    }
+
+    .compact-only {
+      display: flex;
+    }
+
+    &__left {
+      min-width: 0;
+      flex: 1 1 auto;
+      overflow: hidden;
+    }
+
+    &__right {
+      flex: 0 0 auto;
+    }
+
+    .header-client-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .mobile-menu__compact-actions {
+    flex-direction: column;
+    gap: var(--spacing-x3);
+    padding-top: var(--spacing-x3);
+    border-top: 1px solid var(--color-border-light);
+  }
+
+  .mobile-menu__item {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    height: auto;
+    min-height: 0;
+    gap: var(--spacing-x2);
+    width: 100%;
+    padding: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    i {
+      font-size: 18px;
+    }
+  }
 }

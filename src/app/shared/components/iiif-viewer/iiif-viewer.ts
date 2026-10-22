@@ -54,6 +54,9 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   @Input() imagePid: string | null = null;
 
   @ViewChild('viewerContainer', { static: false }) viewerContainer!: ElementRef;
+  // Thumbnails of the neighbouring pages, slid in alongside the page during a swipe.
+  @ViewChild('peekPrev', { static: false }) peekPrev?: ElementRef<HTMLElement>;
+  @ViewChild('peekNext', { static: false }) peekNext?: ElementRef<HTMLElement>;
 
   public iiifViewerService = inject(IIIFViewerService);
   private detailViewService = inject(DetailViewService);
@@ -117,21 +120,34 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   public selectionRect: { top: number, left: number } | null = null;
   public showSelectionControls = false;
 
-  // Swipe detection configuration
+  // Page-turn swipe configuration (touch, pen and mouse drag). At resting zoom the page follows
+  // the finger like a sheet of paper and turns on release; when zoomed in, a
+  // drag pans the image instead. There is deliberately no maximum duration: a
+  // slow, deliberate drag is how people turn pages, and rejecting it left the
+  // image sliding around without ever turning (the old 600 ms limit).
   private readonly SWIPE_CONFIG = {
-    minDistance: 50,        // Minimum horizontal distance in pixels
-    maxTime: 600,           // Maximum gesture duration in ms
-    maxVerticalRatio: 0.5,  // Max vertical/horizontal ratio (prevents diagonal swipes)
-    zoomTolerance: 1.15     // Zoom level tolerance (15% above home zoom)
+    lockDistance: 8,        // px of movement before the gesture picks an axis
+    commitRatio: 0.2,       // fraction of the viewer width that turns the page
+    commitVelocity: 0.35,   // px/ms flick speed that turns the page regardless of distance
+    edgeResistance: 0.3,    // drag damping on the first/last page (rubber band)
+    animMs: 220,            // slide-out / snap-back duration
+    zoomTolerance: 1.15     // zoom above resting zoom (15%) counts as "zoomed in"
   } as const;
 
-  // Touch tracking state
-  private touchState = {
+  // Page-turn swipe state. 'pending' = finger down at resting zoom, axis not
+  // chosen yet; 'page' = horizontal page drag in progress; 'blocked' = vertical
+  // drag at resting zoom (ignored); 'none' = not ours (OSD pans/pinches).
+  private swipe = {
+    mode: 'none' as 'none' | 'pending' | 'page' | 'blocked',
+    pointerId: -1,
     startX: 0,
     startY: 0,
-    startTime: 0,
-    isSwiping: false,
-    touchCount: 0
+    dx: 0,
+    lastX: 0,
+    lastT: 0,
+    velocity: 0,
+    activeTouches: new Set<number>(),
+    animating: false,
   };
 
   private readonly TEST_FALLBACK = false;
@@ -291,12 +307,13 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       this.resizeObserver = null;
     }
 
-    // Clean up native touch event listeners
+    // Clean up page-turn swipe listeners
     if (this.viewerContainer?.nativeElement) {
       const container = this.viewerContainer.nativeElement;
-      container.removeEventListener('touchstart', this.onTouchStart);
-      container.removeEventListener('touchmove', this.onTouchMove);
-      container.removeEventListener('touchend', this.onTouchEnd);
+      container.removeEventListener('pointerdown', this.onSwipePointerDown, true);
+      container.removeEventListener('pointermove', this.onSwipePointerMove, true);
+      container.removeEventListener('pointerup', this.onSwipePointerUp, true);
+      container.removeEventListener('pointercancel', this.onSwipePointerUp, true);
     }
 
     if (this.viewer) {
@@ -570,6 +587,10 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       // For IIIF tiled images this creates a blur→sharp progressive loading effect.
       // For direct image fallbacks, the single "tile" loads fully at once.
       this.waitForImageLoaded();
+      // The page that a swipe brought in is now open: drop the neighbour
+      // thumbnail that covered the swap, and warm up the next neighbours.
+      this.hidePeeks();
+      this.prefetchNeighbours();
     });
 
     this.viewer.addHandler('update-viewport', () => {
@@ -596,10 +617,20 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       this.updateMinZoomLevel();
     });
 
-    // Setup native touch event listeners for swipe navigation
-    // Note: We use native touch events instead of OpenSeadragon's gesture system
-    // because they're more reliable across different browsers and devices
-    this.setupNativeTouchListeners();
+    // Page-turn swipe: native pointer listeners decide whether a touch drag turns
+    // the page; while they own the gesture, OSD's own drag (pan) and flick are
+    // suppressed so the image does not slide around under the finger.
+    this.setupSwipeListeners();
+    this.viewer.addHandler('canvas-drag', (event: any) => {
+      if (this.swipe.mode !== 'none') {
+        event.preventDefaultAction = true;
+      }
+    });
+    this.viewer.addHandler('canvas-drag-end', (event: any) => {
+      if (this.swipe.mode !== 'none') {
+        event.preventDefaultAction = true;
+      }
+    });
 
     this.viewer.addHandler('open-failed', () => {
       this.handleOpenFailed();
@@ -1084,107 +1115,261 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     return currentZoom <= restingZoom * this.SWIPE_CONFIG.zoomTolerance;
   }
 
+  private swipeListenersAttached = false;
+
   /**
-   * Navigate to previous or next page based on swipe direction
+   * Attach the page-turn swipe listeners once per container. createViewer can
+   * run more than once (fallbacks), so guard against stacking duplicates.
+   * Capture phase so they see each pointer before OpenSeadragon's canvas does,
+   * and outside the Angular zone so drags don't run change detection per frame.
    */
-  private navigateBySwipe(direction: 'left' | 'right'): void {
-    this.ngZone.run(() => {
-      if (direction === 'left') {
-        this.detailViewService.goToNext();
-      } else {
-        this.detailViewService.goToPrevious();
-      }
+  private setupSwipeListeners(): void {
+    if (this.swipeListenersAttached) return;
+    this.swipeListenersAttached = true;
+    const container = this.viewerContainer.nativeElement;
+    this.ngZone.runOutsideAngular(() => {
+      container.addEventListener('pointerdown', this.onSwipePointerDown, true);
+      container.addEventListener('pointermove', this.onSwipePointerMove, true);
+      container.addEventListener('pointerup', this.onSwipePointerUp, true);
+      container.addEventListener('pointercancel', this.onSwipePointerUp, true);
     });
   }
 
-  /**
-   * Setup native touch event listeners for swipe navigation
-   * Uses native events for maximum compatibility across browsers and devices
-   */
-  private setupNativeTouchListeners(): void {
-    const container = this.viewerContainer.nativeElement;
-
-    container.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: true });
-    container.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: true });
-    container.addEventListener('touchend', this.onTouchEnd.bind(this), { passive: false });
+  private get canGoNext(): boolean {
+    return this.detailViewService.currentPageIndex < this.detailViewService.totalPages - 1;
   }
 
-  /**
-   * Handle touch start - record initial touch position and time
-   */
-  private onTouchStart = (e: TouchEvent): void => {
-    // Only track single-finger swipes (multi-touch is for pinch-zoom)
-    if (e.touches.length !== 1) {
-      this.touchState.isSwiping = false;
-      return;
-    }
-
-    this.touchState.startX = e.touches[0].clientX;
-    this.touchState.startY = e.touches[0].clientY;
-    this.touchState.startTime = Date.now();
-    this.touchState.touchCount = e.touches.length;
-    this.touchState.isSwiping = false;
-  };
-
-  /**
-   * Handle touch move - mark as swiping if user is dragging
-   */
-  private onTouchMove = (e: TouchEvent): void => {
-    // Ignore if multi-touch (pinch-zoom)
-    if (e.touches.length > 1 || this.touchState.touchCount > 1) {
-      this.touchState.isSwiping = false;
-      return;
-    }
-
-    this.touchState.isSwiping = true;
-  };
-
-  /**
-   * Handle touch end - detect and handle swipe gestures
-   */
-  private onTouchEnd = (e: TouchEvent): void => {
-    // Validate gesture prerequisites
-    if (!this.viewer || !this.touchState.isSwiping || e.changedTouches.length !== 1) {
-      this.resetTouchState();
-      return;
-    }
-
-    // Ignore if multi-touch was used (pinch-zoom)
-    if (this.touchState.touchCount > 1) {
-      this.resetTouchState();
-      return;
-    }
-
-    const touch = e.changedTouches[0];
-    const deltaX = touch.clientX - this.touchState.startX;
-    const deltaY = touch.clientY - this.touchState.startY;
-    const duration = Date.now() - this.touchState.startTime;
-
-    const absDeltaX = Math.abs(deltaX);
-    const absDeltaY = Math.abs(deltaY);
-
-    // Check swipe validity
-    const isHorizontal = absDeltaX > absDeltaY * (1 / this.SWIPE_CONFIG.maxVerticalRatio);
-    const isLongEnough = absDeltaX >= this.SWIPE_CONFIG.minDistance;
-    const isFastEnough = duration <= this.SWIPE_CONFIG.maxTime;
-    const isAtBase = this.isAtBaseZoom();
-
-    // Execute navigation if all conditions met
-    if (isHorizontal && isLongEnough && isFastEnough && isAtBase) {
-      e.preventDefault();
-      this.navigateBySwipe(deltaX < 0 ? 'left' : 'right');
-    }
-
-    this.resetTouchState();
-  };
-
-  /**
-   * Reset touch state after gesture completes
-   */
-  private resetTouchState(): void {
-    this.touchState.isSwiping = false;
-    this.touchState.touchCount = 0;
+  private get canGoPrevious(): boolean {
+    return this.detailViewService.currentPageIndex > 0;
   }
+
+  private onSwipePointerDown = (e: PointerEvent): void => {
+    // Touch, pen and the primary mouse button: dragging the page with the
+    // mouse turns it just like a finger swipe does.
+    if (!this.viewer || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    this.swipe.activeTouches.add(e.pointerId);
+
+    // A second finger means pinch-zoom: give the gesture back to OSD.
+    if (this.swipe.activeTouches.size > 1) {
+      if (this.swipe.mode === 'page') this.snapBack();
+      this.swipe.mode = 'none';
+      return;
+    }
+
+    if (this.swipe.animating || this.iiifViewerService.selectionModeActive) {
+      this.swipe.mode = 'none';
+      return;
+    }
+
+    // Zoomed in: a drag pans the image (OSD default); no page turning.
+    this.swipe.mode = this.isAtBaseZoom() ? 'pending' : 'none';
+    this.swipe.pointerId = e.pointerId;
+    this.swipe.startX = this.swipe.lastX = e.clientX;
+    this.swipe.startY = e.clientY;
+    this.swipe.lastT = e.timeStamp;
+    this.swipe.dx = 0;
+    this.swipe.velocity = 0;
+  };
+
+  private onSwipePointerMove = (e: PointerEvent): void => {
+    if (e.pointerId !== this.swipe.pointerId) return;
+    const { mode } = this.swipe;
+    if (mode === 'none' || mode === 'blocked') return;
+
+    const dx = e.clientX - this.swipe.startX;
+    const dy = e.clientY - this.swipe.startY;
+
+    if (mode === 'pending') {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < this.SWIPE_CONFIG.lockDistance) return;
+      // The page fits the screen at resting zoom, so a vertical drag has
+      // nothing to reveal; swallowing it keeps the page from wobbling.
+      this.swipe.mode = Math.abs(dx) > Math.abs(dy) ? 'page' : 'blocked';
+      if (this.swipe.mode !== 'page') return;
+      this.preparePeeks();
+    }
+
+    // Exponential smoothing of the release velocity (px/ms).
+    const dt = Math.max(1, e.timeStamp - this.swipe.lastT);
+    const v = (e.clientX - this.swipe.lastX) / dt;
+    this.swipe.velocity = this.swipe.velocity * 0.6 + v * 0.4;
+    this.swipe.lastX = e.clientX;
+    this.swipe.lastT = e.timeStamp;
+
+    // Rubber band when there is no page in that direction.
+    const blocked = (dx < 0 && !this.canGoNext) || (dx > 0 && !this.canGoPrevious);
+    this.swipe.dx = blocked ? dx * this.SWIPE_CONFIG.edgeResistance : dx;
+    this.setPageOffset(this.swipe.dx, false);
+  };
+
+  private onSwipePointerUp = (e: PointerEvent): void => {
+    this.swipe.activeTouches.delete(e.pointerId);
+    if (e.pointerId !== this.swipe.pointerId) return;
+    const mode = this.swipe.mode;
+    this.swipe.pointerId = -1;
+
+    if (mode !== 'page') {
+      // Keep the mode until OSD's drag-end has been suppressed, then release.
+      setTimeout(() => { if (this.swipe.pointerId === -1) this.swipe.mode = 'none'; });
+      return;
+    }
+
+    const width = this.viewerContainer.nativeElement.clientWidth || 1;
+    const { dx, velocity } = this.swipe;
+    const farEnough = Math.abs(dx) > width * this.SWIPE_CONFIG.commitRatio;
+    const fastEnough = Math.abs(velocity) > this.SWIPE_CONFIG.commitVelocity && Math.sign(velocity) === Math.sign(dx);
+    const direction: 'next' | 'previous' = dx < 0 ? 'next' : 'previous';
+    const possible = direction === 'next' ? this.canGoNext : this.canGoPrevious;
+
+    if (e.type !== 'pointercancel' && possible && (farEnough || fastEnough)) {
+      this.turnPage(direction, width);
+    } else {
+      this.snapBack();
+    }
+    setTimeout(() => { if (this.swipe.pointerId === -1) this.swipe.mode = 'none'; });
+  };
+
+  private static readonly PEEK_GAP = 16; // px between the page and its neighbour while swiping
+
+  /** Page index step of one turn (book mode shows two pages at a time). */
+  private get pageStep(): number {
+    return this.iiifViewerService.isBookMode() ? 2 : 1;
+  }
+
+  private neighbourPid(direction: 'next' | 'previous'): string | null {
+    const pages = this.detailViewService.pages;
+    const i = this.detailViewService.currentPageIndex + (direction === 'next' ? this.pageStep : -this.pageStep);
+    return pages[i]?.pid ?? null;
+  }
+
+  /** Paint the neighbour thumbnails into the peek elements as a drag starts. */
+  private preparePeeks(): void {
+    const setup = (el: HTMLElement | undefined, pid: string | null) => {
+      if (!el) return;
+      el.style.backgroundImage = pid ? `url('${this.iiifViewerService.getThumbnailUrl(pid)}')` : 'none';
+      el.dataset['pid'] = pid ?? '';
+    };
+    setup(this.peekPrev?.nativeElement, this.neighbourPid('previous'));
+    setup(this.peekNext?.nativeElement, this.neighbourPid('next'));
+  }
+
+  private hidePeeks(): void {
+    if (this.peekHideTimer) {
+      clearTimeout(this.peekHideTimer);
+      this.peekHideTimer = null;
+    }
+    for (const el of [this.peekPrev?.nativeElement, this.peekNext?.nativeElement]) {
+      if (!el) continue;
+      el.style.transition = 'none';
+      el.style.visibility = 'hidden';
+      el.style.transform = '';
+      el.classList.remove('page-peek--cover');
+    }
+  }
+  private peekHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Slide the page off-screen while its neighbour slides in, then navigate.
+   * The neighbour thumbnail stays on top until the new page has opened (see the
+   * 'open' handler), so the swap never flashes an empty viewer.
+   */
+  private turnPage(direction: 'next' | 'previous', width: number): void {
+    this.swipe.animating = true;
+    const distance = width + IIIFViewer.PEEK_GAP;
+    this.setPageOffset(direction === 'next' ? -distance : distance, true);
+    setTimeout(() => {
+      const peek = (direction === 'next' ? this.peekNext : this.peekPrev)?.nativeElement;
+      peek?.classList.add('page-peek--cover');
+      this.ngZone.run(() => {
+        if (direction === 'next') {
+          this.detailViewService.goToNext();
+        } else {
+          this.detailViewService.goToPrevious();
+        }
+      });
+      // The page under the cover resets instantly; the cover lifts on 'open'.
+      const el = this.viewerContainer?.nativeElement;
+      if (el) {
+        el.style.transition = 'none';
+        el.style.transform = '';
+      }
+      this.swipe.animating = false;
+      this.swipe.dx = 0;
+      // Safety net if the new page never opens (error, access denied, fallback).
+      this.peekHideTimer = setTimeout(() => this.hidePeeks(), 2500);
+    }, this.SWIPE_CONFIG.animMs);
+  }
+
+  private snapBack(): void {
+    this.swipe.animating = true;
+    this.setPageOffset(0, true);
+    setTimeout(() => this.finishSwipeAnimation(), this.SWIPE_CONFIG.animMs);
+  }
+
+  private finishSwipeAnimation(): void {
+    this.swipe.animating = false;
+    this.swipe.dx = 0;
+    const el = this.viewerContainer?.nativeElement;
+    if (el) {
+      el.style.transition = '';
+      el.style.transform = '';
+    }
+    this.hidePeeks();
+  }
+
+  /** Move the page and its neighbours horizontally, like a strip of pages. */
+  private setPageOffset(px: number, animate: boolean): void {
+    const el = this.viewerContainer?.nativeElement;
+    if (!el) return;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const distance = (el.clientWidth || 1) + IIIFViewer.PEEK_GAP;
+    const transition = animate && !reduceMotion
+      ? `transform ${this.SWIPE_CONFIG.animMs}ms cubic-bezier(0.2, 0.8, 0.2, 1)`
+      : 'none';
+    el.style.transition = transition;
+    el.style.transform = px === 0 ? '' : `translate3d(${px}px, 0, 0)`;
+    const place = (peek: HTMLElement | undefined, base: number) => {
+      if (!peek || !peek.dataset['pid']) return;
+      peek.style.transition = transition;
+      peek.style.visibility = 'visible';
+      peek.style.transform = `translate3d(${base + px}px, 0, 0)`;
+    };
+    place(this.peekPrev?.nativeElement, -distance);
+    place(this.peekNext?.nativeElement, distance);
+  }
+
+  private prefetchedPids = new Set<string>();
+
+  /**
+   * Warm the HTTP cache for the neighbouring pages after a page opens: their
+   * thumbnails (shown instantly as the swipe preview and placeholder) and their
+   * IIIF info.json (the round trip that precedes every tile request).
+   */
+  private prefetchNeighbours(): void {
+    const pages = this.detailViewService.pages;
+    const idx = this.detailViewService.currentPageIndex;
+    const step = this.pageStep;
+    const candidates = [idx + step, idx - step, idx + 2 * step]
+      .map(i => pages[i]?.pid)
+      .filter((pid): pid is string => !!pid && !this.prefetchedPids.has(pid));
+    if (candidates.length === 0) return;
+
+    const authHeaders = this.iiifViewerService.getAuthHeaders();
+    let headers = new HttpHeaders();
+    if (authHeaders['Authorization']) {
+      headers = headers.set('Authorization', authHeaders['Authorization']);
+    }
+    for (const pid of candidates) {
+      this.prefetchedPids.add(pid);
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = this.iiifViewerService.getThumbnailUrl(pid);
+      this.http.get(this.iiifViewerService.getIIIFInfoUrl(pid), {
+        headers,
+        context: new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true)
+      }).subscribe({ error: () => { /* prefetch only */ } });
+    }
+  }
+
 
   /**
    * Set minZoomLevel so the maximum zoom-out level fits the image to the container height.
@@ -1202,6 +1387,12 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     // Viewport zoom where the image height exactly fills the container height.
     // OSD normalizes by image width, so: fitHeightZoom = (containerH/containerW) * (imageW/imageH)
     const fitHeightZoom = (containerSize.y / containerSize.x) * (imageSize.x / imageSize.y);
-    (this.viewer as any).minZoomLevel = fitHeightZoom;
+    // Never above the zoom that shows the whole page: on a portrait phone a
+    // page wider than the screen's aspect (spreads, maps, wide covers) would
+    // otherwise be cropped at the sides with no way to zoom out. On desktop
+    // (wide container, portrait page) both values are the same, so this only
+    // changes narrow viewports.
+    const fitWholeZoom = this.viewer.viewport.getHomeZoom();
+    (this.viewer as any).minZoomLevel = Math.min(fitHeightZoom, fitWholeZoom);
   }
 }

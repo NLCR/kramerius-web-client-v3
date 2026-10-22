@@ -873,5 +873,8 @@
   "shared-folder-banner--save-action": "Guardar na minha biblioteca",
   "shared-folder-banner--remove-action": "Remover das partilhadas",
   "shared-folder-menu--aria-label": "Opções da pasta partilhada",
-  "shared-folder-banner--saved-success": "A lista \"{{folderName}}\" foi guardada na sua biblioteca."
+  "shared-folder-banner--saved-success": "A lista \"{{folderName}}\" foi guardada na sua biblioteca.",
+  "resume-reading--prompt": "Continuar na página {{page}}?",
+  "resume-reading--action": "Continuar",
+  "reader-options": "Opções"
 }

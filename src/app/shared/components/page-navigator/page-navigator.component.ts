@@ -20,6 +20,8 @@ export class PageNavigatorComponent {
   @Output() prev = new EventEmitter<void>();
   @Output() next = new EventEmitter<void>();
   @Output() pageChange = new EventEmitter<number>();
+  /** Compact mode: emitted when the "12 of 232" indicator is tapped. */
+  @Output() indicatorClick = new EventEmitter<void>();
 
   goPrev() {
     if (this.currentPage > 1) {

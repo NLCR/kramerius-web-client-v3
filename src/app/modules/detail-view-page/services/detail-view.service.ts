@@ -125,12 +125,6 @@ export class DetailViewService {
       }
     });
 
-    // Initialize sidebar state based on device type if not already set by user interaction
-    if (!this.breakpointService.isMobile()) {
-      this.uiStateService.setMetadataSidebarState(true);
-    } else {
-      this.uiStateService.setMetadataSidebarState(false);
-    }
 
     // Listen to pages changes and update the signal automatically
     this.pages$.pipe(
@@ -571,7 +565,18 @@ export class DetailViewService {
     return this.document?.mainTitle || '';
   }
 
+  // The metadata sidebar defaults to open on the detail view (closed on phones).
+  // Applied when the detail view first loads a document, not in the constructor:
+  // this service is a root singleton that other pages (periodical, collections)
+  // also inject, and opening the shared sidebar state from there made the
+  // sidebar pop up over their content on tablets and landscape phones.
+  private sidebarDefaultApplied = false;
+
   loadDocument() {
+    if (!this.sidebarDefaultApplied) {
+      this.sidebarDefaultApplied = true;
+      this.uiStateService.setMetadataSidebarState(!this.breakpointService.isMobile());
+    }
     this.store.dispatch(loadDocumentDetail({}));
 
     if (this.uiStateService.metadataSidebarActiveTab() !== 'search') {

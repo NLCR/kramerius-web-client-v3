@@ -1,4 +1,7 @@
-import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs/operators';
 import { ViewMode } from './models/view-mode.enum';
 import { RecordInfoService } from '../../shared/services/record-info.service';
 import { PeriodicalService } from '../../shared/services/periodical.service';
@@ -49,6 +52,24 @@ export class PeriodicalPageComponent implements OnInit, OnDestroy {
 
   private subscriptions: Subscription[] = [];
   public showMetadataSidebar = this.uiStateService.metadataSidebarOpen;
+
+  /**
+   * At 900px and below the metadata sidebar floats over the content (see the
+   * stylesheet) instead of sitting beside it. Its open state is shared with the
+   * detail view, which opens it on every non-phone viewport, so it used to pop
+   * up over the calendar/grid on tablets and landscape phones. In overlay mode
+   * it now starts closed, closes when the viewport narrows into overlay mode,
+   * and a tap outside it (on the backdrop) closes it.
+   */
+  readonly sidebarIsOverlay = toSignal(
+    inject(BreakpointObserver).observe('(max-width: 900px)').pipe(map(r => r.matches)),
+    { initialValue: window.matchMedia?.('(max-width: 900px)').matches ?? false }
+  );
+  private readonly closeOverlaySidebar = effect(() => {
+    if (this.sidebarIsOverlay()) {
+      this.uiStateService.setMetadataSidebarState(false);
+    }
+  });
   sidebarPositionMode: 'absolute' | 'relative' = 'relative'; // 'absolute' = over content, 'relative' = beside content
 
   // Favorites popup helper

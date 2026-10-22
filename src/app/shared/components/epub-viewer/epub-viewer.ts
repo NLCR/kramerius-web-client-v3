@@ -278,6 +278,8 @@ export class EpubViewerComponent implements OnInit, OnDestroy {
         this.epubService.setPageParams(1, total);
       });
 
+      this.setupSwipePaging(this.rendition);
+
       // Hook up page tracking
       this.rendition.on('relocated', (location: any) => {
         this.zone.run(() => {
@@ -335,6 +337,38 @@ export class EpubViewerComponent implements OnInit, OnDestroy {
       this.book.destroy();
     }
     this.epubService.clear();
+  }
+
+  /**
+   * Touch page turning. The book is rendered in an iframe, so touches never
+   * reach the page; epub.js re-emits the iframe's touch events on the
+   * rendition, and a horizontal swipe there turns the page (previously a
+   * swipe did nothing and the only way to page on a phone was hidden).
+   */
+  private setupSwipePaging(rendition: any): void {
+    // Horizontal gestures belong to the reader: without this the browser pans
+    // the content and, from the left edge, Chrome on Android treats a swipe to
+    // the right as "back" and leaves the book entirely.
+    rendition.themes.default({
+      'html, body': { 'touch-action': 'pan-y pinch-zoom', 'overscroll-behavior': 'none' }
+    });
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    rendition.on('touchstart', (e: TouchEvent) => {
+      tracking = e.touches.length === 1;
+      if (!tracking) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    });
+    rendition.on('touchend', (e: TouchEvent) => {
+      if (!tracking || e.changedTouches.length !== 1) return;
+      tracking = false;
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      this.zone.run(() => (dx < 0 ? rendition.next() : rendition.prev()));
+    });
   }
 
   // Exposed methods for viewer-controls if needed

@@ -175,9 +175,15 @@
 
         @if (!showMetadataSidebar() && !breakpointService.isMobile()) {
         <button class="floating-sidebar-toggle button icon-button primary rounded" (click)="toggleMetadataSidebar()"
+          [class.floating-sidebar-toggle--above-filters]="!breakpointService.sidebarVisible()"
           [attr.aria-label]="'show-info' | translate">
           <i class="icon-info-full" aria-hidden="true"></i>
         </button>
+        }
+
+        <!-- Overlay mode (<=900px): tapping outside the floating sidebar closes it. -->
+        @if (periodical.metadata && sidebarIsOverlay() && showMetadataSidebar()) {
+          <div class="page-content__sidebar-backdrop" (click)="toggleMetadataSidebar()" aria-hidden="true"></div>
         }
 
         <!-- Right Sidebar -->

@@ -890,5 +890,8 @@
   "map-series--close": "Zamknij",
   "map-series--view-documents": "Dokumenty",
   "map-series--change-series": "Zmień dzieło kartograficzne",
-  "map-series--filter-series": "Szukaj dzieła kartograficznego"
+  "map-series--filter-series": "Szukaj dzieła kartograficznego",
+  "resume-reading--prompt": "Kontynuować na stronie {{page}}?",
+  "resume-reading--action": "Kontynuuj",
+  "reader-options": "Opcje"
 }

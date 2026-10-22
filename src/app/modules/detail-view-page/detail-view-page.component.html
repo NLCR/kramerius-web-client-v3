@@ -1,8 +1,8 @@
 <app-detail-layout [showBottomToolbar]="false" [constrainBottomToolbar]="true"
-                   [showRightSidebar]="!breakpointService.isMobile()"
+                   [showRightSidebar]="!readerCompact()"
                    [rightSidebarCollapsed]="!detailViewService.metadataSidebarVisible"
                    [hideLeftSidebarMobileTitle]="true"
-                   [hideFilterToggle]="breakpointService.isMobile()">
+                   [hideFilterToggle]="readerCompact()">
 
   <ng-container left-sidebar>
     <div class="sidebar--container" *ngIf="detailViewService.document$ | async as document">
@@ -209,6 +209,7 @@
                       (fullscreenChange)="detailFullscreen.setFullscreen($event)">
       <div class="detail-view--page--content--body" #contentBody
            appViewerTapToggle (cleanTap)="onViewerCleanTap()"
+           [class.reader-bar-reserve]="readerCompact() && detailFullscreen.isFullscreen()"
            [class.ai-split-view]="aiPanelService.panelVisible() && aiPanelService.effectivePanelMode() === 'split'"
            [class.ai-only-view]="aiPanelService.panelVisible() && aiPanelService.effectivePanelMode() === 'ai-only'">
         <div class="detail-view--page--content--wrapper"
@@ -270,7 +271,7 @@
           }
         </div>
 
-        @if (!detailViewService.metadataSidebarVisible && !breakpointService.isMobile()) {
+        @if (!detailViewService.metadataSidebarVisible && !readerCompact()) {
           <button class="floating-sidebar-toggle button icon-button primary rounded"
                   (click)="detailViewService.showMetadataSidebar()">
             <i class="icon-info-full"></i>
@@ -322,6 +323,9 @@
         one of the two is visible.
       -->
       <app-license-bar fullscreen-overlay [overlay]="true"></app-license-bar>
+      @if (readerCompact() && detailFullscreen.isFullscreen()) {
+        <ng-container *ngTemplateOutlet="readerBar"></ng-container>
+      }
       </app-fullscreen>
     </ng-container>
   </ng-container>
@@ -344,28 +348,89 @@
 
 </app-detail-layout>
 
-<!-- Mobile navigation bar - immersive: hidden by default, tap viewer to toggle -->
-@if (breakpointService.isMobile()) {
-  @if (showMobilePageNav) {
-    <app-page-navigator
-      class="mobile-page-nav-bar"
-      [class.mobile-page-nav-bar--tabs-visible]="mobileNavVisible()"
-      [compact]="true"
-      [currentPage]="mobileCurrentPage"
-      [totalPages]="mobileTotalPages"
-      (next)="goToNextMobilePage()"
-      (prev)="goToPreviousMobilePage()"
-      (pageChange)="goToMobilePage($event)">
-    </app-page-navigator>
-  }
+<!-- Mobile reader bar: always visible (it never hides, so it can never get lost).
+     One slim row with page navigation and a Menu button; the menu (description,
+     pages, export, AI, results, fullscreen) slides up above the row as an
+     overlay, so the viewer keeps its size and the page does not jump. Rendered
+     here normally, and inside the fullscreen container while fullscreen (the
+     browser does not paint anything outside the fullscreen element). -->
+<ng-template #readerBar>
+  <div class="mobile-reader-bar" [class.mobile-reader-bar--menu-open]="mobileMenuExpanded()">
+    <div class="mobile-reader-bar__menu" id="mobile-reader-menu"
+         [attr.aria-hidden]="!mobileMenuExpanded()" [attr.inert]="mobileMenuExpanded() ? null : ''">
+      <app-mobile-nav-bar
+        [items]="mobileNavItems"
+        [activeId]="mobileActivePanel()"
+        (activeIdChange)="onMobileNavChange($event)">
+      </app-mobile-nav-bar>
+    </div>
 
-  <app-mobile-nav-bar
-    class="mobile-nav-bar--immersive"
-    [class.mobile-nav-bar--hidden]="!mobileNavVisible()"
-    [items]="mobileNavItems"
-    [activeId]="mobileActivePanel()"
-    (activeIdChange)="onMobileNavChange($event)">
-  </app-mobile-nav-bar>
+    <!-- Page picker: opened by tapping "12 of 232". Slider with a live thumbnail
+         of the target page, plus direct number entry. -->
+    @if (pageJumpOpen()) {
+      <div class="mobile-reader-bar__jump" role="dialog" [attr.aria-label]="'current-page-input--arialabel' | translate">
+        @if (pageJumpThumbnail(); as thumb) {
+          <img class="mobile-reader-bar__jump-thumb" [src]="thumb" alt="" loading="eager">
+        }
+        <div class="mobile-reader-bar__jump-controls">
+          <div class="mobile-reader-bar__jump-label">
+            {{ 'page' | translate }}
+            <input type="number" inputmode="numeric" class="mobile-reader-bar__jump-input"
+                   [attr.aria-label]="'current-page-input--arialabel' | translate"
+                   [min]="1" [max]="mobileTotalPages" [value]="pageJumpValue()"
+                   (input)="onPageJumpInput($event)" (keydown.enter)="confirmPageJump()">
+            {{ 'pagination-of' | translate }} {{ mobileTotalPages }}
+          </div>
+          <input type="range" class="mobile-reader-bar__jump-range"
+                 [attr.aria-label]="'current-page-input--arialabel' | translate"
+                 [min]="1" [max]="mobileTotalPages" [value]="pageJumpValue()"
+                 (input)="onPageJumpInput($event)">
+          <div class="mobile-reader-bar__jump-actions">
+            <button type="button" class="button secondary outlined" (click)="pageJumpOpen.set(false)">
+              {{ 'cancel' | translate }}
+            </button>
+            <button type="button" class="button primary" (click)="confirmPageJump()">
+              {{ 'go-to-page' | translate: { p: pageJumpValue() } }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <div class="mobile-reader-bar__row">
+      @if (showMobilePageNav) {
+        <app-page-navigator
+          class="mobile-reader-bar__pages"
+          [compact]="true"
+          [currentPage]="mobileCurrentPage"
+          [totalPages]="mobileTotalPages"
+          (next)="goToNextMobilePage()"
+          (prev)="goToPreviousMobilePage()"
+          (pageChange)="goToMobilePage($event)"
+          (indicatorClick)="openPageJump()">
+        </app-page-navigator>
+      } @else {
+        <span class="mobile-reader-bar__pages"></span>
+      }
+
+      <!-- Icon only; the label stays available to screen readers and as a tooltip. -->
+      <button type="button" class="mobile-reader-bar__menu-toggle"
+              [class.active]="mobileMenuExpanded()"
+              [attr.aria-label]="'reader-options' | translate"
+              [attr.title]="'reader-options' | translate"
+              [attr.aria-expanded]="mobileMenuExpanded()" aria-controls="mobile-reader-menu"
+              (click)="toggleMobileMenu()">
+        <i [class]="mobileMenuExpanded() ? 'icon-close' : 'icon-category-2'" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+
+</ng-template>
+
+@if (readerCompact()) {
+  @if (!detailFullscreen.isFullscreen()) {
+    <ng-container *ngTemplateOutlet="readerBar"></ng-container>
+  }
 
   <!-- Mobile slide-up panels -->
   @if (detailViewService.document$ | async; as document) {
@@ -399,6 +464,20 @@
       }
     </app-slide-up-panel>
   }
+}
+
+<!-- Resume reading offer (see setupReadingPosition). -->
+@if (resumeOffer(); as offer) {
+  <div class="resume-reading" role="status">
+    <i class="icon-book-1" aria-hidden="true"></i>
+    <span class="resume-reading__text">{{ 'resume-reading--prompt' | translate: { page: offer.page } }}</span>
+    <button type="button" class="button primary resume-reading__go" (click)="acceptResume()">
+      {{ 'resume-reading--action' | translate }}
+    </button>
+    <button type="button" class="resume-reading__close" [attr.aria-label]="'close' | translate" (click)="dismissResume()">
+      <i class="icon-close" aria-hidden="true"></i>
+    </button>
+  </div>
 }
 
 @if (favoritesHelper.favoritesPopupState.showPopup()) {

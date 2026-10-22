@@ -873,5 +873,8 @@
   "shared-folder-banner--save-action": "保存到我的图书馆",
   "shared-folder-banner--remove-action": "从共享中移除",
   "shared-folder-menu--aria-label": "共享文件夹选项",
-  "shared-folder-banner--saved-success": "列表“{{folderName}}”已保存到您的图书馆。"
+  "shared-folder-banner--saved-success": "列表“{{folderName}}”已保存到您的图书馆。",
+  "resume-reading--prompt": "从第 {{page}} 页继续阅读？",
+  "resume-reading--action": "继续",
+  "reader-options": "选项"
 }

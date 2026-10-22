@@ -28,7 +28,13 @@ export class AppComponent implements OnInit {
 
   showPlaybackBar = computed(() => !!this.soundService.getCurrentTrack());
 
-  playbackBarHeight = computed(() => this.showPlaybackBar() ? 'var(--playback-bar-height-value)' : '0px');
+  // With viewport-fit=cover the bottom-most bar must keep clear of the iPhone
+  // home indicator: the playback bar when it is shown (its height includes the
+  // inset), otherwise each page's own bottom bar (via --bottom-safe-area).
+  playbackBarHeight = computed(() => this.showPlaybackBar()
+    ? 'calc(var(--playback-bar-height-value) + env(safe-area-inset-bottom, 0px))'
+    : '0px');
+  bottomSafeArea = computed(() => this.showPlaybackBar() ? '0px' : 'env(safe-area-inset-bottom, 0px)');
 
   constructor() {
     effect(() => {

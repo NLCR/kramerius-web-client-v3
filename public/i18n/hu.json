@@ -873,5 +873,8 @@
   "shared-folder-banner--save-action": "Mentés a könyvtáramba",
   "shared-folder-banner--remove-action": "Eltávolítás a megosztottak közül",
   "shared-folder-menu--aria-label": "Megosztott mappa beállításai",
-  "shared-folder-banner--saved-success": "A(z) \"{{folderName}}\" lista mentve a könyvtárába."
+  "shared-folder-banner--saved-success": "A(z) \"{{folderName}}\" lista mentve a könyvtárába.",
+  "resume-reading--prompt": "Folytatja a(z) {{page}}. oldalon?",
+  "resume-reading--action": "Folytatás",
+  "reader-options": "Beállítások"
 }

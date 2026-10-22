@@ -175,9 +175,15 @@
 
         @if (!rightSidebarVisible()) {
         <button class="floating-sidebar-toggle button icon-button primary rounded" (click)="showRightSidebar()"
+          [class.floating-sidebar-toggle--above-filters]="!breakpointService.sidebarVisible()"
           [attr.aria-label]="'show-info' | translate">
           <i class="icon-info-full" aria-hidden="true"></i>
         </button>
+        }
+
+        <!-- Overlay mode (<=900px): tapping outside the floating sidebar closes it. -->
+        @if (sidebarIsOverlay() && rightSidebarVisible()) {
+          <div class="page-content__sidebar-backdrop" (click)="hideRightSidebar()" aria-hidden="true"></div>
         }
 
         <!-- Right Sidebar -->

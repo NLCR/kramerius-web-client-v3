@@ -7,9 +7,18 @@
       <i class="icon-arrow-left-1"></i>
     </button>
 
-    <span class="compact-indicator" aria-live="polite">
-      {{ currentPage }} {{ 'pagination-of' | translate }} {{ totalPages }}
-    </span>
+    @if (indicatorClick.observed) {
+      <!-- Tappable: opens the page picker of the host (e.g. mobile reader). -->
+      <button type="button" class="compact-indicator compact-indicator--button" aria-live="polite"
+              [attr.aria-label]="'current-page-input--arialabel' | translate"
+              (click)="indicatorClick.emit()">
+        {{ currentPage }} {{ 'pagination-of' | translate }} {{ totalPages }}
+      </button>
+    } @else {
+      <span class="compact-indicator" aria-live="polite">
+        {{ currentPage }} {{ 'pagination-of' | translate }} {{ totalPages }}
+      </span>
+    }
 
     <button class="button primary"
             [attr.aria-label]="'go-to-next-page--arialabel' | translate"

@@ -11,6 +11,10 @@
 }
 
 .epub-container {
+  // Horizontal swipes turn pages (see setupSwipePaging), never browser "back".
+  touch-action: pan-y pinch-zoom;
+  overscroll-behavior: none;
+
   flex-grow: 1;
   width: 100%;
   height: 100%;

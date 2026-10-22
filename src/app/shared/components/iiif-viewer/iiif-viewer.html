@@ -1,5 +1,8 @@
 <div class="iiif-viewer-container">
   <div class="iiif-viewer-main">
+    <!-- Neighbouring pages, slid in alongside the page during a touch swipe. -->
+    <div #peekPrev class="page-peek" aria-hidden="true"></div>
+    <div #peekNext class="page-peek" aria-hidden="true"></div>
     <div class="iiif-viewer-fallback" [class.visible]="showFallback()">
       <app-thumbnail-image
         [src]="fallbackImageUrl()"

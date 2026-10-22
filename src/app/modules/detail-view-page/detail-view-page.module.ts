@@ -1,7 +1,7 @@
 import { NgModule } from '@angular/core';
 import { DetailViewPageComponent } from './detail-view-page.component';
 import { RouterModule, Routes } from '@angular/router';
-import {AsyncPipe, DatePipe, JsonPipe, NgIf} from '@angular/common';
+import {AsyncPipe, DatePipe, JsonPipe, NgIf, NgTemplateOutlet} from '@angular/common';
 import { ActionToolbarComponent } from '../../shared/components/action-toolbar/action-toolbar.component';
 import { FilterSidebarComponent } from '../search-results-page/components/filter-sidebar/filter-sidebar.component';
 import { ToolbarControlsComponent } from '../../shared/components/toolbar-controls/toolbar-controls.component';
@@ -69,6 +69,7 @@ const routes: Routes = [
 		MatDatepickerModule,
 		MatNativeDateModule,
 		NgIf,
+		NgTemplateOutlet,
 		AsyncPipe,
 		JsonPipe,
 		ActionToolbarComponent,

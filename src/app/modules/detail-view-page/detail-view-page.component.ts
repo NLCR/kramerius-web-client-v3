@@ -1,4 +1,4 @@
-import { Component, effect, inject, OnInit, OnDestroy, AfterViewInit, signal, HostBinding, computed, ViewChild, ElementRef } from '@angular/core';
+import { Component, effect, inject, OnInit, OnDestroy, AfterViewInit, signal, HostBinding, computed, ViewChild } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { InlineLoaderComponent } from '../../shared/components/inline-loader/inline-loader.component';
 import { EnvironmentService } from '../../shared/services/environment.service';
@@ -41,6 +41,7 @@ import { MusicService } from '../music/services/music.service';
 import { SoundService } from '../../shared/services/sound.service';
 import { ViewerControls } from '../../shared/components/viewer-controls/viewer-controls';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { EpubService } from '../../shared/services/epub.service';
 
 @Component({
   selector: 'app-detail-view-page',
@@ -81,6 +82,9 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   public soundService = inject(SoundService);
   private readonly pdfCurrentPage = toSignal(this.pdfService.currentPage$, { initialValue: 1 });
   private readonly pdfTotalPages = toSignal(this.pdfService.totalPages$, { initialValue: 0 });
+  private epubService = inject(EpubService);
+  private readonly epubCurrentPage = toSignal(this.epubService.currentPage$, { initialValue: 1 });
+  private readonly epubTotalPages = toSignal(this.epubService.totalPages$, { initialValue: 0 });
 
   @HostBinding('style.--license-bar-offset')
   get licenseBarOffset() { return this.uiState.licenseBarVisible() ? 'var(--license-bar-height)' : '0px'; }
@@ -96,20 +100,35 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   ];
   mobileSearchNavItem: MobileNavItem = { id: 'results', label: 'results', icon: 'icon-receipt-search' };
   mobileAiNavItem: MobileNavItem = { id: 'ai', label: 'ai.tab', icon: 'icon-magicpen' };
+  mobileFullscreenNavItem: MobileNavItem = { id: 'fullscreen', label: 'viewer-controls.fullscreen', icon: 'icon-maximize-3' };
   hasSearchResults = signal(false);
   mobileActivePanel = signal<string>('');
   mobileSlideUpOpen = signal(false);
 
-  // Start with the mobile chrome visible so page navigation is discoverable.
-  // A clean viewer tap may still hide the tab bar, while the page strip remains.
-  mobileNavVisible = signal(true);
-  // Reserved height (px) the visible nav bar takes from the viewer. Includes the
-  // page prev/next/count strip (see showMobilePageNav) that sits above the tab bar.
-  private static readonly MOBILE_NAV_BAR_HEIGHT = 60;
-  private static readonly MOBILE_PAGE_NAV_HEIGHT = 48;
-  private static readonly NAV_HEIGHT_ANIM_MS = 250;
-  private navHeightRaf: number | null = null;
-  private navHeightCurrent = 0;
+  /**
+   * Compact reader layout: phones in portrait (isMobile) and in landscape
+   * (short viewport). Landscape used to fall back to the desktop layout, with the
+   * metadata sidebar eating half of the screen and no page navigation at all.
+   */
+  readonly readerCompact = computed(() =>
+    this.breakpointService.isMobile() || this.breakpointService.isShortViewport());
+
+  // Shorter title row in the compact reader: every pixel goes to the page.
+  @HostBinding('style.--toolbar-height')
+  get compactToolbarHeight(): string | null {
+    return this.readerCompact() ? '40px' : null;
+  }
+
+  // Mobile reader bar: the bar itself is always visible (a bar that could be
+  // hidden by a tap was easy to lose for good); only its menu expands/collapses.
+  mobileMenuExpanded = signal(false);
+
+  // Height the always-visible reader bar takes from the viewer (row + home
+  // indicator area). Constant, so opening the menu never resizes the viewer.
+  @HostBinding('style.--mobile-nav-bar-height')
+  get mobileReaderBarReserve(): string {
+    return this.readerCompact() ? 'calc(56px + var(--bottom-safe-area, env(safe-area-inset-bottom, 0px)))' : '0px';
+  }
 
   // Favorites popup helper
   public favoritesHelper: FavoritesPopupHelper;
@@ -125,25 +144,10 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     favoritesService: FavoritesService,
     popupPositioning: PopupPositioningService,
     router: Router,
-    route: ActivatedRoute,
-    private hostRef: ElementRef<HTMLElement>
+    route: ActivatedRoute
   ) {
-    // Animate the reserved nav-bar height so the viewer grows/shrinks smoothly
-    // when the immersive bar shows/hides. Driven in JS because a CSS transition
-    // cannot interpolate a calc() height that changes via a custom property.
-    effect(() => {
-      // The bars only render on mobile (see template); reserving their height on
-      // desktop would leave a dead strip under the viewer.
-      if (!this.breakpointService.isMobile()) {
-        this.animateMobileNavBarHeight(0);
-        return;
-      }
-      const visible = this.mobileNavVisible();
-      const target =
-        (visible ? DetailViewPageComponent.MOBILE_NAV_BAR_HEIGHT : 0) +
-        (this.showMobilePageNav ? DetailViewPageComponent.MOBILE_PAGE_NAV_HEIGHT : 0);
-      this.animateMobileNavBarHeight(target);
-    });
+    this.setupReadingPosition();
+
     this.activeSidebarTab$ = route.queryParamMap.pipe(
       map(params => (params.get('article') ? 'articles' : 'pages')),
       distinctUntilChanged()
@@ -285,10 +289,8 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   ngOnDestroy(): void {
-    if (this.navHeightRaf !== null) {
-      cancelAnimationFrame(this.navHeightRaf);
-    }
     this.subscriptions.forEach(sub => sub.unsubscribe());
+    if (this.resumeTimer) clearTimeout(this.resumeTimer);
     this.favoritesHelper.cleanup();
     this.detailViewService.resetState();
     this.iiifViewerService.setMapMode(false);
@@ -328,35 +330,45 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     if (this.hasSearchResults()) {
       items.push(this.mobileSearchNavItem);
     }
+    items.push(this.mobileFullscreenNavItem);
     return items;
   }
 
   /**
    * Whether the mobile immersive chrome should show the prev/next/page-count strip.
-   * Hidden for EPUBs (own pagination concept) and the sound-recording track list,
-   * and when there is nothing to page through.
+   * Hidden for the sound-recording track list and when there is nothing to page
+   * through. EPUBs use their own (generated) pagination, see isEpubDocument.
    */
   get showMobilePageNav(): boolean {
     const document = this.detailViewService.document;
     if (!document) return false;
-    if (this.detailViewService.isEpub || document.epub) return false;
     if (document.model === DocumentTypeEnum.soundrecording && this.detailViewService.soundRecordingViewMode() === 'records') return false;
     return this.mobileTotalPages > 1;
   }
 
+  private get isEpubDocument(): boolean {
+    return !!(this.detailViewService.isEpub || this.detailViewService.document?.epub);
+  }
+
   get mobileCurrentPage(): number {
+    if (this.isEpubDocument) return this.epubCurrentPage();
     return this.detailViewService.isPdf
       ? this.pdfCurrentPage()
       : this.detailViewService.currentPageIndex + 1;
   }
 
   get mobileTotalPages(): number {
+    if (this.isEpubDocument) return this.epubTotalPages();
     return this.detailViewService.isPdf
       ? this.pdfTotalPages()
       : this.detailViewService.totalPagesOnly;
   }
 
   goToNextMobilePage(): void {
+    if (this.isEpubDocument) {
+      this.epubService.goToNext();
+      return;
+    }
     if (this.detailViewService.isPdf) {
       const step = this.pdfService.pdfProperties.bookMode ? 2 : 1;
       this.pdfService.navigateToPage(Math.min(this.mobileCurrentPage + step, this.mobileTotalPages));
@@ -366,6 +378,10 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   goToPreviousMobilePage(): void {
+    if (this.isEpubDocument) {
+      this.epubService.goToPrevious();
+      return;
+    }
     if (this.detailViewService.isPdf) {
       const step = this.pdfService.pdfProperties.bookMode ? 2 : 1;
       this.pdfService.navigateToPage(Math.max(this.mobileCurrentPage - step, 1));
@@ -375,6 +391,10 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   goToMobilePage(pageIndex: number): void {
+    if (this.isEpubDocument) {
+      this.epubService.goToPage(pageIndex + 1);
+      return;
+    }
     if (this.detailViewService.isPdf) {
       this.pdfService.navigateToPage(pageIndex + 1);
       return;
@@ -418,6 +438,17 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   onMobileNavChange(id: string) {
+    if (id === 'fullscreen') {
+      // Not a panel: toggles the shared fullscreen container (the reader bar is
+      // rendered inside it while fullscreen, so navigation stays available).
+      this.mobileMenuExpanded.set(false);
+      this.detailFullscreen.toggle();
+      return;
+    }
+    // Panels live outside the fullscreen container and would open invisibly.
+    if (this.detailFullscreen.isFullscreen()) {
+      this.detailFullscreen.toggle();
+    }
     if (this.mobileActivePanel() === id && this.mobileSlideUpOpen()) {
       // Tapping the same tab closes the panel
       this.mobileSlideUpOpen.set(false);
@@ -434,8 +465,8 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
         this.mobileActivePanel.set(id);
         this.mobileSlideUpOpen.set(true);
       }
-      // Opening a panel takes over the screen: hide the immersive nav bar.
-      this.mobileNavVisible.set(false);
+      // The panel takes over from the menu; the bar itself stays.
+      this.mobileMenuExpanded.set(false);
     }
   }
 
@@ -444,54 +475,131 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     this.mobileActivePanel.set('');
   }
 
-  /** Toggle the immersive mobile nav bar on a clean tap on the viewer. */
-  onViewerCleanTap(): void {
-    this.mobileNavVisible.update(v => !v);
+  toggleMobileMenu(): void {
+    this.pageJumpOpen.set(false);
+    this.mobileMenuExpanded.update(v => !v);
   }
 
-  /**
-   * Tween the --mobile-nav-bar-height custom property so the viewer's calc()
-   * height animates. Uses rAF because a CSS transition can't interpolate a
-   * calc() driven by a custom property. Honors prefers-reduced-motion.
-   */
-  private animateMobileNavBarHeight(target: number): void {
-    const layout = this.hostRef.nativeElement.querySelector('app-detail-layout') as HTMLElement | null;
-    if (!layout) return;
+  // Page picker ("12 of 232" tapped): slider + number entry, 1-based value.
+  readonly pageJumpOpen = signal(false);
+  readonly pageJumpValue = signal(1);
 
-    const setVar = (px: number) => {
-      this.navHeightCurrent = px;
-      layout.style.setProperty('--mobile-nav-bar-height', `${px}px`);
-    };
+  /** Thumbnail of the page the picker currently points at (image documents only). */
+  readonly pageJumpThumbnail = computed(() => {
+    if (!this.pageJumpOpen() || this.detailViewService.isPdf || this.isEpubDocument) return null;
+    const page = this.detailViewService.pages[this.pageJumpValue() - 1];
+    return page?.pid ? this.iiifViewerService.getThumbnailUrl(page.pid) : null;
+  });
 
-    if (this.navHeightRaf !== null) {
-      cancelAnimationFrame(this.navHeightRaf);
-      this.navHeightRaf = null;
+  openPageJump(): void {
+    this.mobileMenuExpanded.set(false);
+    this.pageJumpValue.set(this.mobileCurrentPage);
+    this.pageJumpOpen.set(true);
+  }
+
+  onPageJumpInput(event: Event): void {
+    const raw = Number((event.target as HTMLInputElement).value);
+    if (!Number.isFinite(raw)) return;
+    this.pageJumpValue.set(Math.min(Math.max(1, Math.round(raw)), Math.max(1, this.mobileTotalPages)));
+  }
+
+  confirmPageJump(): void {
+    const target = this.pageJumpValue();
+    this.pageJumpOpen.set(false);
+    if (target !== this.mobileCurrentPage) {
+      this.goToMobilePage(target - 1);
     }
+  }
 
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const from = this.navHeightCurrent;
-    // Snap instantly when motion is reduced, already there, or rAF is paused
-    // (hidden tab) — otherwise the value could be stranded mid-tween.
-    if (reduceMotion || from === target || document.hidden) {
-      setVar(target);
-      return;
+  /** A tap on the page closes the expanded menu; the bar itself never hides. */
+  onViewerCleanTap(): void {
+    this.mobileMenuExpanded.set(false);
+    this.pageJumpOpen.set(false);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Resume reading: remember the last page per document (this browser only) and,
+  // when the document is opened again at its first page, offer to jump back.
+  // Stored as the page PID, not an index, so it survives reordering.
+  // ---------------------------------------------------------------------------
+  private static readonly READING_KEY = 'k7.reading-positions';
+  private static readonly READING_MAX_ENTRIES = 200;
+  private static readonly RESUME_OFFER_MS = 10000;
+
+  readonly resumeOffer = signal<{ pid: string; page: number } | null>(null);
+  private resumeCheckedFor: string | null = null;
+  private resumeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private readPositions(): Record<string, { pid: string; t: number }> {
+    try {
+      return JSON.parse(localStorage.getItem(DetailViewPageComponent.READING_KEY) || '{}') || {};
+    } catch {
+      return {};
     }
+  }
 
-    const start = performance.now();
-    const duration = DetailViewPageComponent.NAV_HEIGHT_ANIM_MS;
-    const step = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      // ease-out (matches the nav bar's ease feel)
-      const eased = 1 - Math.pow(1 - t, 3);
-      setVar(from + (target - from) * eased);
-      if (t < 1) {
-        this.navHeightRaf = requestAnimationFrame(step);
-      } else {
-        this.navHeightRaf = null;
-        setVar(target);
+  private savePosition(uuid: string, pid: string): void {
+    try {
+      const all = this.readPositions();
+      all[uuid] = { pid, t: Date.now() };
+      const keys = Object.keys(all);
+      if (keys.length > DetailViewPageComponent.READING_MAX_ENTRIES) {
+        keys.sort((a, b) => all[a].t - all[b].t)
+          .slice(0, keys.length - DetailViewPageComponent.READING_MAX_ENTRIES)
+          .forEach(k => delete all[k]);
       }
-    };
-    this.navHeightRaf = requestAnimationFrame(step);
+      localStorage.setItem(DetailViewPageComponent.READING_KEY, JSON.stringify(all));
+    } catch {
+      // Storage unavailable (private mode, quota): resume is a convenience only.
+    }
+  }
+
+  private setupReadingPosition(): void {
+    effect(() => {
+      const uuid = this.detailViewService.document?.uuid;
+      const pages = this.detailViewService._pages();
+      const index = this.detailViewService._currentPageIndex();
+      const pid = pages[index]?.pid;
+      // Page images only: PDF and EPUB keep their own position handling.
+      if (!uuid || !pid || pages.length < 2 || this.detailViewService.isPdf || this.isEpubDocument) return;
+
+      if (this.resumeCheckedFor !== uuid) {
+        this.resumeCheckedFor = uuid;
+        this.resumeOffer.set(null);
+        // Let the URL's own ?page= settle before deciding (deep links win).
+        if (this.resumeTimer) clearTimeout(this.resumeTimer);
+        this.resumeTimer = setTimeout(() => this.maybeOfferResume(uuid), 1200);
+        return;
+      }
+
+      // Don't overwrite the remembered page while the offer is still pending.
+      if (this.resumeOffer() && index === 0) return;
+      if (index > 0 && this.resumeOffer()) this.resumeOffer.set(null);
+      this.savePosition(uuid, pid);
+    });
+  }
+
+  private maybeOfferResume(uuid: string): void {
+    if (this.detailViewService.document?.uuid !== uuid) return;
+    const saved = this.readPositions()[uuid];
+    const pages = this.detailViewService.pages;
+    const savedIndex = saved ? pages.findIndex(p => p.pid === saved.pid) : -1;
+    if (savedIndex > 0 && this.detailViewService.currentPageIndex === 0) {
+      this.resumeOffer.set({ pid: saved.pid, page: savedIndex + 1 });
+      this.resumeTimer = setTimeout(() => this.resumeOffer.set(null), DetailViewPageComponent.RESUME_OFFER_MS);
+    }
+  }
+
+  acceptResume(): void {
+    const offer = this.resumeOffer();
+    this.resumeOffer.set(null);
+    if (!offer) return;
+    const index = this.detailViewService.pages.findIndex(p => p.pid === offer.pid);
+    if (index >= 0) this.detailViewService.goToPage(index);
+  }
+
+  dismissResume(): void {
+    this.resumeOffer.set(null);
   }
 
   protected readonly DocumentTypeEnum = DocumentTypeEnum;

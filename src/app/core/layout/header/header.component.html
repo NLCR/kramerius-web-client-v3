@@ -80,7 +80,7 @@
       </button>
 
       @if (foldersEnabled) {
-        <button class="icon-button saved-lists-btn" [class.hide-on-search-active]="isMobileSearchOpen"
+        <button class="icon-button saved-lists-btn compact-hide" [class.hide-on-search-active]="isMobileSearchOpen"
           [appCdkTooltip]="'user-info--saved-lists' | translate" [tooltipPosition]="'bottom'" (click)="openSavedLists()">
           <i class="icon-heart" aria-hidden="true">
             @if (!isLoggedIn()) {
@@ -91,7 +91,7 @@
       }
 
       @if (!isLoggedIn() || isMobileSearchOpen) {
-        <button class="icon-button" [class.mobile-search-close]="isMobileSearchOpen"
+        <button class="icon-button" [class.compact-hide]="!isMobileSearchOpen" [class.mobile-search-close]="isMobileSearchOpen"
           [attr.aria-label]="(isMobileSearchOpen ? 'header.aria.close-search' : 'settings') | translate"
           [appCdkTooltip]="(isMobileSearchOpen ? 'header.aria.close-search' : 'settings') | translate"
           [tooltipPosition]="'bottom'" (click)="isMobileSearchOpen ? closeMobileSearch() : openSettings()">
@@ -99,7 +99,7 @@
         </button>
       }
 
-      <app-lang-picker [class.hide-on-search-active]="isMobileSearchOpen"></app-lang-picker>
+      <app-lang-picker class="compact-hide" [class.hide-on-search-active]="isMobileSearchOpen"></app-lang-picker>
 
     </div>
 
@@ -122,6 +122,21 @@
       <a [routerLink]="getPageLink(page)" class="cursor-pointer">{{ getPageLabel(page) }}</a>
       }
       <app-user-info></app-user-info>
+
+      <!-- Narrow phones: header actions that do not fit next to the logo live here. -->
+      <div class="mobile-menu__compact-actions compact-only">
+        @if (foldersEnabled) {
+          <button class="mobile-menu__item" (click)="openSavedLists(); closeMobileMenu()">
+            <i class="icon-heart" aria-hidden="true"></i>{{ 'user-info--saved-lists' | translate }}
+          </button>
+        }
+        @if (!isLoggedIn()) {
+          <button class="mobile-menu__item" (click)="openSettings(); closeMobileMenu()">
+            <i class="icon-settings-2" aria-hidden="true"></i>{{ 'settings' | translate }}
+          </button>
+        }
+        <app-lang-picker></app-lang-picker>
+      </div>
     </div>
   </div>
 

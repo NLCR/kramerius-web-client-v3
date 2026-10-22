@@ -873,5 +873,8 @@
   "shared-folder-banner--save-action": "Shrani v mojo knjižnico",
   "shared-folder-banner--remove-action": "Odstrani iz deljenih",
   "shared-folder-menu--aria-label": "Možnosti deljene mape",
-  "shared-folder-banner--saved-success": "Seznam \"{{folderName}}\" je bil shranjen v vašo knjižnico."
+  "shared-folder-banner--saved-success": "Seznam \"{{folderName}}\" je bil shranjen v vašo knjižnico.",
+  "resume-reading--prompt": "Nadaljujem na strani {{page}}?",
+  "resume-reading--action": "Nadaljuj",
+  "reader-options": "Možnosti"
 }

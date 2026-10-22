@@ -1,4 +1,7 @@
-import { Component, inject, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy, signal } from '@angular/core';
+import { Component, inject, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy, signal, effect } from '@angular/core';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs/operators';
 import { InlineLoaderComponent } from '../../shared/components/inline-loader/inline-loader.component';
 import { AdminModeService } from '../../shared/services';
 import { CollectionsService } from '../../shared/services/collections.service';
@@ -43,6 +46,22 @@ export class CollectionsPage implements OnInit, AfterViewInit, OnDestroy {
   isDescriptionExpanded = false;
   isDescriptionTruncated = false;
   rightSidebarVisible = this.uiStateService.metadataSidebarOpen;
+
+  /**
+   * At 900px and below the metadata sidebar floats over the results (see the
+   * stylesheet). Its open state is shared with the detail view, which opens it
+   * on every non-phone viewport, so it used to cover the results on tablets and
+   * landscape phones. In overlay mode it starts closed and a tap outside closes it.
+   */
+  readonly sidebarIsOverlay = toSignal(
+    inject(BreakpointObserver).observe('(max-width: 900px)').pipe(map(r => r.matches)),
+    { initialValue: window.matchMedia?.('(max-width: 900px)').matches ?? false }
+  );
+  private readonly closeOverlaySidebar = effect(() => {
+    if (this.sidebarIsOverlay()) {
+      this.uiStateService.setMetadataSidebarState(false);
+    }
+  });
   sidebarPositionMode: 'absolute' | 'relative' = 'relative'; // 'absolute' = over content, 'relative' = beside content
 
   private destroy$ = new Subject<void>();

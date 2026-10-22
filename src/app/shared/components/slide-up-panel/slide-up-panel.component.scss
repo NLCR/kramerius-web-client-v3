@@ -34,6 +34,7 @@
   border-radius: var(--spacing-x3) var(--spacing-x3) 0 0;
   box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
   z-index: $slide-up-panel;
+  padding-bottom: env(safe-area-inset-bottom, 0px); // iPhone home indicator
   transform: translateY(100%);
   transition: transform 0.3s ease-out;
 

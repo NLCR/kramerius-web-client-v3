@@ -873,5 +873,8 @@
   "shared-folder-banner--save-action": "Spara i mitt bibliotek",
   "shared-folder-banner--remove-action": "Ta bort från delade",
   "shared-folder-menu--aria-label": "Alternativ för delad mapp",
-  "shared-folder-banner--saved-success": "Listan \"{{folderName}}\" sparades i ditt bibliotek."
+  "shared-folder-banner--saved-success": "Listan \"{{folderName}}\" sparades i ditt bibliotek.",
+  "resume-reading--prompt": "Fortsätta på sida {{page}}?",
+  "resume-reading--action": "Fortsätt",
+  "reader-options": "Alternativ"
 }

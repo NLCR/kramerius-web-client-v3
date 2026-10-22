@@ -73,6 +73,20 @@
     justify-content: center;
     gap: var(--spacing-x3);
 
+    .compact-indicator--button {
+      // Looks like the plain indicator, reads as tappable (underline hint).
+      width: auto !important;
+      padding: 0 var(--spacing-x2) !important;
+      background: none;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 4px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     .compact-indicator {
       min-width: 96px;
       color: var(--color-text-base);

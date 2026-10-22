@@ -130,6 +130,13 @@ app-fullscreen {
 }
 
 .detail-view--page--content--body {
+  // Fullscreen in the compact reader: the reader bar is drawn inside the
+  // fullscreen container, so keep the page clear of it.
+  &.reader-bar-reserve {
+    padding-bottom: calc(56px + var(--bottom-safe-area, env(safe-area-inset-bottom, 0px)));
+    box-sizing: border-box;
+  }
+
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -317,58 +324,293 @@ app-document-access-denied {
   margin: var(--spacing-x4);
 }
 
-// Offset by the global mini-player (app-playback-bar), which is fixed to the
-// same viewport bottom and would otherwise cover this bar instead of stacking
-// above it. Resolves to 0px whenever nothing is playing (GitHub issue #172).
-app-mobile-nav-bar {
+// Mobile reader bar: one always-visible row (page navigation + Menu button)
+// fixed to the bottom, above the global mini-player (app-playback-bar, issue
+// #172). The menu (app-mobile-nav-bar) slides up above the row as an overlay.
+// The row height plus the home-indicator inset is reserved from the viewer via
+// --mobile-nav-bar-height (see DetailViewPageComponent.mobileReaderBarReserve).
+.mobile-reader-bar {
   position: fixed;
-  bottom: var(--playback-bar-height, 0px);
   left: 0;
   right: 0;
-  z-index: 100;
-}
-
-// Compact prev/next/page-count strip, docked directly above the tab bar.
-app-page-navigator.mobile-page-nav-bar {
-  position: fixed;
   bottom: var(--playback-bar-height, 0px);
-  left: 0;
-  right: 0;
   z-index: 100;
-  height: 48px;
   display: flex;
-  align-items: center;
-  padding: 0 var(--spacing-x3);
-  background: var(--color-bg-base);
-  border-top: 1px solid var(--color-border-light);
-  box-sizing: border-box;
-  transition: bottom 0.25s ease;
+  flex-direction: column;
+  pointer-events: none; // only the row and the open menu take touches
 
-  &.mobile-page-nav-bar--tabs-visible {
-    bottom: calc(60px + var(--playback-bar-height, 0px));
+  &__row {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-x2);
+    height: 56px;
+    padding: 0 var(--spacing-x3);
+    padding-left: max(var(--spacing-x3), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--spacing-x3), env(safe-area-inset-right, 0px));
+    padding-bottom: var(--bottom-safe-area, env(safe-area-inset-bottom, 0px));
+    box-sizing: content-box;
+    background: var(--color-bg-base);
+    border-top: 1px solid var(--color-border-light);
+    position: relative;
+    z-index: 1;
+  }
+
+  &__pages {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  &__menu-toggle {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 12px;
+    border: 1px solid var(--color-border-light);
+    background: var(--color-bg-base);
+    color: var(--color-text-base);
+    font-family: var(--font-family-body);
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    i {
+      font-size: 20px;
+    }
+
+    &.active {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: #fff;
+    }
+  }
+
+  &__menu {
+    pointer-events: none;
+    transform: translateY(calc(100% + 1px));
+    opacity: 0;
+    transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease;
+    box-shadow: 0 -8px 24px rgba(16, 23, 25, 0.12);
+    border-radius: 16px 16px 0 0;
+    overflow: hidden;
+    background: var(--color-bg-base);
+  }
+
+  &--menu-open &__menu {
+    pointer-events: auto;
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  &__jump {
+    pointer-events: auto;
+    display: flex;
+    gap: var(--spacing-x3);
+    align-items: center;
+    padding: var(--spacing-x3);
+    background: var(--color-bg-base);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 24px rgba(16, 23, 25, 0.12);
+    animation: reader-jump-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  &__jump-thumb {
+    flex: 0 0 auto;
+    width: 72px;
+    height: 100px;
+    object-fit: contain;
+    background: var(--color-bg-light, #f5f5f5);
+    border-radius: 6px;
+    border: 1px solid var(--color-border-light);
+  }
+
+  &__jump-controls {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-x2);
+  }
+
+  &__jump-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-x2);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  &__jump-input {
+    width: 72px;
+    height: 36px;
+    padding: 0 var(--spacing-x2);
+    border: 1px solid var(--color-border-light);
+    border-radius: 8px;
+    font: inherit;
+    text-align: center;
+  }
+
+  // Custom slider: the global input styles otherwise turn it into a boxed field.
+  &__jump-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 32px; // generous touch target for the thumb
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    cursor: pointer;
+
+    &::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-border-light);
+    }
+
+    &::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-border-light);
+    }
+
+    &::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 26px;
+      height: 26px;
+      margin-top: -10px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      background: var(--color-primary);
+      box-shadow: 0 1px 4px rgba(16, 23, 25, 0.3);
+    }
+
+    &::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      background: var(--color-primary);
+      box-shadow: 0 1px 4px rgba(16, 23, 25, 0.3);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
+  &__jump-actions {
+    display: flex;
+    gap: var(--spacing-x2);
+
+    .button {
+      flex: 1;
+      height: 40px;
+      padding: 0 var(--spacing-x2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  // The tab bar is reused as the options panel. As a single nowrap row it ran
+  // out of room ("Celá obrazovka" was cut off, and with export and search
+  // results there are up to six options): lay the options out as a grid that
+  // wraps onto further rows, with labels allowed to break onto two lines.
+  &__menu ::ng-deep .mobile-nav-bar {
+    border-top: none;
+    padding: var(--spacing-x3) var(--spacing-x2);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: var(--spacing-x2) var(--spacing-x1);
+    align-items: start;
+
+    .mobile-nav-bar__tab {
+      min-width: 0;
+      justify-content: flex-start;
+      padding: var(--spacing-x1) var(--spacing-x1);
+    }
+
+    .mobile-nav-bar__label {
+      white-space: normal;
+      text-align: center;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+      hyphens: auto;
+    }
   }
 }
 
-// Immersive nav bar: slide down out of view when hidden, respecting motion prefs.
-app-mobile-nav-bar.mobile-nav-bar--immersive {
-  transition: transform 0.25s ease, opacity 0.25s ease;
-  transform: translateY(0);
-  opacity: 1;
-
-  &.mobile-nav-bar--hidden {
-    transform: translateY(100%);
-    opacity: 0;
-    pointer-events: none;
-  }
+@keyframes reader-jump-in {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: none; opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  app-mobile-nav-bar.mobile-nav-bar--immersive,
-  app-page-navigator.mobile-page-nav-bar {
+  .mobile-reader-bar__menu {
     transition: none;
+  }
+
+  .mobile-reader-bar__jump {
+    animation: none;
   }
 }
 
-// The reserved height (--mobile-nav-bar-height) is driven imperatively from the
-// component so it can be tweened; see animateMobileNavBarHeight(). It defaults
-// to 0 (viewer full height) via the calc() fallback in detail-layout.
+// Resume-reading offer: floats above the reader bar (or the page bottom on desktop).
+.resume-reading {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--mobile-nav-bar-height, 0px) + var(--playback-bar-height, 0px) + var(--spacing-x3));
+  transform: translateX(-50%);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-x2);
+  max-width: calc(100vw - 2 * var(--spacing-x3));
+  padding: var(--spacing-x2) var(--spacing-x2) var(--spacing-x2) var(--spacing-x3);
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border-light);
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(16, 23, 25, 0.16);
+  animation: reader-jump-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  &__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    font-size: var(--font-size-small);
+    line-height: 1.3;
+  }
+
+  width: max-content;
+
+  &__go {
+    flex: 0 0 auto;
+    height: 36px;
+    padding: 0 var(--spacing-x3);
+    border-radius: 18px;
+  }
+
+  &__close {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+  }
+}

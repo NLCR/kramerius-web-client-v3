@@ -5,6 +5,10 @@ $top-toolbar-height: 56px;
 
 .detail-layout {
   height: calc(100vh - var(--header-height) - var(--playback-bar-height, 0px) - var(--mobile-nav-bar-height, 0px));
+  // dvh = the height actually visible on mobile (excludes the browser's address
+  // bar). With plain vh the layout was taller than the screen, so the whole page
+  // scrolled: header slid away and the bottom bar ended up below the fold.
+  height: calc(100dvh - var(--header-height) - var(--playback-bar-height, 0px) - var(--mobile-nav-bar-height, 0px));
   overflow: hidden;
   display: flex;
   flex-direction: column;

@@ -175,6 +175,20 @@
   :host:has(app-mobile-nav-bar) & {
     bottom: calc(50px + 40px - var(--spacing-x3));
   }
+
+  // The filter toggle (shown while the filter sidebar is collapsed, e.g. a
+  // landscape phone) sits in the same bottom-right corner and hid this button.
+  &--above-filters {
+    bottom: calc(var(--spacing-x3) + 40px + var(--spacing-x2) + var(--playback-bar-height, 0px));
+  }
+}
+
+// Click-catcher behind the floating sidebar in overlay mode (<=900px).
+.page-content__sidebar-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 99; // just below the sidebar (100)
+  background: rgba(16, 23, 25, 0.08);
 }
 
 // Pinned to the bottom like the reader's nav bar: this page scrolls, so a
@@ -189,5 +203,5 @@ app-mobile-nav-bar {
 
 // Room for the fixed bar so it never covers the last cards.
 :host:has(app-mobile-nav-bar) .page-container {
-  padding-bottom: 60px;
+  padding-bottom: calc(60px + var(--bottom-safe-area, env(safe-area-inset-bottom, 0px)));
 }
