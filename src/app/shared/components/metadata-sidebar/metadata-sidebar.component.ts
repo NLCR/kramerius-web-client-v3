@@ -17,6 +17,8 @@ import { ConfigService } from '../../../core/config';
 import { AiActionsComponent } from './ai-actions/ai-actions.component';
 import { AiPanelService } from '../../services/ai-panel.service';
 import { DocumentInfoService } from '../../services/document-info.service';
+import { SoundTrackModel } from '../../../modules/models/sound-track.model';
+import { DESKTOP_PANEL_TAB_ORDER, PANEL_TABS } from './panel-tabs';
 
 @Component({
   selector: 'app-metadata-sidebar',
@@ -29,6 +31,8 @@ export class MetadataSidebarComponent {
   @Input() mode: 'floating' | 'docked' = 'floating';
   @Input() tools: { search: boolean; export: boolean; description: boolean; ai?: boolean } = { search: true, export: true, description: false };
   @Input() customDescription = false;
+  // Currently playing track — sound recordings show its details in the description (#205).
+  @Input() track: SoundTrackModel | null = null;
 
   @Output() close = new EventEmitter<void>();
 
@@ -49,21 +53,7 @@ export class MetadataSidebarComponent {
     return this.configService.isAnyExportAllowedForLicenses(licenses);
   });
 
-  exportAsPdf(): void {
-
-    // TODO: Implement PDF export
-    console.log('Export as PDF');
-  }
-
-  exportAsText(): void {
-    // TODO: Implement text export
-    console.log('Export as text');
-  }
-
-  exportAsImages(): void {
-    // TODO: Implement images export
-    console.log('Export as images');
-  }
+  readonly panelTabs = DESKTOP_PANEL_TAB_ORDER.map(id => PANEL_TABS[id]);
 
   onTabChanged(tabLabel: string) {
     this.uiStateService.setMetadataSidebarActiveTab(tabLabel);

@@ -208,6 +208,36 @@ describe('AltoService', () => {
     service = TestBed.inject(AltoService);
   });
 
+  describe('highlightPlainText', () => {
+    const joined = (segments: { text: string }[]) => segments.map(s => s.text).join('');
+    const hits = (segments: { text: string; match: boolean }[]) =>
+      segments.filter(s => s.match).map(s => s.text);
+
+    it('marks a word regardless of case and trailing punctuation', () => {
+      const text = 'Zajat Jan Semelka, 28. zppl.\nsemelka';
+      const segments = service.highlightPlainText(text, 'Semelka');
+
+      expect(hits(segments)).toEqual(['Semelka,', 'semelka']);
+      expect(joined(segments)).toBe(text);
+    });
+
+    it('marks a quoted phrase as one segment, only where its words are adjacent', () => {
+      const text = 'hájek psal že karel\nhájek přišel, karel ne';
+      const segments = service.highlightPlainText(text, '"karel hájek"');
+
+      expect(hits(segments)).toEqual(['karel\nhájek']);
+      expect(joined(segments)).toBe(text);
+    });
+
+    it('returns the text as one unmatched segment without a query', () => {
+      expect(service.highlightPlainText('some text', '')).toEqual([{ text: 'some text', match: false }]);
+    });
+
+    it('returns nothing for empty text', () => {
+      expect(service.highlightPlainText('', 'karel')).toEqual([]);
+    });
+  });
+
   describe('getBoxes with a quoted phrase', () => {
     it('matches only adjacent words in the quoted order', () => {
       // "hájek" appears alone at index 0, the phrase occupies indexes 3 and 4.
@@ -428,6 +458,53 @@ describe('AltoService OCR fallback', () => {
         .flush(new TextEncoder().encode('   \n\n  ').buffer);
 
       expect(blocks!).toEqual([]);
+    });
+  });
+
+  describe('with a selected region', () => {
+    // Image is 2000x1000, ALTO 1000x500: the region box is scaled by half.
+    // [0,180,180,240] in image px → [0,90,90,120] in ALTO, covering only "Hello".
+    const region = { box: [0, 180, 180, 240], imageWidth: 2000, imageHeight: 1000 };
+
+    it('reads only the strings inside the region', () => {
+      let blocks: any[] | undefined;
+      service.fetchBlocksForReading('uuid:p1', region).subscribe(b => blocks = b);
+
+      http.expectOne('/items/uuid:p1/ocr/alto').flush(ALTO);
+
+      expect(blocks!.length).toBe(1);
+      expect(blocks![0].text.trim()).toBe('Hello');
+    });
+
+    it('yields no blocks for a region without ALTO instead of reading the whole page', () => {
+      let blocks: any[] | undefined;
+      service.fetchBlocksForReading('uuid:p1', region).subscribe(b => blocks = b);
+
+      http.expectOne('/items/uuid:p1/ocr/alto')
+        .flush('Not found', { status: 404, statusText: 'Not Found' });
+
+      http.expectNone('/items/uuid:p1/ocr/text');
+      expect(blocks!).toEqual([]);
+    });
+
+    it('fetchRegionText returns only the text inside the region, as plain text', () => {
+      let result: { text: string; html: string } | undefined;
+      service.fetchRegionText('uuid:p1', region).subscribe(r => result = r);
+
+      http.expectOne('/items/uuid:p1/ocr/alto').flush(ALTO);
+
+      expect(result).toEqual({ text: 'Hello', html: '' });
+    });
+
+    it('fetchRegionText is empty without ALTO', () => {
+      let result: { text: string; html: string } | undefined;
+      service.fetchRegionText('uuid:p1', region).subscribe(r => result = r);
+
+      http.expectOne('/items/uuid:p1/ocr/alto')
+        .flush('Not found', { status: 404, statusText: 'Not Found' });
+
+      http.expectNone('/items/uuid:p1/ocr/text');
+      expect(result).toEqual({ text: '', html: '' });
     });
   });
 });

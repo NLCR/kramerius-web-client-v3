@@ -8,7 +8,7 @@ export const DEFAULT_CONFIG: AppConfiguration = {
   },
   api: {
     baseUrl: '',
-    georefUrl: 'https://api.georeference.trinera.cloud/georefs/latest',
+    georefUrl: 'https://georeference-api.trinera-apps.mzk.cz/georefs/latest',
     aiProxyUrl: ''
   },
   ai: {
@@ -43,6 +43,10 @@ export const DEFAULT_CONFIG: AppConfiguration = {
   ui: {
     cookiebar: true
   },
+  locks: {
+    idleTimeoutSec: 600,
+    warningSec: 60
+  },
   export: {
     print: true,
     jpeg: true,
@@ -69,7 +73,8 @@ export const DEFAULT_CONFIG: AppConfiguration = {
     selectionControls: {
       text: true,
       export: true,
-      share: true
+      share: true,
+      ai: true
     }
   },
   licenses: [

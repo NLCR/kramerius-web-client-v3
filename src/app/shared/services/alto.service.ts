@@ -36,6 +36,24 @@ export interface OcrPageContent {
   altoXml: string | null;
 }
 
+/**
+ * A rectangle on the page scan, in image pixel coordinates, together with the
+ * size of the image those coordinates refer to — ALTO uses its own coordinate
+ * space, so the image size is what lets the box be scaled onto it.
+ */
+export interface TextRegion {
+  /** [x1, y1, x2, y2] in image pixels. */
+  box: number[];
+  imageWidth: number;
+  imageHeight: number;
+}
+
+/** A run of plain text, flagged when it is part of a search match. */
+export interface TextSegment {
+  text: string;
+  match: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -279,11 +297,40 @@ export class AltoService {
    * out on a zero-size block, so a block with no coordinates is simply not drawn
    * rather than drawn in the wrong place.
    */
-  fetchBlocksForReading(pid: string): Observable<AltoTextBlock[]> {
+  fetchBlocksForReading(pid: string, region?: TextRegion | null): Observable<AltoTextBlock[]> {
+    if (region) {
+      // A region needs coordinates, which only ALTO has. Falling back to the
+      // whole page's text would read something the user did not select, so a
+      // page without ALTO yields no blocks instead.
+      return this.fetchAltoXml(pid).pipe(
+        map(altoXml => this.getBlocksForReading(altoXml, region)),
+        catchError(() => of([])),
+      );
+    }
+    // NKP: ALTO without any text (common in broken OCR exports) also falls back
+    // to the plain transcript, not only a failed ALTO request.
     return this.fetchOcrContent(pid).pipe(
       map(({ text, altoXml }) => altoXml
         ? this.getBlocksForReading(altoXml)
         : this.textToReadingBlocks(text))
+    );
+  }
+
+  /**
+   * The text inside a selected region of the page.
+   *
+   * Same shape as `fetchPageText`, but with `html` always empty: the styled
+   * HTML is built for whole pages, so a region is handed over as plain text.
+   * Without ALTO there are no coordinates to cut the region by, so the result
+   * is empty rather than the whole page's text.
+   */
+  fetchRegionText(pid: string, region: TextRegion): Observable<{ text: string; html: string }> {
+    return this.fetchAltoXml(pid).pipe(
+      map(altoXml => ({
+        text: this.getTextInBox(altoXml, region.box, region.imageWidth, region.imageHeight),
+        html: '',
+      })),
+      catchError(() => of({ text: '', html: '' })),
     );
   }
 
@@ -304,6 +351,56 @@ export class AltoService {
         text: part,
         hMin: 0, hMax: 0, vMin: 0, vMax: 0, width: 0, height: 0,
       }));
+  }
+
+  /**
+   * Splits plain text into segments, flagging the ones that match the query.
+   *
+   * The plain-text counterpart to `getBoxes`, for pages whose text came from
+   * `/ocr/text` because they have no ALTO: there are no coordinates to draw on
+   * the scan, so the match is marked in the transcript instead. Terms are parsed
+   * and compared exactly as `getBoxes` does — quoted groups are phrases — so a
+   * word counts as a hit in the transcript iff it would on an ALTO page.
+   *
+   * The segments concatenate back to `text` unchanged; the whitespace between
+   * the words of one phrase belongs to the match, so a phrase is a single mark.
+   *
+   * @param text - Plain page text
+   * @param query - Search query string
+   * @returns Segments covering the whole text, in order
+   */
+  highlightPlainText(text: string, query: string): TextSegment[] {
+    if (!text) return [];
+    const terms = query ? this.parseSearchTerms(query) : [];
+    if (terms.length === 0) return [{ text, match: false }];
+
+    const tokens = text.split(/(\s+)/).filter(token => token.length > 0);
+    const wordTokenIndexes: number[] = [];
+    tokens.forEach((token, i) => {
+      if (!/^\s+$/.test(token)) wordTokenIndexes.push(i);
+    });
+    const words = wordTokenIndexes.map(i => this.normalizeWord(tokens[i]));
+    const matched = new Array<boolean>(tokens.length).fill(false);
+
+    for (const term of terms) {
+      for (let w = 0; w <= words.length - term.length; w++) {
+        if (!term.every((word, offset) => words[w + offset] === word)) continue;
+        const first = wordTokenIndexes[w];
+        const last = wordTokenIndexes[w + term.length - 1];
+        for (let i = first; i <= last; i++) matched[i] = true;
+      }
+    }
+
+    const segments: TextSegment[] = [];
+    tokens.forEach((token, i) => {
+      const previous = segments[segments.length - 1];
+      if (previous && previous.match === matched[i]) {
+        previous.text += token;
+      } else {
+        segments.push({ text: token, match: matched[i] });
+      }
+    });
+    return segments;
   }
 
   /**
@@ -886,7 +983,7 @@ export class AltoService {
    * @param altoXml - ALTO XML string
    * @returns Array of text blocks with their coordinates
    */
-  getBlocksForReading(altoXml: string): AltoTextBlock[] {
+  getBlocksForReading(altoXml: string, region?: TextRegion | null): AltoTextBlock[] {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(altoXml, 'text/xml');
 
@@ -931,6 +1028,30 @@ export class AltoService {
       height: ah
     };
 
+    // Region in ALTO coordinates as [left, top, right, bottom]; strings that do
+    // not overlap it are left out, the same overlap rule as `getTextInBox`.
+    let altoBox: number[] | null = null;
+    if (region && aw > 0 && ah > 0) {
+      const scaleX = region.imageWidth / aw;
+      const scaleY = region.imageHeight / ah;
+      altoBox = [
+        region.box[0] / scaleX,
+        region.box[1] / scaleY,
+        region.box[2] / scaleX,
+        region.box[3] / scaleY,
+      ];
+    } else if (region) {
+      return [];
+    }
+    const overlapsRegion = (el: Element): boolean => {
+      if (!altoBox) return true;
+      const h = parseInt(el.getAttribute('HPOS') || '0', 10);
+      const v = parseInt(el.getAttribute('VPOS') || '0', 10);
+      const w = parseInt(el.getAttribute('WIDTH') || '0', 10);
+      const hh = parseInt(el.getAttribute('HEIGHT') || '0', 10);
+      return h < altoBox[2] && h + w > altoBox[0] && v < altoBox[3] && v + hh > altoBox[1];
+    };
+
     const textLines = Array.from(xmlDoc.getElementsByTagName('TextLine'));
     let lines = 0;
     let lastBottom = 0;
@@ -940,6 +1061,11 @@ export class AltoService {
 
       // Skip very narrow lines (likely artifacts)
       if (textLineWidth < 50) {
+        continue;
+      }
+
+      const strings = Array.from(textLine.getElementsByTagName('String')).filter(overlapsRegion);
+      if (strings.length === 0) {
         continue;
       }
 
@@ -957,8 +1083,6 @@ export class AltoService {
 
       lastBottom = bottom;
       lines += 1;
-
-      const strings = Array.from(textLine.getElementsByTagName('String'));
 
       for (const stringEl of strings) {
         const stringHpos = parseInt(stringEl.getAttribute('HPOS') || '0', 10);

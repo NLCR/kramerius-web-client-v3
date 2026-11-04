@@ -346,10 +346,11 @@ export class AdvancedSearchService {
     // Keep the desktop pane explicitly bounded and centered. Material's default
     // max-width (560px) would otherwise clip the dialog and its select overlays.
     const dialogRef = this.dialog.open(AdvancedSearchDialogComponent, {
-      width: isMobileOrTablet ? '100vw' : 'min(980px, 94vw)',
-      height: isMobileOrTablet ? '100vh' : 'min(86vh, 820px)',
-      maxWidth: isMobileOrTablet ? '100vw' : '94vw',
-      maxHeight: isMobileOrTablet ? '100vh' : '86vh',
+      // NKP sizing; viewport units divided by --ui-zoom (upstream) so the desktop UI zoom does not shrink the dialog.
+      width: isMobileOrTablet ? 'calc(100vw / var(--ui-zoom, 1))' : 'min(980px, calc(94vw / var(--ui-zoom, 1)))',
+      height: isMobileOrTablet ? 'calc(100dvh / var(--ui-zoom, 1))' : 'min(calc(86vh / var(--ui-zoom, 1)), 820px)',
+      maxWidth: isMobileOrTablet ? 'calc(100vw / var(--ui-zoom, 1))' : 'calc(94vw / var(--ui-zoom, 1))',
+      maxHeight: isMobileOrTablet ? 'calc(100dvh / var(--ui-zoom, 1))' : 'calc(86vh / var(--ui-zoom, 1))',
       panelClass: isMobileOrTablet ? 'mobile-fullscreen-dialog' : 'advanced-search-dialog-panel',
       autoFocus: false,
       ariaLabelledBy: 'advanced-search-dialog-title',

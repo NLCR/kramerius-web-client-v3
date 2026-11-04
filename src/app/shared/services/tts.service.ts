@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { AltoService, AltoTextBlock } from './alto.service';
+import { AltoService, AltoTextBlock, TextRegion } from './alto.service';
 import { AiApiService, isQuotaExceeded } from './ai-api.service';
 import { DetailViewService } from '../../modules/detail-view-page/services/detail-view.service';
 import { IIIFViewerService } from './iiif-viewer.service';
@@ -46,6 +46,11 @@ export class TtsService {
   private _documentUuid = signal<string | null>(null);
   private _playbackBlocked = signal(false);
   private _error = signal<string | null>(null);
+  /**
+   * Selected area being read, or null for whole pages. A region is read once
+   * and reading stops there instead of moving on to the next page.
+   */
+  private region: TextRegion | null = null;
 
   // Public readonly signals
   readonly isReading = this._isReading.asReadonly();
@@ -93,8 +98,9 @@ export class TtsService {
 
   // --- Public API ---
 
-  startReading(pagePid: string, documentUuid?: string): void {
+  startReading(pagePid: string, documentUuid?: string, region?: TextRegion | null): void {
     this.stop();
+    this.region = region ?? null;
     // Cleared here rather than in stop(), so the reason for an aborted run
     // survives the stop() that aborting itself performs.
     this._error.set(null);
@@ -157,6 +163,7 @@ export class TtsService {
     this._blocks.set([]);
     this._detectedLanguage.set(null);
     this._documentUuid.set(null);
+    this.region = null;
 
     this.iiifViewerService.clearTtsHighlight();
   }
@@ -192,13 +199,20 @@ export class TtsService {
 
   private loadPageAndRead(pagePid: string): void {
     this.activePageRequest?.unsubscribe();
-    this.activePageRequest = this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(
+    // A selected region needs ALTO coordinates; without them it yields no
+    // blocks rather than the whole page. Whole pages fall back to /ocr/text,
+    // whose blocks carry no geometry, so only the on-page highlight is lost.
+    const region = this.region;
+    const sourceBlocks$: Observable<AltoTextBlock[]> = region
+      ? this.altoService.fetchBlocksForReading(pagePid, region)
+      : this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(
+          map(({ text, altoXml }) => altoXml
+            ? this.altoService.getBlocksForReading(altoXml)
+            : this.getBlocksForPlainText(text))
+        );
+    this.activePageRequest = sourceBlocks$.pipe(
       take(1),
-      switchMap(({ text, altoXml }) => {
-        const sourceBlocks = altoXml
-          ? this.altoService.getBlocksForReading(altoXml)
-          : this.getBlocksForPlainText(text);
-
+      switchMap(sourceBlocks => {
         if (sourceBlocks.length === 0) {
           return of({ blocks: [] as AltoTextBlock[], language: this._detectedLanguage() || 'cs' });
         }
@@ -241,6 +255,10 @@ export class TtsService {
         this.activePageRequest = null;
         if (!this._isReading() || this._currentPagePid() !== pagePid) return;
 
+        if (blocks.length === 0 && this.region) {
+          this.abortWithError('ai.no-text-in-selection');
+          return;
+        }
         if (blocks.length === 0) {
           // No text on this page, try next page.
           this.advanceToNextPage();
@@ -421,6 +439,12 @@ export class TtsService {
 
   private advanceToNextPage(): void {
     if (!this._isReading()) return;
+
+    // A selected area is read on its own; the next page is not part of it.
+    if (this.region) {
+      this.stop();
+      return;
+    }
 
     const pages = this.detailViewService.pages;
     const currentPid = this._currentPagePid();

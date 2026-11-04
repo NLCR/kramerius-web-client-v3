@@ -1,4 +1,6 @@
-import { Component, signal, computed, OnInit, OnDestroy } from '@angular/core';
+import { Component, signal, computed, inject, OnInit, OnDestroy } from '@angular/core';
+import { Actions, ofType } from '@ngrx/effects';
+import { APP_ROUTES_ENUM } from '../../app.routes';
 import { InlineLoaderComponent } from '../../shared/components/inline-loader/inline-loader.component';
 import { Store } from '@ngrx/store';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -29,6 +31,7 @@ import { CustomSearchService } from '../../shared/services/custom-search.service
 import { MatDialog } from '@angular/material/dialog';
 import { FolderShareDialogComponent } from '../../shared/dialogs/folder-share-dialog/folder-share-dialog.component';
 import { selectIsAuthenticated } from '../../core/auth/store';
+import { BreakpointService } from '../../shared/services/breakpoint.service';
 
 @Component({
   selector: 'app-saved-lists-page',
@@ -69,6 +72,10 @@ export class SavedListsPageComponent implements OnInit, OnDestroy {
   // search-results page. The folder search effect reads the same params.
   page$ = this.route.queryParams.pipe(map(p => Math.max(1, Number(p['page']) || 1)));
   pageSize$ = this.route.queryParams.pipe(map(p => Number(p['pageSize']) || 60));
+
+  // Submitted free-text query from the URL (not the live input), so the empty
+  // state names the term the results actually belong to.
+  submittedQuery$ = this.route.queryParams.pipe(map(p => String(p['query'] ?? '').trim()));
 
   // Active facet/range filters rendered as removable tags above the results,
   // mirroring the search-results page. Assigned in the constructor so the
@@ -120,6 +127,8 @@ export class SavedListsPageComponent implements OnInit, OnDestroy {
   currentEditingFolder = signal<{ uuid: string, name: string } | null>(null);
   exportRecord = signal<SearchDocument | null>(null);
   showFacetFilters = signal<boolean>(false);
+  // Phones: sheet with the lists, opened from the list name in the toolbar.
+  foldersSheetOpen = signal(false);
   facetFiltersContentVisible = signal(false);
   // Pending "don't show again" choice — persisted only when an action (Save/Remove)
   // is taken, not when the checkbox is toggled.
@@ -131,6 +140,14 @@ export class SavedListsPageComponent implements OnInit, OnDestroy {
   savedBannerVisible = signal(false);
   private savedBannerTimer?: ReturnType<typeof setTimeout>;
   titleEditPopupState: PopupState;
+  newListPopupState: PopupState;
+  private actions$ = inject(Actions);
+  protected breakpointService = inject(BreakpointService);
+  // Name of the list created from the "New list" popup, so only that create
+  // (not one from the favorites popup) navigates to the new folder.
+  private pendingListName: string | null = null;
+  private createListSubscription?: Subscription;
+  private folderChangeSubscription?: Subscription;
 
   private fqParamsSubscription?: Subscription;
   private searchInputSubscription?: Subscription;
@@ -155,6 +172,22 @@ export class SavedListsPageComponent implements OnInit, OnDestroy {
     private customSearchService: CustomSearchService
   ) {
     this.titleEditPopupState = this.popupPositioningService.createPopupState();
+    this.newListPopupState = this.popupPositioningService.createPopupState();
+    // Picking a list in the phone sheet navigates; close the sheet with it.
+    this.folderChangeSubscription = this.activeFolder.pipe(
+      map(folder => folder?.uuid),
+      distinctUntilChanged()
+    ).subscribe(() => this.foldersSheetOpen.set(false));
+    this.createListSubscription = this.actions$.pipe(
+      ofType(FoldersActions.createFolderSuccess)
+    ).subscribe(({ folder }) => {
+      if (this.pendingListName !== null && folder.name === this.pendingListName) {
+        this.pendingListName = null;
+        this.router.navigate([`/${APP_ROUTES_ENUM.SAVED_LISTS}`, folder.uuid]);
+        this.store.dispatch(FoldersActions.selectFolder({ folder }));
+        this.store.dispatch(FoldersActions.loadFolderDetails({ uuid: folder.uuid }));
+      }
+    });
     // Drop the where-to-search filter from the tag row — it's already surfaced by
     // the dedicated toggle, so showing it as a removable tag too would be redundant.
     this.selectedTags$ = this.savedListsFilterService.selectedTags.pipe(
@@ -346,7 +379,8 @@ export class SavedListsPageComponent implements OnInit, OnDestroy {
     this.exportService.writeExportPidToUrl(this.route, null);
   }
 
-  startEditingTitle(folderUuid: string, currentTitle: string, event: Event) {
+  /** Without a trigger event (rename from the "more" menu) the popup is centered. */
+  startEditingTitle(folderUuid: string, currentTitle: string, event?: Event) {
     this.currentEditingFolder.set({ uuid: folderUuid, name: currentTitle });
 
     this.popupPositioningService.showPopup(
@@ -378,8 +412,34 @@ export class SavedListsPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  startCreatingList(event: Event) {
+    this.popupPositioningService.showPopup(
+      this.newListPopupState,
+      {
+        triggerEvent: event,
+        popupWidth: 300,
+        popupHeight: 200,
+        preferredSide: 'center',
+        offsetY: 10
+      },
+      '.new-list-popup-wrapper'
+    );
+  }
+
+  onNewListClose() {
+    this.newListPopupState.closePopup();
+  }
+
+  onNewListSave(name: string) {
+    this.pendingListName = name;
+    this.store.dispatch(FoldersActions.createFolder({ folder: { name } }));
+    this.onNewListClose();
+  }
+
   ngOnDestroy() {
     this.popupPositioningService.cleanup();
+    this.createListSubscription?.unsubscribe();
+    this.folderChangeSubscription?.unsubscribe();
     this.fqParamsSubscription?.unsubscribe();
     this.searchInputSubscription?.unsubscribe();
     this.searchQuerySubscription?.unsubscribe();
@@ -509,6 +569,16 @@ export class SavedListsPageComponent implements OnInit, OnDestroy {
   getToolbarActions(folder: any): ToolbarAction[] {
     const actions: ToolbarAction[] = [];
 
+    // Phones: rename sits in the "more" menu instead of beside the name.
+    if (this.breakpointService.isMobile() && folder && this.isCurrentUserOwner(folder) && !this.isFavoritesFolder(folder)) {
+      actions.push({
+        id: 'rename',
+        icon: 'icon-edit-2',
+        tooltip: 'edit-title-button--arialabel',
+        label: 'Rename'
+      });
+    }
+
     // Delete action - only for folder owners
     if (folder && this.isCurrentUserOwner(folder)) {
       actions.push({
@@ -574,6 +644,11 @@ export class SavedListsPageComponent implements OnInit, OnDestroy {
         break;
       case 'download':
         this.onDownloadFolder();
+        break;
+      case 'rename':
+        this.activeFolder.pipe(first()).subscribe(folder => {
+          if (folder) this.startEditingTitle(folder.uuid, folder.name);
+        });
         break;
       default:
         console.warn('Unknown toolbar action:', event.id);

@@ -1,4 +1,4 @@
-import { Component, effect, inject, OnInit, OnDestroy, AfterViewInit, signal, HostBinding, computed, ViewChild } from '@angular/core';
+import { Component, effect, untracked, inject, OnInit, OnDestroy, AfterViewInit, signal, HostBinding, computed, ViewChild } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { InlineLoaderComponent } from '../../shared/components/inline-loader/inline-loader.component';
 import { EnvironmentService } from '../../shared/services/environment.service';
@@ -31,6 +31,7 @@ import { normalizeIssueTypeCode } from '../../shared/utils/issue-type-code';
 import { TtsService } from '../../shared/services/tts.service';
 import { DocumentSearchService } from '../../shared/services/document-search.service';
 import { UiStateService } from '../../shared/services/ui-state.service';
+import { PANEL_TABS } from '../../shared/components/metadata-sidebar/panel-tabs';
 import { AdminActionsService } from '../../shared/services/admin-actions.service';
 import { GeoreferenceService } from '../../shared/services/georeference.service';
 import { ConfigService } from '../../core/config/config.service';
@@ -43,6 +44,7 @@ import { ViewerControls } from '../../shared/components/viewer-controls/viewer-c
 import { toSignal } from '@angular/core/rxjs-interop';
 import { EpubService } from '../../shared/services/epub.service';
 
+import { PeriodicalNeighborsService } from '../../shared/services/periodical-neighbors.service';
 @Component({
   selector: 'app-detail-view-page',
   templateUrl: './detail-view-page.component.html',
@@ -79,6 +81,7 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   private configService = inject(ConfigService);
   public detailFullscreen = inject(DetailFullscreenService);
   public musicService = inject(MusicService);
+  private periodicalNeighbors = inject(PeriodicalNeighborsService);
   public soundService = inject(SoundService);
   private readonly pdfCurrentPage = toSignal(this.pdfService.currentPage$, { initialValue: 1 });
   private readonly pdfTotalPages = toSignal(this.pdfService.totalPages$, { initialValue: 0 });
@@ -93,17 +96,21 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   private readonly stopTtsOnLeave = true;
 
   // Mobile nav bar
+  // Labels/icons come from the shared panel-tab config so mobile and desktop match.
   mobileNavItemsBase: MobileNavItem[] = [
-    { id: 'description', label: 'description', icon: 'icon-note' },
-    { id: 'pages', label: 'pages--tab', icon: 'icon-simcard-2' },
-    { id: 'export', label: 'export', icon: 'icon-download' },
+    { id: 'description', label: PANEL_TABS.description.label, icon: PANEL_TABS.description.icon },
+    { id: 'pages', label: PANEL_TABS.pages.label, icon: PANEL_TABS.pages.icon },
+    { id: 'export', label: PANEL_TABS.export.label, icon: PANEL_TABS.export.icon },
   ];
-  mobileSearchNavItem: MobileNavItem = { id: 'results', label: 'results', icon: 'icon-receipt-search' };
-  mobileAiNavItem: MobileNavItem = { id: 'ai', label: 'ai.tab', icon: 'icon-magicpen' };
+  mobileSearchNavItem: MobileNavItem = { id: 'results', label: PANEL_TABS.search.label, icon: PANEL_TABS.search.icon };
+  mobileAiNavItem: MobileNavItem = { id: 'ai', label: PANEL_TABS.ai.label, icon: PANEL_TABS.ai.icon };
   mobileFullscreenNavItem: MobileNavItem = { id: 'fullscreen', label: 'viewer-controls.fullscreen', icon: 'icon-maximize-3' };
   hasSearchResults = signal(false);
   mobileActivePanel = signal<string>('');
-  mobileSlideUpOpen = signal(false);
+  mobileSectionOpen = signal(false);
+  /** A section panel or the pages panel is open (the reader bar toggle then closes it). */
+  readonly mobilePanelOpen = computed(() =>
+    this.mobileSectionOpen() || (this.mobileActivePanel() === 'pages' && this.breakpointService.manualToggle()));
 
   /**
    * Compact reader layout: phones in portrait (isMobile) and in landscape
@@ -121,6 +128,7 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
 
   // Mobile reader bar: the bar itself is always visible (a bar that could be
   // hidden by a tap was easy to lose for good); only its menu expands/collapses.
+  // (NKP: replaces upstream's immersive nav bar that hid on a tap / timer.)
   mobileMenuExpanded = signal(false);
 
   // Height the always-visible reader bar takes from the viewer (row + home
@@ -147,6 +155,14 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     route: ActivatedRoute
   ) {
     this.setupReadingPosition();
+
+    // The pages panel (left filter-sidebar) was closed: no section active any more.
+    effect(() => {
+      const leftOpen = this.breakpointService.manualToggle();
+      if (!leftOpen && untracked(() => this.mobileActivePanel() === 'pages')) {
+        this.mobileActivePanel.set('');
+      }
+    });
 
     this.activeSidebarTab$ = route.queryParamMap.pipe(
       map(params => (params.get('article') ? 'articles' : 'pages')),
@@ -250,6 +266,15 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
       ).subscribe(() => {
         this.aiPanelService.close();
       })
+    );
+
+    // Next documents on the reused page (the first one loads via loadDocument()).
+    this.subscriptions.push(
+      this.detailViewService.document$.pipe(
+        filter(doc => !!doc?.uuid),
+        distinctUntilChanged((prev, curr) => prev?.uuid === curr?.uuid),
+        skip(1)
+      ).subscribe(doc => this.detailViewService.syncPeriodicalChildren(doc))
     );
 
     // Load music tracks so the records (track list) view can be shown for sound recordings.
@@ -427,16 +452,23 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     }
   }
 
+  /** Mobile nav item of the open section (panel header icon + caption). */
+  get mobileActiveNavItem(): MobileNavItem | null {
+    return this.mobileNavItems.find(i => i.id === this.mobileActivePanel()) ?? null;
+  }
+
   getMobilePanelTitle(): string {
-    // The description panel's header shows the document title (next to the close button),
-    // so the metadata-section inside hides its own title to avoid duplication.
     if (this.mobileActivePanel() === 'description') {
       return this.detailViewService.document?.mainTitle || '';
     }
-    const item = this.mobileNavItems.find(i => i.id === this.mobileActivePanel());
-    return item ? this.translate.instant(item.label) : '';
+    const item = this.mobileActiveNavItem;
+    return this.translate.instant(item ? item.label : 'metadata-panel--label');
   }
 
+  /**
+   * Reader-bar menu tap. Tapping another item swaps the panel content in place
+   * and tapping the active one closes it.
+   */
   onMobileNavChange(id: string) {
     if (id === 'fullscreen') {
       // Not a panel: toggles the shared fullscreen container (the reader bar is
@@ -449,34 +481,77 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     if (this.detailFullscreen.isFullscreen()) {
       this.detailFullscreen.toggle();
     }
-    if (this.mobileActivePanel() === id && this.mobileSlideUpOpen()) {
-      // Tapping the same tab closes the panel
-      this.mobileSlideUpOpen.set(false);
-      this.mobileActivePanel.set('');
-    } else {
-      // Open the panel if it's a different tab, or if panel is closed
+    // The panel (or closing it) takes over from the menu; the bar itself stays.
+    this.mobileMenuExpanded.set(false);
+    const pagesOpen = this.breakpointService.manualToggle();
+    if (this.mobileActivePanel() === id && (this.mobileSectionOpen() || (id === 'pages' && pagesOpen))) {
       if (id === 'pages') {
-        // Pages uses filter-sidebar slide-up
-        this.mobileSlideUpOpen.set(false);
-        this.mobileActivePanel.set(id);
-        this.breakpointService.manualToggle.set(true);
-      } else {
         this.breakpointService.manualToggle.set(false);
-        this.mobileActivePanel.set(id);
-        this.mobileSlideUpOpen.set(true);
+      } else {
+        this.mobileSectionOpen.set(false);
       }
-      // The panel takes over from the menu; the bar itself stays.
-      this.mobileMenuExpanded.set(false);
+      this.mobileActivePanel.set('');
+      return;
+    }
+    if (id === 'pages') {
+      // Pages uses the filter-sidebar panel. Closing the section panel through
+      // its model emits no (closed), so the switch keeps the state set here.
+      this.mobileSectionOpen.set(false);
+      this.mobileActivePanel.set(id);
+      this.breakpointService.manualToggle.set(true);
+    } else {
+      this.breakpointService.manualToggle.set(false);
+      this.mobileActivePanel.set(id);
+      this.mobileSectionOpen.set(true);
     }
   }
 
-  onMobileSlideUpClosed() {
-    this.mobileSlideUpOpen.set(false);
+  /** Section panel dismissed (its close button or Escape): no section active. */
+  onMobileSectionClosed() {
+    this.mobileSectionOpen.set(false);
     this.mobileActivePanel.set('');
+  }
+
+  /** Closes whichever mobile panel is open (section panel or the pages sidebar). */
+  private closeMobilePanels(): void {
+    this.mobileSectionOpen.set(false);
+    this.breakpointService.manualToggle.set(false);
+    this.mobileActivePanel.set('');
+  }
+
+  /**
+   * Tablet / narrow-window pill (‹ n / N ›) at the bottom of the viewer. Between
+   * phone and TabletMD the pages sidebar - the only other page navigation -
+   * is collapsed, which left touch readers no visible way to turn a page.
+   * Hidden while the pages sidebar or the metadata overlay is open (both carry
+   * their own controls / would cover it) and in AI-only mode.
+   */
+  get showTabletPagePill(): boolean {
+    // Not in the compact reader (incl. landscape phones): its reader bar pages.
+    return !this.readerCompact()
+      && !this.breakpointService.isVisible()
+      && !(this.breakpointService.rightSidebarOverlaysContent() && this.detailViewService.metadataSidebarVisible)
+      && !(this.aiPanelService.panelVisible() && this.aiPanelService.effectivePanelMode() === 'ai-only')
+      && this.detailViewService.totalPages > 1;
+  }
+
+  onTabletPagePill(direction: 'prev' | 'next'): void {
+    if (direction === 'prev') {
+      this.detailViewService.goToPrevious();
+    } else {
+      this.detailViewService.goToNext();
+    }
   }
 
   toggleMobileMenu(): void {
     this.pageJumpOpen.set(false);
+    // While a panel is open the toggle is its close button (the panel covers
+    // the menu, and on landscape phones the toolbar has no panel close button).
+    if (this.mobilePanelOpen()) {
+      this.mobileMenuExpanded.set(false);
+      this.closeMobilePanels();
+      return;
+    }
     this.mobileMenuExpanded.update(v => !v);
   }
 
@@ -493,6 +568,8 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
 
   openPageJump(): void {
     this.mobileMenuExpanded.set(false);
+    // The picker sits above the reader bar row, where an open panel would cover it.
+    if (this.mobilePanelOpen()) this.closeMobilePanels();
     this.pageJumpValue.set(this.mobileCurrentPage);
     this.pageJumpOpen.set(true);
   }
@@ -603,6 +680,44 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   protected readonly DocumentTypeEnum = DocumentTypeEnum;
+
+  // Georeferencer editor link (admins only). URL and host are hardcoded for now.
+  // The link goes through the georeferencer's login endpoint, which shares the
+  // client's Keycloak, so a logged-in user lands in the editor already signed in.
+  private static readonly GEOREFERENCER_LOGIN_URL = 'https://georeference-api.trinera-apps.mzk.cz/auth/login';
+  private static readonly GEOREFERENCER_URL = 'https://georeference-editor.trinera-apps.mzk.cz/images';
+  private static readonly GEOREFERENCER_HOST = 'kramerius.mzk.cz';
+
+  /**
+   * Link to the georeferencer editor, or null when it should not be shown.
+   * A map document links its own uuid; otherwise a map page inside a non-map
+   * document links the page uuid.
+   */
+  get georeferencerUrl(): string | null {
+    if (!this.userService.isAdmin) {
+      return null;
+    }
+    const doc = this.detailViewService.document;
+    let uuid: string | null | undefined = null;
+    if (doc?.model === DocumentTypeEnum.map) {
+      uuid = doc.uuid;
+    } else if (this.detailViewService.getCurrentPage()?.model === DocumentTypeEnum.map) {
+      uuid = this.detailViewService.currentPagePid;
+    }
+    if (!uuid) {
+      return null;
+    }
+    const editorParams = new URLSearchParams({ uuid, host: DetailViewPageComponent.GEOREFERENCER_HOST });
+    const returnTo = `${DetailViewPageComponent.GEOREFERENCER_URL}?${editorParams}`;
+    return `${DetailViewPageComponent.GEOREFERENCER_LOGIN_URL}?${new URLSearchParams({ returnTo })}`;
+  }
+
+  /** "Previous issue: 14. 3. 1902 · Issue 11" — the bare label until the neighbour is known (#200). */
+  issueTooltip(direction: 'previous' | 'next'): string {
+    const label = this.translate.instant(`${direction}-issue--tooltip`);
+    const detail = this.periodicalNeighbors.describe(this.periodicalNeighbors.neighbors()[direction]);
+    return detail ? `${label}: ${detail}` : label;
+  }
 
   getIssueTypeCode(children: any[], uuid: string): string | undefined {
     return normalizeIssueTypeCode(children?.find(c => c?.pid === uuid)?.['issue.type.code']);

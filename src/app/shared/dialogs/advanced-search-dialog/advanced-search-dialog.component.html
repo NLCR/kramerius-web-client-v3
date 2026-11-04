@@ -45,6 +45,7 @@
             [filters]="group.filters"
             [operator]="group.operator"
             [groupIndex]="i"
+            [groupCount]="advancedSearchService.pendingGroups().length"
             (filtersChange)="advancedSearchService.updateGroupFilters(i, $event)"
             (operatorChange)="advancedSearchService.updateGroupOperator(i, $event)"
             (removeGroup)="advancedSearchService.removeGroup(i)">

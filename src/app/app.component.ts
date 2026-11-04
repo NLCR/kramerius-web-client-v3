@@ -8,6 +8,10 @@ import { ErrorDialogService } from './shared/services/error-dialog.service';
 import { UiStateService } from './shared/services/ui-state.service';
 import { LibraryContextService } from './shared/services/library-context.service';
 import { EnvironmentService } from './shared/services/environment.service';
+import { AppUpdateService } from './shared/services/app-update.service';
+import { LockService } from './shared/services/lock.service';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { LockIdleDialogComponent } from './shared/dialogs/lock-idle-dialog/lock-idle-dialog.component';
 
 @Component({
   selector: 'app-root',
@@ -25,6 +29,10 @@ export class AppComponent implements OnInit {
   private accessibilityService = inject(AccessibilityService);
   private errorDialogService = inject(ErrorDialogService);
   private uiState = inject(UiStateService);
+  private appUpdate = inject(AppUpdateService);
+  private lockService = inject(LockService);
+  private dialog = inject(MatDialog);
+  private lockIdleDialog: MatDialogRef<LockIdleDialogComponent> | null = null;
 
   showPlaybackBar = computed(() => !!this.soundService.getCurrentTrack());
 
@@ -32,16 +40,46 @@ export class AppComponent implements OnInit {
   // home indicator: the playback bar when it is shown (its height includes the
   // inset), otherwise each page's own bottom bar (via --bottom-safe-area).
   playbackBarHeight = computed(() => this.showPlaybackBar()
-    ? 'calc(var(--playback-bar-height-value) + env(safe-area-inset-bottom, 0px))'
+    ? 'var(--playback-bar-height-value)'
     : '0px');
   bottomSafeArea = computed(() => this.showPlaybackBar() ? '0px' : 'env(safe-area-inset-bottom, 0px)');
 
   constructor() {
+    // Immersive reading on phones (document detail): hide the global header and
+    // take it out of the tab order / a11y tree while it is off-screen.
+    effect(() => {
+      const immersive = this.uiState.immersive();
+      document.body.classList.toggle('reader-immersive', immersive);
+      document.querySelector('app-header')?.toggleAttribute('inert', immersive);
+    });
+
     effect(() => {
       if (this.uiState.headerVisible()) {
         document.body.classList.remove('header-hidden');
       } else {
         document.body.classList.add('header-hidden');
+      }
+    });
+
+    // Idle reader holding a lock license: warn over the countdown, close the
+    // warning once they are back (any input) or the lock is gone.
+    effect(() => {
+      const counting = this.lockService.idleCountdown() !== null;
+      if (counting && !this.lockIdleDialog) {
+        this.lockIdleDialog = this.dialog.open(LockIdleDialogComponent, {
+          autoFocus: 'dialog',
+          // Fixed, so the dialog does not resize as the countdown loses a digit.
+          width: '520px',
+          maxWidth: 'calc(calc(100vw / var(--ui-zoom, 1)) - 32px)',
+          panelClass: 'simple-dialog-panel'
+        });
+        this.lockIdleDialog.afterClosed().subscribe(() => {
+          this.lockIdleDialog = null;
+          // Dismissed by Esc or the backdrop: the reader is plainly there.
+          this.lockService.markActive();
+        });
+      } else if (!counting && this.lockIdleDialog) {
+        this.lockIdleDialog.close();
       }
     });
   }
@@ -82,6 +120,9 @@ export class AppComponent implements OnInit {
     // promise rejection, so it never reaches the global ErrorHandler) — reload
     // once to pull the new chunk filenames.
     this.registerChunkErrorRecovery();
+
+    // Pick up a newly deployed version silently, on the next navigation.
+    this.appUpdate.start();
 
     // Initialize app through centralized loader service
     this.appLoader.appInit().catch(error => {

@@ -44,8 +44,8 @@ export class ViewerControls implements OnInit {
   public iiifMapMode$ = this.iiifViewerService.mapMode$;
   public pdfBookMode$ = this.pdfService.properties$.pipe(map(p => !!p.bookMode));
 
-  /** Background-removal strength for the georeferenced map layer (0..100). */
-  backgroundRemovalPercent = 0;
+  /** Slider value: 100 = full map (no background removal), 0 = maximum removal. */
+  mapVisibilityPercent = 100;
 
   /**
    * The column floats over the page it serves, and at the left edge it cuts
@@ -425,10 +425,11 @@ export class ViewerControls implements OnInit {
   }
 
   onBackgroundRemovalChange(percent: number): void {
-    this.backgroundRemovalPercent = percent;
+    this.mapVisibilityPercent = percent;
+    const removal = 100 - percent;
     this.mapViewerService?.setBackgroundRemoval({
-      enabled: percent > 0,
-      threshold: percent / 100
+      enabled: removal > 0,
+      threshold: removal / 100
     });
   }
 
@@ -460,7 +461,7 @@ export class ViewerControls implements OnInit {
 
     const pdfBookMode = isPdf ? !!this.pdfService.pdfProperties.bookMode : this.iiifViewerService.isBookMode();
     if (this.showFitToWidth && !pdfBookMode && notImageInMap) {
-      items.push({ id: 'fit-to-width', icon: 'icon-grid-lock', tooltip: 'viewer-controls.fit-to-width' });
+      items.push({ id: 'fit-to-width', icon: 'icon-pharagraphspacing icon-rotate-90', tooltip: 'viewer-controls.fit-to-width' });
     }
 
     if (imageInterior) {

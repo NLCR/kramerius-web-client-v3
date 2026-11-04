@@ -1,7 +1,6 @@
-import { Component, inject, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy, signal, effect } from '@angular/core';
-import { BreakpointObserver } from '@angular/cdk/layout';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { map } from 'rxjs/operators';
+import { METADATA_PANEL_ID } from '../../shared/components/detail-layout/metadata-panel-id';
+import { Component, computed, inject, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy, signal, effect } from '@angular/core';
+import { FixedPanelService } from '../../shared/components/fixed-panel/fixed-panel.service';
 import { InlineLoaderComponent } from '../../shared/components/inline-loader/inline-loader.component';
 import { AdminModeService } from '../../shared/services';
 import { CollectionsService } from '../../shared/services/collections.service';
@@ -38,6 +37,8 @@ export class CollectionsPage implements OnInit, AfterViewInit, OnDestroy {
   private uiStateService = inject(UiStateService);
   private mapSeriesService = inject(MapSeriesService);
   public breakpointService = inject(BreakpointService);
+  readonly metadataPanelId = METADATA_PANEL_ID;
+  private fixedPanel = inject(FixedPanelService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -48,20 +49,19 @@ export class CollectionsPage implements OnInit, AfterViewInit, OnDestroy {
   rightSidebarVisible = this.uiStateService.metadataSidebarOpen;
 
   /**
-   * At 900px and below the metadata sidebar floats over the results (see the
-   * stylesheet). Its open state is shared with the detail view, which opens it
-   * on every non-phone viewport, so it used to cover the results on tablets and
-   * landscape phones. In overlay mode it starts closed and a tap outside closes it.
+   * Below desktop (<=1279px, BreakpointService.rightSidebarOverlaysContent) the
+   * metadata sidebar floats over the results (see the stylesheet). Its open state
+   * is shared with the detail view, so it used to cover the results on tablets
+   * and landscape phones. In overlay mode it starts closed and a tap outside closes it.
    */
-  readonly sidebarIsOverlay = toSignal(
-    inject(BreakpointObserver).observe('(max-width: 900px)').pipe(map(r => r.matches)),
-    { initialValue: window.matchMedia?.('(max-width: 900px)').matches ?? false }
-  );
+  readonly sidebarIsOverlay = this.breakpointService.rightSidebarOverlaysContent;
   private readonly closeOverlaySidebar = effect(() => {
     if (this.sidebarIsOverlay()) {
       this.uiStateService.setMetadataSidebarState(false);
     }
   });
+  /** The bottom view switch slides away with the header while the list scrolls down. */
+  readonly mobileNavHidden = computed(() => this.breakpointService.isMobile() && (!this.uiStateService.headerVisible() || this.fixedPanel.anyOpen()));
   sidebarPositionMode: 'absolute' | 'relative' = 'relative'; // 'absolute' = over content, 'relative' = beside content
 
   private destroy$ = new Subject<void>();
@@ -220,5 +220,16 @@ export class CollectionsPage implements OnInit, AfterViewInit, OnDestroy {
 
   hideRightSidebar() {
     this.uiStateService.setMetadataSidebarState(false);
+  }
+
+  /** Phones: the description opens as a slide-up sheet (no floating panel there). */
+  mobileInfoOpen = signal(false);
+
+  onInfoClicked() {
+    if (this.breakpointService.isMobile()) {
+      this.mobileInfoOpen.set(true);
+      return;
+    }
+    this.rightSidebarVisible() ? this.hideRightSidebar() : this.showRightSidebar();
   }
 }

@@ -14,7 +14,7 @@
 
   // On mobile, widen to use most of the viewport (leaving small side margins).
   @media (max-width: 603px) {
-    width: calc(100vw - var(--spacing-x8));
+    width: calc(calc(100vw / var(--ui-zoom, 1)) - var(--spacing-x8));
     max-width: 420px;
   }
 }
@@ -47,6 +47,18 @@
   &--actions {
     display: flex;
     gap: var(--spacing-x2);
+
+    .btn-cancel {
+      background-color: var(--color-error);
+      border-color: transparent;
+      color: #fff;
+
+      &:hover,
+      &:active {
+        background-color: var(--color-error);
+        opacity: 0.85;
+      }
+    }
   }
 
   &--tip {

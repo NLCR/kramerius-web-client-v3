@@ -1,3 +1,4 @@
+import { normalizeLicenseBar } from './license-bar';
 import { Injectable } from '@angular/core';
 import { LANG_FALLBACK_CHAIN, DEFAULT_LANG_FALLBACK } from '../../shared/translation/translation-fallback-chain';
 import { BehaviorSubject, Observable } from 'rxjs';
@@ -5,6 +6,7 @@ import { map } from 'rxjs/operators';
 import {
   AppConfiguration,
   FeaturesConfig,
+  LocksConfig,
   ViewerConfig,
   ViewerControlsConfig,
   SelectionControlsConfig,
@@ -250,7 +252,8 @@ export class ConfigService {
     }
 
     const fallback = await this.buildRegistryFallbackConfig(selectedCode);
-    this.applyResolvedConfig(fallback, selectedCode, true);
+    // Client behaviour (not library branding) still follows the base config.
+    this.applyResolvedConfig({ ...fallback, locks: baseConfig.locks }, selectedCode, true);
   }
 
   /**
@@ -372,7 +375,13 @@ export class ConfigService {
       ? licenses
       : Object.entries(licenses ?? {}).map(([id, v]) => ({ id, ...(v as any) }));
 
-    return licenseArray.map(lic => lic.base
+    return licenseArray
+      .filter(lic => lic && typeof lic.id === 'string')
+      .map(lic => lic.bar === undefined ? lic : {
+        ...lic,
+        bar: normalizeLicenseBar(lic.bar, lic.base ?? lic.id, lic.label),
+      })
+      .map(lic => lic.base
       // Variants carry partial overrides only. They must not be pre-filled here:
       //  - `isOnline`/`accessType`: `resolveLicenseForSource` merges as
       //    `{ ...base, ...variant }`, so a variant with no real `accessType` would
@@ -418,7 +427,8 @@ export class ConfigService {
       homeSections: loaded.homeSections ?? DEFAULT_HOME_SECTIONS,
       homepageTitle: loaded.homepageTitle,
       homepageSubtitle: loaded.homepageSubtitle,
-      footer: loaded.footer ?? DEFAULT_CONFIG.footer
+      footer: loaded.footer ?? DEFAULT_CONFIG.footer,
+      locks: { ...DEFAULT_CONFIG.locks, ...loaded.locks }
     };
   }
 
@@ -456,6 +466,11 @@ export class ConfigService {
   // Integrations config accessors
   get integrations(): IntegrationsConfig | undefined {
     return this.getConfig().integrations;
+  }
+
+  // Lock license idle-timeout accessors
+  get locks(): LocksConfig {
+    return this.getConfig().locks;
   }
 
   // Feature flags accessors

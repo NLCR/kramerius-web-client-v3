@@ -5,6 +5,7 @@ import { SearchResultsListComponent, SearchResult } from './search-results-list.
 import { DetailPageItemComponent } from '../../../modules/detail-view-page/components/detail-page-item/detail-page-item.component';
 import { DetailViewService } from '../../../modules/detail-view-page/services/detail-view.service';
 import { Page } from '../../models/page.model';
+import { DocumentInfoService } from '../../services/document-info.service';
 
 /** Stands in for the thumbnail-bearing row item, without its service dependencies. */
 @Component({
@@ -82,7 +83,10 @@ describe('SearchResultsListComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [HostComponent, TranslateModule.forRoot()],
-      providers: [{ provide: DetailViewService, useValue: detailViewServiceStub }],
+      providers: [
+        { provide: DetailViewService, useValue: detailViewServiceStub },
+        { provide: DocumentInfoService, useValue: { hasOcrText: () => true } },
+      ],
     })
       .overrideComponent(SearchResultsListComponent, {
         remove: { imports: [DetailPageItemComponent] },

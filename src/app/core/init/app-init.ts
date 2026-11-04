@@ -1,6 +1,7 @@
 import { EnvironmentService } from '../../shared/services/environment.service';
 import { ConfigService } from '../config/config.service';
 import { UserService } from '../../shared/services/user.service';
+import { AnalyticsService } from '../../shared/services/analytics.service';
 import { initLicenseConfig } from '../solr/solr-misc';
 import { SolrQueryBuilder } from '../solr/solr-query-builder';
 
@@ -39,7 +40,12 @@ export function updateFaviconFromLogo(logo: string | undefined, targetDocument?:
  * APP_INITIALIZER factory.
  * Library routing is handled by the :libCode route prefix and libraryPrefixGuard.
  */
-export function initApp(envService: EnvironmentService, configService: ConfigService, userService: UserService) {
+export function initApp(
+  envService: EnvironmentService,
+  configService: ConfigService,
+  userService: UserService,
+  analyticsService: AnalyticsService
+) {
   return async () => {
     await envService.load();
     try {
@@ -52,6 +58,10 @@ export function initApp(envService: EnvironmentService, configService: ConfigSer
       throw err;
     }
     updateFaviconFromLogo(configService.app.logo);
+    // Analytics is config-driven (integrations.analytics); a no-op when the
+    // instance has not configured a measurement ID.
+    analyticsService.init();
+
     initLicenseConfig(configService);
     SolrQueryBuilder.setConfiguredModels(configService.getConfig().search?.doctypes || []);
 

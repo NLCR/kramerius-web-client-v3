@@ -168,3 +168,93 @@ describe('TtsService Piper playback', () => {
     expect(service.isReading()).toBe(false);
   });
 });
+
+describe('TtsService reading a selected area', () => {
+  let service: TtsService;
+  let detailViewStub: { pages: { pid: string }[]; goToPage: jasmine.Spy };
+  let fetchBlocksForReading: jasmine.Spy;
+  let fetchOcrContent: jasmine.Spy;
+  let toastShow: jasmine.Spy;
+  const region = { box: [0, 0, 100, 100], imageWidth: 1000, imageHeight: 1000 };
+
+  function configure(blocks: { text: string }[]): void {
+    spyOn(HTMLMediaElement.prototype, 'play').and.returnValue(Promise.resolve());
+    spyOn(HTMLMediaElement.prototype, 'pause');
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:tts-test');
+    spyOn(URL, 'revokeObjectURL');
+
+    detailViewStub = {
+      pages: [{ pid: 'page-1' }, { pid: 'page-2' }],
+      goToPage: jasmine.createSpy('goToPage'),
+    };
+    fetchBlocksForReading = jasmine.createSpy('fetchBlocksForReading').and.returnValue(of(blocks));
+    fetchOcrContent = jasmine.createSpy('fetchOcrContent').and.returnValue(of({ text: 'page text', altoXml: '<alto/>' }));
+    toastShow = jasmine.createSpy('show');
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        TtsService,
+        { provide: AltoService, useValue: {
+          fetchBlocksForReading,
+          fetchOcrContent,
+          getBlocksForReading: () => blocks,
+        } },
+        { provide: AiApiService, useValue: {
+          textToSpeech: () => of(new Blob(['wav'], { type: 'audio/wav' })),
+          detectLanguage: () => of('cs'),
+          correctOcrTranscript: (t: string) => of(t),
+          translate: (t: string) => of(t),
+        } },
+        { provide: DetailViewService, useValue: detailViewStub },
+        { provide: IIIFViewerService, useValue: {
+          showTtsHighlight: () => {},
+          clearTtsHighlight: () => {},
+        } },
+        { provide: SettingsService, useValue: { settings: null } },
+        { provide: ToastService, useValue: { show: toastShow } },
+        { provide: DocumentInfoService, useValue: { hasAlto: () => true } },
+      ],
+    });
+    service = TestBed.inject(TtsService);
+  }
+
+  afterEach(() => service.stop());
+
+  it('asks for the blocks of the selected area', () => {
+    configure([{ text: 'selected' }]);
+    service.startReading('page-1', undefined, region);
+
+    expect(fetchBlocksForReading).toHaveBeenCalledWith('page-1', region);
+    expect(fetchOcrContent).not.toHaveBeenCalled();
+  });
+
+  it('reads the whole page (with the plain-text fallback) when nothing is selected', () => {
+    configure([{ text: 'page' }]);
+    service.startReading('page-1');
+
+    expect(fetchOcrContent).toHaveBeenCalledWith('page-1', true);
+    expect(fetchBlocksForReading).not.toHaveBeenCalled();
+  });
+
+  it('stops after the area instead of turning to the next page', async () => {
+    configure([{ text: 'selected' }]);
+    service.startReading('page-1', undefined, region);
+    await new Promise(r => setTimeout(r, 0));
+
+    ((service as any).audio as HTMLAudioElement).dispatchEvent(new Event('ended'));
+
+    expect(service.isReading()).toBe(false);
+    expect(detailViewStub.goToPage).not.toHaveBeenCalled();
+  });
+
+  it('reports an empty area instead of moving on to the next page', () => {
+    configure([]);
+    service.startReading('page-1', undefined, region);
+
+    expect(service.isReading()).toBe(false);
+    expect(service.error()).toBe('ai.no-text-in-selection');
+    expect(toastShow).toHaveBeenCalledWith('ai.no-text-in-selection');
+    expect(detailViewStub.goToPage).not.toHaveBeenCalled();
+  });
+});

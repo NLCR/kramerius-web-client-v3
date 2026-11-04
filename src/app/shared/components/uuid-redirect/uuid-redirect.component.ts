@@ -28,9 +28,10 @@ import { LibraryContextService } from '../../services/library-context.service';
       justify-content: center;
       align-items: center;
       /* Same box as the page it redirects to (below the header), so the spinner
-         does not jump when the detail view takes over. */
-      height: calc(100vh - var(--header-height, 56px));
-      height: calc(100dvh - var(--header-height, 56px));
+         does not jump when the detail view takes over. Divided by --ui-zoom
+         because viewport units are not affected by the root zoom. */
+      height: calc(calc(100vh / var(--ui-zoom, 1)) - var(--header-height, 56px));
+      height: calc(calc(100dvh / var(--ui-zoom, 1)) - var(--header-height, 56px));
       width: 100%;
     }
     .loading-message {

@@ -52,6 +52,11 @@ describe('DocumentAccessDenied.licenseLabel', () => {
     expect(component.licenseLabel('onsite')).toBe('Studovna');
   });
 
+  it('uses the config label for a local license that has no i18n entry', () => {
+    const component = makeComponent('Pracoviště AV ČR');
+    expect(component.licenseLabel('knav_pracovisteAV')).toBe('Pracoviště AV ČR');
+  });
+
   it('returns the translation key itself when neither source has a label', () => {
     const component = makeComponent('');
     expect(component.licenseLabel('onsite')).toBe('access-denied.license-onsite');
@@ -111,6 +116,7 @@ describe('DocumentAccessDenied.openLicenseDialog', () => {
     (component as any).translationService = { currentLanguage: () => ({ code: 'cs' }) };
     (component as any).translate = { instant: (key: string) => key };
     (component as any).dialog = { open: (_c: unknown, cfg: any) => { opened.push(cfg.data); } };
+    (component as any).router = { url: '/view/uuid:1' };
     return { component, opened };
   }
 
@@ -215,6 +221,29 @@ describe('DocumentAccessDenied license filtering and instructions', () => {
     expect(component.uniqueLicenseTypes).not.toContain('covid');
   });
 
+  it('lists a license only once when the document carries it repeatedly', () => {
+    // A CDK record can repeat a license (one per source library); listed twice it both
+    // duplicates the label and flips the lead-in to the plural "pod licencemi".
+    const { component } = makeComponent({ documentLicenses: ['dnnto', 'onsite', 'dnnto', 'onsite'] });
+
+    component.detectAllLicenseTypes();
+
+    expect(component.uniqueLicenseTypes).toEqual(['dnnto', 'onsite']);
+  });
+
+  it('keeps a mixed-case license id as configured instead of falling back to "other"', () => {
+    // Local licenses such as `knav_pracovisteAV` keep their case in Kramerius and the
+    // config; lowercasing the id made it unknown and hid its texts behind "other".
+    const { component } = makeComponent({
+      documentLicenses: ['knav_pracovisteAV'],
+      configuredLicenses: ['dnnto', 'knav_pracovisteAV'],
+    });
+
+    component.detectAllLicenseTypes();
+
+    expect(component.uniqueLicenseTypes).toEqual(['knav_pracovisteAV']);
+  });
+
   it('falls back to "other" when every license of the document is undefined in config', () => {
     const { component } = makeComponent({ documentLicenses: ['covid'] });
 
@@ -302,5 +331,90 @@ describe('DocumentAccessDenied license filtering and instructions', () => {
     await (component as any).loadHtmlContent();
 
     expect(component.instructionHtml.match(/Shared/g)?.length).toBe(1);
+  });
+
+  /**
+   * The instruction pages in config are sentence fragments continuing the
+   * "To view it:" lead-in ("log in with a partner library account.", "view the
+   * document at a terminal in ..."). They were being concatenated bare, which ran
+   * two licenses' instructions together into one ungrammatical line and dropped the
+   * lead-in entirely, so a reader saw neither what the sentences were completing nor
+   * that each described a different route to the content (issue #195).
+   */
+
+  it('keeps each license instruction in its own paragraph', async () => {
+    const { component } = makeComponent({
+      documentLicenses: ['dnnto', 'onsite'],
+      instructionPages: { dnnto: 'dnnto.cs.html', onsite: 'onsite.cs.html' },
+      htmlByUrl: {
+        'dnnto.cs.html': '<a href="#">log in</a> with a partner library account.',
+        'onsite.cs.html': 'View the document at a terminal.',
+      },
+    });
+
+    component.detectAllLicenseTypes();
+    await (component as any).loadHtmlContent();
+
+    expect(component.instructionHtml.match(/<p class="instruction-item">/g)?.length).toBe(2);
+    // The fragments must not run together into a single line.
+    expect(component.instructionHtml).not.toContain('account.View');
+  });
+
+  it('adds no paragraph wrapper when there are no instructions', async () => {
+    const { component } = makeComponent({
+      documentLicenses: ['covid'],
+      instructionPages: { covid: 'covid.cs.html' },
+    });
+
+    component.detectAllLicenseTypes();
+    await (component as any).loadHtmlContent();
+
+    // The template keys the lead-in off this being empty, so an empty run must
+    // stay exactly empty rather than becoming an empty paragraph.
+    expect(component.instructionHtml).toBe('');
+  });
+});
+
+/**
+ * Regression coverage for issue #146: after logging in through the access-denied
+ * prompt, the reader landed on the homepage instead of the document. The instruction
+ * pages served by the license server link to the terms page as a plain
+ * `https://ceskadigitalniknihovna.cz/pages/terms`, with no `returnUrl`; only the legacy
+ * `/mzk/terms?redirect_path=${PATH}` form was rewritten, so the terms page fell back to
+ * `/` as the post-login destination.
+ */
+describe('DocumentAccessDenied.resolveLoginLinks', () => {
+  const docUrl = '/view/uuid:1?page=uuid:2';
+  const expectedHref = `/pages/terms?returnUrl=${encodeURIComponent(docUrl)}`;
+
+  function resolve(html: string): string {
+    const component = Object.create(DocumentAccessDenied.prototype) as DocumentAccessDenied;
+    (component as any).router = { url: docUrl };
+    return (component as any).resolveLoginLinks(html);
+  }
+
+  it('adds the returnUrl to an absolute terms link without one', () => {
+    const html = resolve('<p><a href="https://ceskadigitalniknihovna.cz/pages/terms">Přihlaste se</a> účtem.</p>');
+    expect(html).toContain(`href="${expectedHref.replace(/&/g, '&amp;')}"`);
+  });
+
+  it('adds the returnUrl to a relative terms link', () => {
+    expect(resolve('<a href="/pages/terms">log in</a>')).toContain(`href="${expectedHref}"`);
+  });
+
+  it('rewrites the legacy portal link with the ${PATH} placeholder', () => {
+    expect(resolve('<a href="/mzk/terms?redirect_path=${PATH}">se přihlaste</a>')).toContain(`href="${expectedHref}"`);
+    expect(resolve('<a href="https://www.digitalniknihovna.cz/mzk/terms?redirect_path=${PATH}">x</a>'))
+      .toContain(`href="${expectedHref}"`);
+  });
+
+  it('keeps a terms link that already carries its own returnUrl', () => {
+    const html = '<a href="/pages/terms?returnUrl=%2Fsearch">log in</a>';
+    expect(resolve(html)).toBe(html);
+  });
+
+  it('leaves unrelated links untouched', () => {
+    const html = '<a href="https://lib.cas.cz/studovna/">studovna</a> <a href="/pages/about">o projektu</a>';
+    expect(resolve(html)).toBe(html);
   });
 });

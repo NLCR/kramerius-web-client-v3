@@ -32,14 +32,18 @@
     <div class="filter-items">
       <ng-container *ngFor="let filter of filters; let i = index; trackBy: trackByFn">
 
+        <!-- Mobile: Condition header with label + trash (a single condition
+             needs neither: "Delete all" in the footer clears it) -->
         @if (breakpointService.isMobile()) {
           <div class="mobile-condition-section">
+            @if (filters.length > 1) {
             <div class="mobile-condition-header">
               <span class="mobile-condition-label">{{ 'condition-label' | translate }} {{ i + 1 }}</span>
               <button class="mobile-condition-remove button tertiary outlined" (click)="removeFilter(i)" [attr.aria-label]="'remove--button-label' | translate">
                 <i class="icon-trash" aria-hidden="true"></i>
               </button>
             </div>
+            }
 
             <advanced-search-filter-row
               [filter]="filter"

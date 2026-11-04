@@ -58,6 +58,16 @@
     aspect-ratio: var(--card-width) / var(--card-height-with-badge);
   }
 
+  // On the saved-lists page every item is saved, so the "visible at rest" rule
+  // below would pin the heart and trash on every card — keep them hover-only
+  // there, like the other card actions.
+  &.in-folder:not(:hover):not(:focus-within) .record-item-card__image .record-item-card__actions .favorites-button {
+    &.favorited,
+    &.remove-button {
+      opacity: 0;
+    }
+  }
+
   .record-item-card__inner {
     padding: var(--spacing-x2) var(--spacing-x2) var(--spacing-x3) var(--spacing-x2);
     display: flex;
@@ -142,6 +152,7 @@
         justify-content: center;
         opacity: 0;
         transition: opacity 0.2s ease;
+        @include m.touch-target(44px, 44px);
 
         &:hover {
           background-color: var(--color-secondary-hover);
@@ -149,7 +160,11 @@
           border-color: var(--color-border-secondary-hover);
         }
 
-        &.favorited {
+        // A saved item keeps its filled heart and its trash visible at rest, so
+        // "remove from my library" is discoverable without hovering the card
+        // (and reachable at all on touch screens, which have no hover).
+        &.favorited,
+        &.remove-button {
           opacity: 1;
         }
 
@@ -272,6 +287,19 @@
     .date {
       white-space: nowrap;
     }
+
+    .record-item-card__year {
+      font-size: var(--font-size-small);
+      line-height: calc(20px * var(--accessibility-text-scale));
+      flex-shrink: 0;
+    }
+  }
+
+  // The year takes the title's third line (multivolume monograph volumes, #190).
+  &.date-below-title .record-item-card__content .title {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    max-height: calc(40px * var(--accessibility-text-scale));
   }
 
   .record-item-card__badges {
@@ -395,5 +423,27 @@
   &:hover {
     border-color: rgba(99, 197, 214, 0.42);
     box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+  }
+}
+
+// Hover-revealed actions must also show for keyboard focus and on touch
+// screens (no hover), where they were invisible yet tappable.
+.record-item-card:focus-within .record-item-card__image>.record-item-card__actions {
+  opacity: 1;
+
+  .favorites-button,
+  .other-button {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  .record-item-card .record-item-card__image>.record-item-card__actions {
+    opacity: 1;
+
+    .favorites-button,
+    .other-button {
+      opacity: 1;
+    }
   }
 }

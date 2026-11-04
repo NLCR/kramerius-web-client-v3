@@ -1,11 +1,11 @@
 import { Injectable, inject, signal, computed, effect } from '@angular/core';
-import { AltoService } from './alto.service';
+import { AltoService, OcrPageContent, TextRegion } from './alto.service';
 import { AiApiService, AiModel, TranslateProvider, isQuotaExceeded } from './ai-api.service';
 import { LocalStorageService } from './local-storage.service';
 import { DocumentInfoService } from './document-info.service';
 import { TranslateService } from '@ngx-translate/core';
 import { TRANSLATION_LANGUAGES } from '../translation/translation-languages';
-import { Subscription, from, of } from 'rxjs';
+import { Observable, Subscription, from, of } from 'rxjs';
 import { take, concatMap, map, catchError, takeWhile } from 'rxjs/operators';
 import { selectBookSummaryPageIndices } from '../utils/book-summary-sampling';
 
@@ -72,6 +72,11 @@ export class AiPanelService {
   readonly currentPagePid = signal<string | null>(null);
   /** Page pids the current whole-book summary was built from, kept for resummarizeBook(). */
   readonly currentBookPagePids = signal<string[] | null>(null);
+  /**
+   * The selected area the current translation/summary was made from, or null
+   * for the whole page. Kept so changing the language redoes the same area.
+   */
+  readonly currentRegion = signal<TextRegion | null>(null);
 
   // Settings
   readonly selectedModel = signal<AiModel>(this.aiApiService.getDefaultModel());
@@ -90,7 +95,7 @@ export class AiPanelService {
 
   // --- Actions ---
 
-  showTranslation(pagePid: string, targetLang?: string): void {
+  showTranslation(pagePid: string, targetLang?: string, region?: TextRegion | null): void {
     const lang = targetLang || this.targetLanguage();
     const isReload = this.panelVisible() && this.contentType() === 'translation';
     this.cancelPending();
@@ -103,12 +108,13 @@ export class AiPanelService {
     this.isLoading.set(true);
     this.error.set(null);
     this.currentPagePid.set(pagePid);
+    this.currentRegion.set(region ?? null);
 
-    this.activeSubscription = this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
+    this.activeSubscription = this.fetchText(pagePid, region).pipe(take(1)).subscribe({
       next: ({ text, altoXml }) => {
         if (!text) {
           this.isLoading.set(false);
-          this.error.set('ai.text-transcript-unavailable');
+          this.error.set(region ? 'ai.no-text-in-selection' : 'ai.text-transcript-unavailable');
           return;
         }
 
@@ -141,7 +147,7 @@ export class AiPanelService {
     });
   }
 
-  showSummary(pagePid: string): void {
+  showSummary(pagePid: string, region?: TextRegion | null): void {
     const isReload = this.panelVisible() && this.contentType() === 'summary';
     this.cancelPending();
     this.panelVisible.set(true);
@@ -153,12 +159,14 @@ export class AiPanelService {
     this.isLoading.set(true);
     this.error.set(null);
     this.currentPagePid.set(pagePid);
+    this.currentRegion.set(region ?? null);
 
-    this.activeSubscription = this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
+    // Summarisation only ever needed the words, so it follows the same fallback.
+    this.activeSubscription = this.fetchText(pagePid, region).pipe(take(1)).subscribe({
       next: ({ text }) => {
         if (!text) {
           this.isLoading.set(false);
-          this.error.set('ai.text-transcript-unavailable');
+          this.error.set(region ? 'ai.no-text-in-selection' : 'ai.text-transcript-unavailable');
           return;
         }
 
@@ -200,6 +208,7 @@ export class AiPanelService {
     this.isLoading.set(true);
     this.error.set(null);
     this.currentPagePid.set(null);
+    this.currentRegion.set(null);
     this.currentBookPagePids.set(pagePids);
 
     if (pagePids.length === 0) {
@@ -274,6 +283,7 @@ export class AiPanelService {
     this.isLoading.set(true);
     this.error.set(null);
     this.currentPagePid.set(pagePid);
+    this.currentRegion.set(null);
 
     this.activeSubscription = this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
       next: ({ text }) => {
@@ -312,6 +322,7 @@ export class AiPanelService {
     this.isLoading.set(false);
     this.error.set(null);
     if (pagePid) this.currentPagePid.set(pagePid);
+    this.currentRegion.set(null);
   }
 
   showPageText(pagePid: string): void {
@@ -325,6 +336,7 @@ export class AiPanelService {
     this.isLoading.set(true);
     this.error.set(null);
     this.currentPagePid.set(pagePid);
+    this.currentRegion.set(null);
 
     this.activeSubscription = this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto()).pipe(take(1)).subscribe({
       next: ({ text, altoXml }) => {
@@ -351,7 +363,7 @@ export class AiPanelService {
     const pid = this.currentPagePid();
     if (!pid) return;
     this.summaryLanguage.set(language);
-    this.showSummary(pid);
+    this.showSummary(pid, this.currentRegion());
   }
 
   resummarizeBook(language: string): void {
@@ -426,7 +438,7 @@ export class AiPanelService {
     const pid = this.currentPagePid();
     if (!pid) return;
     this.targetLanguage.set(targetLang);
-    this.showTranslation(pid, targetLang);
+    this.showTranslation(pid, targetLang, this.currentRegion());
   }
 
   close(): void {
@@ -441,6 +453,7 @@ export class AiPanelService {
     this.error.set(null);
     this.currentPagePid.set(null);
     this.currentBookPagePids.set(null);
+    this.currentRegion.set(null);
   }
 
   toggleOriginal(): void {
@@ -465,6 +478,19 @@ export class AiPanelService {
       return saved;
     }
     return DEFAULT_FONT_SIZE;
+  }
+
+  /**
+   * Text of the selected region when there is one, otherwise of the whole page
+   * (NKP: ALTO when the document has it, plain OCR text as fallback). A region
+   * carries no ALTO, so it is always handled as plain text.
+   */
+  private fetchText(pagePid: string, region?: TextRegion | null): Observable<OcrPageContent> {
+    return region
+      ? this.altoService.fetchRegionText(pagePid, region).pipe(
+          map(({ text }) => ({ text, altoXml: null }))
+        )
+      : this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto());
   }
 
   private cancelPending(): void {

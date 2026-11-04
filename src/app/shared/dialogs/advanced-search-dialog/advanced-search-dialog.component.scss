@@ -208,7 +208,8 @@
   gap: var(--spacing-x2);
 }
 
-@include respond(sm) {
+// Phones: mobile-sm as upstream (aligned with BreakpointService).
+@include respond(mobile-sm) {
   .dialog-header {
     min-height: 70px;
     padding: var(--spacing-x4);

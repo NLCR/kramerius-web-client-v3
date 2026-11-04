@@ -6,9 +6,10 @@ import { ActionToolbarComponent } from '../../shared/components/action-toolbar/a
 import {
   AdvancedSearchIndicatorComponent
 } from '../search-results-page/components/advanced-search-indicator/advanced-search-indicator.component';
-import { AsyncPipe, NgClass, NgForOf, NgIf } from '@angular/common';
+import { AsyncPipe, NgClass, NgForOf, NgIf, NgTemplateOutlet } from '@angular/common';
 import { FilterSidebarComponent } from '../search-results-page/components/filter-sidebar/filter-sidebar.component';
 import { PaginatorComponent } from '../../shared/components/paginator/paginator.component';
+import { NoResultsComponent } from '../../shared/components/no-results/no-results.component';
 import { PaginatorInfoComponent } from '../../shared/components/paginator-info/paginator-info.component';
 import { RecordItemComponent } from '../../shared/components/record-item/record-item.component';
 import { RecordItemListComponent } from '../../shared/components/record-item-list/record-item-list.component';
@@ -32,6 +33,8 @@ import { InlineLoaderComponent } from '../../shared/components/inline-loader/inl
 import { SkeletonListPipe } from '../../shared/pipes/skeleton-list.pipe';
 import { InfoBannerComponent } from '../../shared/components/info-banner/info-banner.component';
 import { CdkTooltipDirective } from '../../shared/directives/cdk-tooltip/cdk-tooltip.directive';
+import { FixedPanelComponent } from '../../shared/components/fixed-panel/fixed-panel.component';
+import { ScrollHideHeaderDirective } from '../../shared/directives/scroll-hide-header.directive';
 
 const routes: Routes = [
   {
@@ -57,6 +60,7 @@ const routes: Routes = [
     NgForOf,
     NgIf,
     PaginatorComponent,
+    NoResultsComponent,
     PaginatorInfoComponent,
     RecordItemComponent,
     RecordItemListComponent,
@@ -70,6 +74,9 @@ const routes: Routes = [
     SavedListsFacetFiltersComponent,
     SavedListsWhereToSearchToggleComponent,
     NgClass,
+    NgTemplateOutlet,
+    FixedPanelComponent,
+    ScrollHideHeaderDirective,
     ToolbarHeaderComponent,
     InputComponent,
     ToolbarControlsComponent,

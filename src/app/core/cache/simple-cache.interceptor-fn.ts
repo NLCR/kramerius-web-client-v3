@@ -15,6 +15,8 @@ const NO_CACHE_PATTERNS = [
   '/user',             // User-specific data
   '/session',           // Session-related endpoints
   '/ocr/',              // OCR may be protected and is returned as text/binary data
+  '/locks/',            // Exclusive-reader locks - every refresh must reach the server
+  '/info',              // Runtime access of an item (`items/{pid}/info`) - changes with login and held locks
 ] as const;
 
 interface CacheEntry {

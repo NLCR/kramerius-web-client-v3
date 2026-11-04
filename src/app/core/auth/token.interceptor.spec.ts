@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClient, HttpContext, HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Observable, of, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 import { tokenInterceptor } from './token.interceptor';
 import { SKIP_AUTH_INTERCEPTOR } from '../services/http-context-tokens';
@@ -123,7 +124,11 @@ describe('tokenInterceptor origin scoping', () => {
   let refreshCalls: number;
   let logoutCalls: number;
 
-  function setup(): { http: HttpClient; httpMock: HttpTestingController } {
+  function setup(
+    refresh: () => Observable<{ accessToken: string }> = () => {
+      throw new Error('refresh must not be attempted here');
+    },
+  ): { http: HttpClient; httpMock: HttpTestingController } {
     refreshCalls = 0;
     logoutCalls = 0;
 
@@ -139,7 +144,7 @@ describe('tokenInterceptor origin scoping', () => {
             isTokenExpired: () => false,
             refreshToken: () => {
               refreshCalls++;
-              throw new Error('refresh must not be attempted here');
+              return refresh();
             },
             logout: () => { logoutCalls++; },
           },
@@ -222,6 +227,46 @@ describe('tokenInterceptor origin scoping', () => {
     const req = httpMock.expectOne('/search/api/client/v7.0/user');
     expect(req.request.headers.get('Authorization')).toBe('Bearer cdk-token');
     req.flush({});
+
+    httpMock.verify();
+  });
+
+  /**
+   * NKP: the Kramerius `/user/auth/token` endpoint cannot refresh a token, so the
+   * interceptor never retries and never logs out. A 401 from our own API reaches
+   * the caller unchanged, whatever a refresh would have answered. (Upstream
+   * retries after a refresh and logs out when it fails; NKP deliberately does not.)
+   */
+  it('does not refresh, retry or log out when our own API answers 401', () => {
+    const { http, httpMock } = setup(() => of({ accessToken: 'new-token' }));
+
+    const ownUrl = `${API_ORIGIN}/search/api/client/v7.0/items/knav/uuid:1/ocr/alto`;
+    let capturedError: unknown = null;
+    http.get(ownUrl).subscribe({
+      next: () => fail('expected the 401 to surface as an error'),
+      error: (err) => { capturedError = err; },
+    });
+
+    httpMock.expectOne(ownUrl).flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectNone(ownUrl);
+
+    expect(refreshCalls).toBe(0);
+    expect(logoutCalls).toBe(0);
+    expect((capturedError as { status?: number } | null)?.status).toBe(401);
+
+    httpMock.verify();
+  });
+
+  it('does not log out for a 401 from our own API even if a refresh would fail', () => {
+    const { http, httpMock } = setup(() => throwError(() => new Error('refresh failed')));
+
+    const ownUrl = `${API_ORIGIN}/search/api/client/v7.0/user`;
+    http.get(ownUrl).subscribe({ error: () => {} });
+
+    httpMock.expectOne(ownUrl).flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
+
+    expect(refreshCalls).toBe(0);
+    expect(logoutCalls).toBe(0);
 
     httpMock.verify();
   });

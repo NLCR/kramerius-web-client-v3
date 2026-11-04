@@ -36,6 +36,9 @@ import { HttpClient, HttpContext, HttpHeaders } from '@angular/common/http';
 import { TranslatePipe } from '@ngx-translate/core';
 import { SKIP_ERROR_INTERCEPTOR } from '../../../core/services/http-context-tokens';
 
+/** Tile edge OpenSeadragon requests from the IIIF server; see enlargeTiles. */
+const IIIF_TILE_SIZE = 512;
+
 @Component({
   selector: 'app-iiif-viewer',
   imports: [
@@ -74,6 +77,8 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   private subscriptions: Subscription[] = [];
 
   private viewer: OpenSeadragon.Viewer | null = null;
+  /** Detaches the handlers set up by watchThumbnailPlaceholder, if any are attached. */
+  private stopThumbnailWatch: (() => void) | null = null;
   /**
    * Exposed to the template so the watermark overlay can bind to the live
    * viewer: it draws in image coordinates and needs the viewport to project
@@ -168,6 +173,8 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   }
 
   private resizeObserver: ResizeObserver | null = null;
+  /** Debounce for re-fitting the page after the container stops resizing. */
+  private resizeSettle: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.iiifViewerService.uuid = this.metadata?.uuid || null;
@@ -299,6 +306,10 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   }
 
   ngOnDestroy(): void {
+    if (this.resizeSettle) {
+      clearTimeout(this.resizeSettle);
+      this.resizeSettle = null;
+    }
     this.subscriptions.forEach(sub => sub.unsubscribe());
     this.iiifViewerService.clearTtsHighlight();
 
@@ -430,6 +441,8 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
    * Creates the blur→sharp progressive loading effect
    */
   private setThumbnailBackground(pid: string): void {
+    // A watch left over from the previous page must not clear this one's thumbnail.
+    this.stopThumbnailWatch?.();
     const thumbnailUrl = this.iiifViewerService.getThumbnailUrl(pid);
     // The watermark lays itself out on this thumbnail until the tiled image
     // exists, so it has to learn the URL at the same moment the background does.
@@ -445,6 +458,7 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
    * Clear the thumbnail background after IIIF tiles have loaded
    */
   private clearThumbnailBackground(): void {
+    this.stopThumbnailWatch?.();
     // Only the placeholder goes away; the watermark has the real geometry by
     // now and keeps drawing from the viewport.
     this.placeholderUrl.set(null);
@@ -492,13 +506,128 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     }
   }
 
+  /**
+   * Drop the thumbnail placeholder as soon as it stops being useful, instead
+   * of only on fully-loaded.
+   *
+   * The thumbnail is a static CSS background sized to the home view. Waiting
+   * for fully-loaded keeps it far too long: every pan or zoom asks for new
+   * tiles, so the event may not fire for a long time, and meanwhile the
+   * thumbnail no longer lines up with the image and shows through around it.
+   * It goes away on whichever comes first:
+   * - the viewport is not at the home view (a locked zoom was restored), so
+   *   the thumbnail is out of place from the start;
+   * - the first pan or zoom, for the same reason — but only once the canvas
+   *   has drawn some of the page, so the viewer never goes blank;
+   * - OpenSeadragon has drawn a whole pyramid level at least as wide as the
+   *   thumbnail, so the canvas already paints the page as sharp as the
+   *   thumbnail would.
+   *
+   * Every check runs on `update-viewport`, which OpenSeadragon raises right
+   * after it has drawn a frame, and looks at `tile.beingDrawn` (set for the
+   * tiles in that frame). A loaded tile is not yet a drawn one: the WebGL
+   * drawer may still be preparing it, and a tile-loaded based check cleared
+   * the background a few frames before the canvas had anything on it — the
+   * blank flash between thumbnail and page. A pan or zoom without anything
+   * drawn yet did the same; OpenSeadragon raises those itself when the
+   * layout around the viewer settles and resizes it.
+   */
+  private watchThumbnailPlaceholder(): void {
+    this.stopThumbnailWatch?.();
+    const viewer = this.viewer;
+    const thumbnailUrl = this.placeholderUrl();
+    if (!viewer || !thumbnailUrl) return;
+
+    const viewport = viewer.viewport;
+    const homeZoom = viewport.getHomeZoom();
+    if (Math.abs(viewport.getZoom(true) - homeZoom) > homeZoom * 1e-3) {
+      this.clearThumbnailBackground();
+      return;
+    }
+
+    let viewportChanged = false;
+    const onViewportChange = () => { viewportChanged = true; };
+    viewer.addHandler('pan', onViewportChange);
+    viewer.addHandler('zoom', onViewportChange);
+
+    // Loaded tiles per pyramid level, for the current page only.
+    const tiledImage = viewer.world.getItemAt(0);
+    const loadedTiles = new Map<number, Set<OpenSeadragon.Tile>>();
+    let targetLevel: number | null = null;
+
+    const anyDrawn = (): boolean => {
+      for (const tiles of loadedTiles.values()) {
+        for (const tile of tiles) if (tile.beingDrawn) return true;
+      }
+      return false;
+    };
+    const isCovered = (): boolean => {
+      if (!tiledImage || targetLevel === null) return false;
+      for (const [level, tiles] of loadedTiles) {
+        if (level < targetLevel) continue;
+        const grid = tiledImage.source.getNumTiles(level);
+        let drawn = 0;
+        for (const tile of tiles) if (tile.beingDrawn) drawn++;
+        if (drawn >= grid.x * grid.y) return true;
+      }
+      return false;
+    };
+
+    // Same task as the draw, so the browser paints the drawn canvas and the
+    // removed background together.
+    const onFrameDrawn = () => {
+      if ((viewportChanged && anyDrawn()) || isCovered()) this.clearThumbnailBackground();
+    };
+    viewer.addHandler('update-viewport', onFrameDrawn);
+
+    const onTileLoaded = (e: any) => {
+      if (e.tiledImage !== tiledImage) return;
+      const tile: OpenSeadragon.Tile = e.tile;
+      let tiles = loadedTiles.get(tile.level);
+      if (!tiles) loadedTiles.set(tile.level, tiles = new Set());
+      tiles.add(tile);
+    };
+    if (tiledImage) viewer.addHandler('tile-loaded', onTileLoaded);
+
+    // The thumbnail's pixel width decides which level matches it. It is
+    // already in the browser cache as the container's background.
+    const thumbnail = new Image();
+    thumbnail.onload = () => {
+      if (!tiledImage) return;
+      targetLevel = this.levelMatchingWidth(tiledImage.source, thumbnail.naturalWidth);
+    };
+    thumbnail.src = thumbnailUrl;
+
+    this.stopThumbnailWatch = () => {
+      thumbnail.onload = null;
+      viewer.removeHandler('pan', onViewportChange);
+      viewer.removeHandler('zoom', onViewportChange);
+      viewer.removeHandler('update-viewport', onFrameDrawn);
+      viewer.removeHandler('tile-loaded', onTileLoaded);
+      this.stopThumbnailWatch = null;
+    };
+  }
+
+  /** Lowest pyramid level at least `width` pixels wide, or the finest level if none is. */
+  private levelMatchingWidth(source: OpenSeadragon.TileSource, width: number): number {
+    for (let level = source.minLevel; level <= source.maxLevel; level++) {
+      if (source.dimensions.x * source.getLevelScale(level) >= width) return level;
+    }
+    return source.maxLevel;
+  }
+
   private createViewer(tileSource: any): void {
     if (this.viewer) {
       this.osdViewer.set(null);
+      this.stopThumbnailWatch?.();
       this.viewer.destroy();
     }
 
     const authHeaders = this.iiifViewerService.getAuthHeaders();
+
+    // A re-fit scheduled for the previous viewer must not touch the new one.
+
+    if (this.resizeSettle) { clearTimeout(this.resizeSettle); this.resizeSettle = null; }
 
     this.viewer = OpenSeadragon({
       element: this.viewerContainer.nativeElement,
@@ -529,17 +658,16 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       // concurrency spreads it out without dropping any tile. This is the knob
       // to reach for when proxy load is the problem: prefer it over coarsening
       // minPixelRatio below, which pays for fewer requests with image quality.
+      // The request count itself is set by the tile size (see enlargeTiles).
       imageLoaderLimit: 6,
       // Caps the pyramid level OSD targets: highestLevel is clamped by
       // log2(zeroRatio / minPixelRatio), so raising this picks a coarser level.
       // Kept at OpenSeadragon's default. It was raised to 1.0 to cut proxy
       // round-trips, but that drops the finest pyramid level the viewport can
       // actually use, which is what made pages look soft at typical laptop
-      // resolutions (issue #183) — zooming only partly recovers it. The saving
-      // was small: a page at fit-to-screen needs on the order of ten tiles
-      // either way, and one level down removes only a handful. Use
-      // imageLoaderLimit above to bound proxy load instead; it costs no
-      // quality. Note that tiles are fetched via AJAX and are HTTP-cached, so
+      // resolutions (issue #183) — zooming only partly recovers it. To cut
+      // requests, enlarge tiles (enlargeTiles) and bound concurrency with
+      // imageLoaderLimit above; neither costs quality. Note that tiles are fetched via AJAX and are HTTP-cached, so
       // measuring this needs a page not yet visited in the session.
       minPixelRatio: 0.5,
       gestureSettingsMouse: {
@@ -591,6 +719,8 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
       // thumbnail that covered the swap, and warm up the next neighbours.
       this.hidePeeks();
       this.prefetchNeighbours();
+      // After applyLockedZoom, so the watch sees where the viewport actually is.
+      this.watchThumbnailPlaceholder();
     });
 
     this.viewer.addHandler('update-viewport', () => {
@@ -618,16 +748,37 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     // stayed at its old zoom and position, so it ended up off-centre and wider
     // than the screen; bring it back to "whole page, centred". A page the reader
     // had zoomed into keeps its zoom and position.
+    // While the container is still animating (panel slide = 300ms) the zoom
+    // OpenSeadragon reports is transient, so the resting state is not re-sampled
+    // then, and the page is re-fitted once more after the size has settled.
     this.viewer.addHandler('resize', () => {
       const wasAtRest = this.wasAtRestingZoom;
       this.updateMinZoomLevel();
-      if (wasAtRest) {
+      // First resize of a burst decides: later ones see OSD's transient zoom.
+      if (!this.resizeSettle) this.resizeWasAtRest = wasAtRest;
+      if (this.resizeWasAtRest) {
         // Deferred: OSD's own doViewerResize rescales the zoom by the change in
         // container area right after raising this event, which would undo it.
         setTimeout(() => this.viewer?.viewport.goHome(true));
       }
+      if (this.resizeSettle) clearTimeout(this.resizeSettle);
+      this.resizeSettle = setTimeout(() => {
+        this.resizeSettle = null;
+        if (this.resizeWasAtRest && this.viewer) {
+          this.updateMinZoomLevel();
+          this.viewer.viewport.goHome(true);
+          const min = (this.viewer as any).minZoomLevel || 0;
+          if (this.viewer.viewport.getZoom(true) < min) {
+            this.viewer.viewport.zoomTo(min, undefined, true);
+          }
+          this.rememberRestingState();
+        }
+      }, 350);
     });
-    this.viewer.addHandler('animation-finish', () => this.rememberRestingState());
+    this.viewer.addHandler('animation-finish', () => {
+      if (this.resizeSettle) return;
+      this.rememberRestingState();
+    });
     this.viewer.addHandler('open', () => setTimeout(() => this.rememberRestingState()));
 
     // Page-turn swipe: native pointer listeners decide whether a touch drag turns
@@ -908,6 +1059,32 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     if (infoJson.sizes && infoJson.tiles) {
       delete infoJson.sizes;
     }
+
+    this.enlargeTiles(infoJson);
+  }
+
+  /**
+   * Raise the tile size OpenSeadragon requests to IIIF_TILE_SIZE.
+   *
+   * Servers advertise 256px tiles, so a typical page (~1.5×2 kpx) at
+   * fit-to-screen costs ~80 requests across the pyramid, each paying the CDK
+   * proxy's per-request overhead. The same pixels in 512px tiles take ~25.
+   * Only the request grid changes — levels, scale factors and quality do not.
+   *
+   * Skipped for level0 servers: they serve only their precomputed tiles, so a
+   * region off that grid would fail.
+   */
+  private enlargeTiles(infoJson: any): void {
+    if (!Array.isArray(infoJson.tiles)) return;
+
+    const profile = Array.isArray(infoJson.profile) ? infoJson.profile[0] : infoJson.profile;
+    if (typeof profile === 'string' && /level0/.test(profile)) return;
+
+    for (const tile of infoJson.tiles) {
+      if ((tile.width ?? 0) >= IIIF_TILE_SIZE) continue;
+      tile.width = IIIF_TILE_SIZE;
+      tile.height = IIIF_TILE_SIZE;
+    }
   }
 
   /**
@@ -1114,6 +1291,29 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     this.iiifViewerService.setSelectionMode(false);
   }
 
+  /** Reads the selected area aloud, or stops reading when it is already running. */
+  onSelectionRead() {
+    if (this.ttsService.isReading()) {
+      this.ttsService.stop();
+      return;
+    }
+    const region = this.iiifViewerService.getSelectedRegion();
+    if (!region || !this.imagePid) return;
+    this.ttsService.startReading(this.imagePid, this.detailViewService.document?.uuid, region);
+  }
+
+  onSelectionTranslate() {
+    const region = this.iiifViewerService.getSelectedRegion();
+    if (!region || !this.imagePid) return;
+    this.aiPanelService.showTranslation(this.imagePid, undefined, region);
+  }
+
+  onSelectionSummarize() {
+    const region = this.iiifViewerService.getSelectedRegion();
+    if (!region || !this.imagePid) return;
+    this.aiPanelService.showSummary(this.imagePid, region);
+  }
+
   /**
    * Check if viewer is at base zoom level (not zoomed in)
    */
@@ -1134,6 +1334,8 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
    * already switched to the new container size (home zoom has moved).
    */
   private wasAtRestingZoom = true;
+  /** wasAtRestingZoom as it was when the current resize burst started. */
+  private resizeWasAtRest = true;
 
   private rememberRestingState(): void {
     this.wasAtRestingZoom = this.isAtBaseZoom();
@@ -1396,7 +1598,7 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
 
 
   /**
-   * Set minZoomLevel so the maximum zoom-out level fits the image to the container height.
+   * Set minZoomLevel so the maximum zoom-out level fits the whole image in the container.
    * Called after each 'open' event when image dimensions are known.
    */
   private updateMinZoomLevel(): void {
@@ -1415,7 +1617,8 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
     // page wider than the screen's aspect (spreads, maps, wide covers) would
     // otherwise be cropped at the sides with no way to zoom out. On desktop
     // (wide container, portrait page) both values are the same, so this only
-    // changes narrow viewports.
+    // changes narrow viewports. (Upstream capped at zoom 1 = width fits; the
+    // home zoom covers that and also pages wider than the container's aspect.)
     const fitWholeZoom = this.viewer.viewport.getHomeZoom();
     (this.viewer as any).minZoomLevel = Math.min(fitHeightZoom, fitWholeZoom);
   }

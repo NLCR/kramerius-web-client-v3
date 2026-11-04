@@ -19,8 +19,9 @@ import { TranslateService } from '@ngx-translate/core';
 import { escapeHtml } from '../../../../../shared/utils/escape-html';
 import { linkifyText } from '../../../../../shared/utils/linkify';
 import { normalizeForComparison } from '../../../../../shared/utils/normalize-text';
-import { APP_ROUTES_ENUM } from '../../../../../app.routes';
+import { resolveLoginLinks } from '../../../../../shared/utils/resolve-login-links';
 import { CdkSourceService } from '../../../../../shared/services/cdk-source.service';
+import { DocumentInfoService } from '../../../../../shared/services/document-info.service';
 
 
 interface FaqAnswer {
@@ -62,6 +63,7 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
   private dialog = inject(MatDialog);
   private cdkSource = inject(CdkSourceService);
   private destroyRef = inject(DestroyRef);
+  protected documentInfoService = inject(DocumentInfoService);
 
   constructor() {
     // Reload HTML content when language changes. FAQ items are rebuilt too:
@@ -148,7 +150,8 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
   private configuredLicenses(licenses: string[]): string[] {
     const order = this.configService.getLicenseOrder();
     const configured = new Set(this.configService.licenses.map(l => l.id));
-    return licenses
+    // A CDK record can carry the same license more than once (one per source library).
+    return [...new Set(licenses)]
       .filter(license => configured.has(license))
       .sort((a, b) => order.indexOf(a) - order.indexOf(b));
   }
@@ -189,34 +192,25 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
       copyrightUrl ? this.configService.loadHtmlContent(copyrightUrl) : Promise.resolve('')
     ]);
 
+    // Each instruction page is a sentence fragment continuing the "To view it:"
+    // lead-in ("log in with a partner library account", "view the document at a
+    // terminal in ..."), so they cannot simply be concatenated: joined bare they
+    // run together into one ungrammatical line with no cue that each describes a
+    // different route to the content. Keep one paragraph per page.
     this.instructionHtml = this.resolveLoginLinks(
-      instructions.filter(html => !!html).join('')
+      instructions
+        .filter(html => !!html)
+        .map(html => `<p class="instruction-item">${html}</p>`)
+        .join('')
     );
     this.copyrightHtml = this.resolveLoginLinks(copyright);
     this.htmlLoading = false;
     this.cdr.markForCheck();
   }
 
-  /**
-   * The login links inside the config HTML are copied from the legacy
-   * digitalniknihovna.cz portal: they point at `.../mzk/terms?redirect_path=${PATH}`,
-   * where `${PATH}` is a placeholder the portal used to substitute server-side.
-   * In this app that path 404s and the placeholder is never resolved, so rewrite
-   * both to the app's own terms route with the current location as the returnUrl.
-   */
+  /** Login links in the config HTML return the reader to this document after login. */
   private resolveLoginLinks(html: string): string {
-    if (!html) return html;
-
-    const returnUrl = encodeURIComponent(this.router.url);
-    const target = `/${APP_ROUTES_ENUM.PAGES}/terms?returnUrl=${returnUrl}`;
-
-    // Match both the relative (`/mzk/terms?...`) and absolute
-    // (`https://www.digitalniknihovna.cz/mzk/terms?...`) forms, with the
-    // literal `${PATH}` placeholder still in place.
-    return html.replace(
-      /(?:https?:\/\/[^/"']*)?\/mzk\/terms\?redirect_path=\$\{PATH\}/g,
-      target
-    );
+    return resolveLoginLinks(html, this.router.url);
   }
 
   detectAllLicenseTypes(): void {
@@ -224,9 +218,10 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
     // a previously viewed document would leak into the licenses shown here.
     this.licenseTypes.clear();
 
-    const licenses = this.configuredLicenses(
-      (this.metadata?.licences ?? []).map(license => this.getLicenseTypeFromString(license))
-    );
+    // License ids are case-sensitive (Kramerius and `config-licenses.json` both keep
+    // e.g. `knav_pracovisteAV` as written), so they are matched exactly. Lowercasing
+    // them here used to drop every mixed-case local license to the generic "other".
+    const licenses = this.configuredLicenses(this.metadata?.licences ?? []);
 
     // Either the document carries no licenses at all, or every one it carries is
     // unknown to the config; both leave nothing specific to say, so fall back to the
@@ -239,12 +234,6 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
 
     licenses.forEach(license => this.licenseTypes.add(license));
     this.uniqueLicenseTypes = licenses;
-  }
-
-  getLicenseTypeFromString(license: string): string {
-    const lowerLicense = license.toLowerCase();
-
-    return lowerLicense;
   }
 
   getAllFaqItems(): AccordionItemData[] {
@@ -345,9 +334,20 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
     const configured = this.configService.getLocalizedLabel('license', type, lang);
     const base = this.configService.getLocalizedLabel('license', type, lang, true);
     const variantInPlay = configured !== type && configured !== base;
-    return variantInPlay
-      ? configured
-      : this.translate.instant(`access-denied.license-${type}`);
+    if (variantInPlay) {
+      return configured;
+    }
+    // `other` is the fallback for licenses the config does not know; it has no
+    // label of its own and reads as the generic "restricted access".
+    const key = type === 'other' ? 'default' : type;
+    const i18nKey = `access-denied.license-${key}`;
+    const translated = this.translate.instant(i18nKey);
+    // Local licenses (e.g. `knav_pracovisteAV`) have no i18n entry; `instant` then
+    // returns the key itself, so their config label is the only readable name.
+    if (translated === i18nKey && configured !== type) {
+      return configured;
+    }
+    return translated;
   }
 
   getFaqTitle(): string {
@@ -383,7 +383,7 @@ export class DocumentAccessDenied implements OnInit, OnChanges {
     );
 
     if (url) {
-      const content = await this.configService.loadHtmlContent(url);
+      const content = this.resolveLoginLinks(await this.configService.loadHtmlContent(url));
       if (content) {
         this.dialog.open(LicenseInfoDialogComponent, {
           data: { title: this.licenseLabel(type), content, raw: true },

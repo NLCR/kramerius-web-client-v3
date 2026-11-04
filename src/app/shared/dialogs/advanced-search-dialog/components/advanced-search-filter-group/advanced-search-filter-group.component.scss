@@ -158,7 +158,8 @@
   }
 }
 
-@include respond(sm) {
+// Phones (mobile-sm, as BreakpointService.isMobile(), which switches the template).
+@include respond(mobile-sm) {
   .group-header {
     align-items: flex-start;
     padding: var(--spacing-x3);

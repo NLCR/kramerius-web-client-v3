@@ -1,4 +1,4 @@
-import { inject, Injectable, signal, effect, computed } from '@angular/core';
+import { inject, Injectable, signal, effect, computed, untracked } from '@angular/core';
 import { getTerminalLicenses } from '../../../core/solr/solr-misc';
 import { Page } from '../../../shared/models/page.model';
 import { Store } from '@ngrx/store';
@@ -125,6 +125,25 @@ export class DetailViewService {
       }
     });
 
+    // Sidebar default: applied in loadDocument() (see sidebarDefaultApplied), not
+    // here — this root singleton is also injected by other pages. Open only where
+    // it sits beside the content; on phones and portrait tablets it floats over
+    // the grid / page image, so it starts collapsed behind the toolbar toggle.
+    // Crossing the overlay threshold (e.g. rotating a tablet) re-applies the
+    // default on the detail view; within one band the user's own toggle is left alone.
+    let sidebarOverlays = this.breakpointService.rightSidebarOverlaysContent();
+    effect(() => {
+      const overlays = this.breakpointService.rightSidebarOverlaysContent();
+      if (overlays === sidebarOverlays) {
+        return;
+      }
+      sidebarOverlays = overlays;
+      untracked(() => {
+        if (this.sidebarDefaultApplied && this.isOnDetailViewPage()) {
+          this.uiStateService.setMetadataSidebarState(!overlays);
+        }
+      });
+    });
 
     // Listen to pages changes and update the signal automatically
     this.pages$.pipe(
@@ -193,6 +212,8 @@ export class DetailViewService {
     this._articlePagePid.set(null);
     this._pageAccessMap.set(new Map());
     this._isDocumentAccessDenied.set(false);
+    // Leaving the document frees its lock slot for the next reader.
+    this.documentInfoService.reset();
     this.pdfService.clearPdfData();
     this.store.dispatch(clearDocumentDetail());
     this.store.dispatch(resetPeriodicalDetail());
@@ -565,7 +586,8 @@ export class DetailViewService {
     return this.document?.mainTitle || '';
   }
 
-  // The metadata sidebar defaults to open on the detail view (closed on phones).
+  // The metadata sidebar defaults to open on the detail view (closed where it
+  // would overlay the content: phones and portrait tablets).
   // Applied when the detail view first loads a document, not in the constructor:
   // this service is a root singleton that other pages (periodical, collections)
   // also inject, and opening the shared sidebar state from there made the
@@ -575,7 +597,7 @@ export class DetailViewService {
   loadDocument() {
     if (!this.sidebarDefaultApplied) {
       this.sidebarDefaultApplied = true;
-      this.uiStateService.setMetadataSidebarState(!this.breakpointService.isMobile());
+      this.uiStateService.setMetadataSidebarState(!this.breakpointService.rightSidebarOverlaysContent());
     }
     this.store.dispatch(loadDocumentDetail({}));
 
@@ -594,6 +616,22 @@ export class DetailViewService {
       // Skip for periodicalvolume — its pages are already loaded as children
       if (doc?.model !== DocumentTypeEnum.periodicalvolume &&
           ((doc?.rootModel === DocumentTypeEnum.periodical && doc?.model !== DocumentTypeEnum.supplement) || doc?.model === DocumentTypeEnum.periodicalitem)) {
+        this.loadPeriodicalChildren(doc);
+      }
+    });
+  }
+
+  /**
+   * The detail page is reused between documents, so loadDocument() (run once,
+   * on init) does not reload the volume's issues. An issue reached by a plain
+   * link (the neighbour block, search results) from another volume would keep
+   * the old volume's list: the date arrows and the neighbour block then find
+   * nothing. Load its volume unless the issue is already in the list.
+   */
+  syncPeriodicalChildren(doc: any) {
+    if (doc?.model !== DocumentTypeEnum.periodicalitem || !doc.uuid) return;
+    this.periodicalChildren$.pipe(take(1)).subscribe(children => {
+      if (!children?.some(child => child.pid === doc.uuid)) {
         this.loadPeriodicalChildren(doc);
       }
     });
@@ -895,6 +933,10 @@ export class DetailViewService {
     if (articlePagePid) {
       // Non-PDF article: load info for the foster-child page that is displayed
       this.documentInfoService.loadPageInfo(articlePagePid);
+    } else if (this.isPdf && this.document?.uuid) {
+      // PDF document: its pages are virtual `{uuid}_{n}` children with no
+      // `items/…/info` of their own (404) — the PDF and its access live on the document.
+      this.documentInfoService.loadPageInfo(this.document.uuid);
     } else if (currentPage && currentPage.model === DocumentTypeEnum.page) {
       // Page-based document - load page info
       this.documentInfoService.loadPageInfo(currentPage.pid);

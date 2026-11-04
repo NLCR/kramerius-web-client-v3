@@ -92,6 +92,7 @@
 
       @if (!isLoggedIn() || isMobileSearchOpen) {
         <button class="icon-button" [class.compact-hide]="!isMobileSearchOpen" [class.mobile-search-close]="isMobileSearchOpen"
+          [class.settings-btn--collapsible]="!isMobileSearchOpen"
           [attr.aria-label]="(isMobileSearchOpen ? 'header.aria.close-search' : 'settings') | translate"
           [appCdkTooltip]="(isMobileSearchOpen ? 'header.aria.close-search' : 'settings') | translate"
           [tooltipPosition]="'bottom'" (click)="isMobileSearchOpen ? closeMobileSearch() : openSettings()">
@@ -121,6 +122,8 @@
       @for (page of navPages; track page.id) {
       <a [routerLink]="getPageLink(page)" class="cursor-pointer">{{ getPageLabel(page) }}</a>
       }
+      <!-- NKP: settings for the narrowest phones lives in .mobile-menu__compact-actions below
+           (shown up to 480px), so upstream's separate mobile-xs settings entry is not repeated here. -->
       <app-user-info></app-user-info>
 
       <!-- Narrow phones: header actions that do not fit next to the logo live here. -->

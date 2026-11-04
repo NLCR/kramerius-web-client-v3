@@ -1,4 +1,7 @@
-import { Component, EventEmitter, inject, Input, Output, signal } from '@angular/core';
+import { Component, computed, EventEmitter, inject, Input, Output, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { Store } from '@ngrx/store';
+import { selectLastSearchPayload, selectSearchResultsError } from '../../state/search.selectors';
 import { AsyncPipe, NgClass, NgForOf, NgIf, NgTemplateOutlet } from '@angular/common';
 import { SearchService } from '../../../../shared/services/search.service';
 import { PageSearchService } from '../../../../shared/services/page-search.service';
@@ -14,16 +17,21 @@ import { RecordItemListComponent } from '../../../../shared/components/record-it
 import { SelectedTagsComponent } from '../../../../shared/components/selected-tags/selected-tags.component';
 import { PaginatorComponent } from '../../../../shared/components/paginator/paginator.component';
 import { AdvancedSearchIndicatorComponent } from '../advanced-search-indicator/advanced-search-indicator.component';
-import { NoResultsComponent } from '../no-results/no-results.component';
+import { NoResultsComponent } from '../../../../shared/components/no-results/no-results.component';
 import { RecordExportPanelComponent } from '../../../../shared/components/record-export-panel/record-export-panel.component';
 import { TabsComponent } from '../../../../shared/components/tabs/tabs.component';
 import { TabItemComponent } from '../../../../shared/components/tabs/tab-item.component';
 import { SkeletonListPipe } from '../../../../shared/pipes/skeleton-list.pipe';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Observable, map } from 'rxjs';
-import { WhereToSearchToggleComponent } from '../where-to-search-toggle/where-to-search-toggle.component';
+import {
+  buildWhereToSearchOptions,
+  FacetItem,
+  WhereToSearchToggleComponent,
+} from '../where-to-search-toggle/where-to-search-toggle.component';
 import { customDefinedFacetsEnum } from '../../const/facets';
 import { ExportService } from '../../../../shared/services/export.service';
+import { ScrollHideHeaderDirective } from '../../../../shared/directives/scroll-hide-header.directive';
 
 @Component({
   selector: 'app-search-results-view',
@@ -46,6 +54,7 @@ import { ExportService } from '../../../../shared/services/export.service';
     SkeletonListPipe,
     TranslatePipe,
     WhereToSearchToggleComponent,
+    ScrollHideHeaderDirective,
   ],
   templateUrl: './search-results-view.component.html',
   styleUrl: './search-results-view.component.scss',
@@ -65,6 +74,11 @@ export class SearchResultsViewComponent {
   adminModeService = inject(AdminModeService);
   breakpointService = inject(BreakpointService);
   private exportService = inject(ExportService);
+  private store = inject(Store);
+  /** Last results request failed: show an error with retry instead of a blank page. */
+  searchError = this.store.selectSignal(selectSearchResultsError);
+  private lastSearchPayload = this.store.selectSignal(selectLastSearchPayload);
+  hasSearched = () => this.lastSearchPayload() !== null;
 
   protected readonly ViewOptions = AppResultsViewType;
 
@@ -74,6 +88,22 @@ export class SearchResultsViewComponent {
     map(tags => tags.filter(t =>
       !t.startsWith(customDefinedFacetsEnum.whereToSearchModel + ':'))),
   );
+
+  private whereToSearchItems = toSignal(
+    this.searchService.getFacets().pipe(
+      map((facets: Record<string, FacetItem[]> | null | undefined): FacetItem[] =>
+        facets?.[customDefinedFacetsEnum.whereToSearchModel] ?? []),
+    ),
+    { initialValue: [] as FacetItem[] },
+  );
+
+  /**
+   * Phones split titles / articles / pages / attachments into tabs, unless the
+   * "where to search" toggle is shown: it already switches between those
+   * sections, so the results then list as stacked sections under it.
+   */
+  readonly showMobileTabs = computed(() =>
+    this.breakpointService.isMobile() && buildWhereToSearchOptions(this.whereToSearchItems()).length === 0);
 
   toRecordItem(doc: SearchDocument): RecordItem {
     return searchDocumentToRecordItem(doc);
