@@ -7,6 +7,7 @@ import {
   AppConfiguration,
   FeaturesConfig,
   LocksConfig,
+  NoticeConfig,
   ViewerConfig,
   ViewerControlsConfig,
   SelectionControlsConfig,
@@ -441,7 +442,8 @@ export class ConfigService {
       homepageTitle: loaded.homepageTitle,
       homepageSubtitle: loaded.homepageSubtitle,
       footer: loaded.footer ?? DEFAULT_CONFIG.footer,
-      locks: { ...DEFAULT_CONFIG.locks, ...loaded.locks }
+      locks: { ...DEFAULT_CONFIG.locks, ...loaded.locks },
+      notice: loaded.notice
     };
   }
 
@@ -484,6 +486,12 @@ export class ConfigService {
   // Lock license idle-timeout accessors
   get locks(): LocksConfig {
     return this.getConfig().locks;
+  }
+
+  /** Site-wide notice strip, or null when none is configured (or it has no text). */
+  get notice(): NoticeConfig | null {
+    const notice = this.getConfig().notice;
+    return notice?.text ? notice : null;
   }
 
   // Feature flags accessors

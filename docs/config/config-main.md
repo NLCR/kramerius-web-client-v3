@@ -29,7 +29,8 @@ Konfigurace knihovny leží přímo v adresáři `public/local-config/`. Kód kn
   "viewer": {},
   "search": {},
   "pages": [],
-  "footer": {}
+  "footer": {},
+  "notice": {}
 }
 ```
 
@@ -458,6 +459,31 @@ HTML soubor obsahuje kompletní markup patičky i jeho stylování. Styly se vkl
 ### Žádná patička
 
 Když blok `footer` chybí (nebo se pro zvolený jazyk ani přes fallback nenajde soubor), **patička se nevykreslí**. Výchozí konfigurace ani dodávané configy (`cdk`, `mzk`) žádnou patičku nedefinují — patička se zobrazí jen tehdy, když ji explicitně nakonfigurujete.
+
+---
+
+## `notice` — oznámení nahoře na stránce
+
+Volitelný proužek s textem úplně nahoře v klientovi, nad hlavičkou (např. plánovaná odstávka). Bez `notice` (nebo s prázdným textem) se nic nezobrazí.
+
+```json
+"notice": {
+  "text": {
+    "cs": "V sobotu 8. 11. od 8 do 12 h proběhne plánovaná odstávka.",
+    "en": "Planned maintenance on Saturday 8 Nov, 8:00–12:00."
+  },
+  "level": "warning",
+  "dismissible": true
+}
+```
+
+| Pole | Povinné | Popis | Výchozí |
+|---|---|---|---|
+| `text` | ano | Text oznámení; řetězec nebo [lokalizovaný text](#lokalizované-texty). Prostý text, bez HTML. | — |
+| `level` | ne | `info` (barva aplikace) nebo `warning` (oranžová). | `info` |
+| `dismissible` | ne | Zda jde proužek zavřít křížkem. Zavřené oznámení zůstane zavřené (v prohlížeči čtenáře), dokud se nezmění jeho text. | `true` |
+
+Pokud je zapnuté načítání konfigurace z API (`APP_API_CONFIG_BASE_URL`) a API vrátí chybu (jinou než 404) nebo je nedostupné, klient sám zobrazí varovný proužek „Omlouváme se, Kramerius zřejmě není plně funkční.“ — nad oznámením z `notice`.
 
 ---
 

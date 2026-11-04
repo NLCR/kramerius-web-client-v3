@@ -363,6 +363,13 @@ export interface LocksConfig {
   warningSec: number;
 }
 
+// Site-wide notice: a strip at the very top of the client (e.g. planned outage).
+export interface NoticeConfig {
+  text: string | LocalizedLabel;
+  level?: 'info' | 'warning';   // default 'info'
+  dismissible?: boolean;        // default true; a closed notice stays closed until its text changes
+}
+
 // Root configuration interface
 export interface AppConfiguration {
   app: AppConfig;
@@ -382,4 +389,5 @@ export interface AppConfiguration {
   homepageSubtitle?: LocalizedLabel;
   footer?: FooterConfig;
   locks: LocksConfig;
+  notice?: NoticeConfig;
 }

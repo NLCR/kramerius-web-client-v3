@@ -3,10 +3,12 @@
        [attr.role]="banner.level === 'warning' ? 'alert' : 'status'">
     <i class="site-banner__icon" [class]="banner.level === 'warning' ? 'icon-warning' : 'icon-info'" aria-hidden="true"></i>
     <p class="site-banner__text">{{ banner.translate ? (banner.text | translate) : banner.text }}</p>
-    <button type="button" class="site-banner__close"
-            [attr.aria-label]="'close' | translate" [attr.title]="'close' | translate"
-            (click)="dismiss(banner)">
-      <i class="icon-close" aria-hidden="true"></i>
-    </button>
+    @if (banner.dismissible) {
+      <button type="button" class="site-banner__close"
+              [attr.aria-label]="'close' | translate" [attr.title]="'close' | translate"
+              (click)="dismiss(banner)">
+        <i class="icon-close" aria-hidden="true"></i>
+      </button>
+    }
   </div>
 }
