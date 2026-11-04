@@ -162,7 +162,7 @@
     "llm": {
       "provider": "qwen",
       "baseUrl": "https://new.kramerius7.nkp.cz/ai/v1",
-      "model": "Qwen/Qwen3.5-9B",
+      "model": "sokada4/Qwen3.8-27B-GPTQ-Int4",
       "auth": "none"
     },
     "tts": {
