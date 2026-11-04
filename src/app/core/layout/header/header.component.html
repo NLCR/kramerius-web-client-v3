@@ -8,7 +8,7 @@
 
       @if (activeLogo) {
         <img #logoImg [src]="activeLogo"
-             [alt]="headerName || 'Česká digitální knihovna'"
+             [alt]="headerName || 'Národní digitální knihovna'"
              (load)="onLogoLoad(logoImg)"
              (error)="onLogoError(logoImg)" />
       }

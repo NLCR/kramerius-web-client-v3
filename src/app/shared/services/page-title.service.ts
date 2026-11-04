@@ -40,13 +40,16 @@ export class PageTitleService {
     private translationService = inject(AppTranslationService);
 
     private titleSubscription?: Subscription;
-    private defaultTitle = 'Česká digitální knihovna';
+    // Until/unless the config names the library: the title the page shipped with
+    // (index.html), so a new tab never shows another library's name.
+    private readonly fallbackTitle = document.title || 'Národní digitální knihovna';
+    private defaultTitle = this.fallbackTitle;
 
     constructor() {
         this.init();
         effect(() => {
             const lang = this.translationService.currentLanguage().code;
-            this.defaultTitle = this.configService.resolveLabel(this.configService.app.name, lang, 'Česká digitální knihovna');
+            this.defaultTitle = this.configService.resolveLabel(this.configService.app.name, lang, this.fallbackTitle);
             this.updateTitleBasedOnRoute(this.router.url);
         });
     }
