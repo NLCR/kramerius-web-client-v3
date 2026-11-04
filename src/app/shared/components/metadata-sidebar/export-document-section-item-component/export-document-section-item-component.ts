@@ -46,6 +46,8 @@ export class ExportDocumentSectionItemComponent implements OnChanges, OnDestroy 
   @Input() collapsible = false;
   @Input() loading = false;
   @Input() loginRequired = false;
+  /** Options that work without logging in even when `loginRequired` is set (e.g. printing the current page). */
+  @Input() loginFreeOptions: string[] = [];
   @Input() directPdfPid: string | null = null;
   /** Optional translation key rendered as an informational note below the options. */
   @Input() note = '';
@@ -58,6 +60,11 @@ export class ExportDocumentSectionItemComponent implements OnChanges, OnDestroy 
   @Input() selectedOption: string | null = null;
 
   _expanded = signal(true);
+
+  /** Whether the confirm button should say that the selected option needs a login. */
+  get selectedNeedsLogin(): boolean {
+    return this.loginRequired && !(this.selectedOption && this.loginFreeOptions.includes(this.selectedOption));
+  }
   directPdf = signal<DirectPdfAvailability | null>(null);
 
   private directPdfService = inject(DirectPdfService);

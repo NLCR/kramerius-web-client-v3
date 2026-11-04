@@ -34,7 +34,7 @@
         <i class="icon-status spinning" aria-hidden="true"></i>
         {{ 'probíhá' | translate }}
       } @else {
-        {{ (loginRequired ? 'confirm--login-required' : 'confirm') | translate }}
+        {{ (selectedNeedsLogin ? 'confirm--login-required' : 'confirm') | translate }}
       }
     </button>
 

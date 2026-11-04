@@ -224,7 +224,7 @@
   "custom-date-range": "Kiadás dátuma",
   "submit": "Elküldés",
   "confirm": "Megerősítés",
-  "confirm--login-required": "Elküldés (bejelentkezés szükséges)",
+  "confirm--login-required": "Megerősítés (bejelentkezés szükséges)",
   "probíhá": "Folyamatban",
   "one-day": "Nap",
   "more-days": "Nap",

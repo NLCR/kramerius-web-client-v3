@@ -9,6 +9,7 @@
     [collapsible]="true"
     [expanded]="expandedSection() === 'print'"
     [loginRequired]="!isLoggedIn()"
+    [loginFreeOptions]="['current-page']"
     (toggle)="onSectionToggle('print')"
     (submit)="onPrintSubmit($event)">
   </app-export-document-section-item-component>
