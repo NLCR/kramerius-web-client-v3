@@ -973,13 +973,93 @@ export class DetailViewService {
   goToNext(pagesToGoForward?: number) {
     // If book mode is active and no explicit step is provided, move by 2
     const step = pagesToGoForward ?? (this.iiifViewerService.isBookMode() ? 2 : 1);
-    this.goToPage(this._currentPageIndex() + step);
+    this.goToPageOffset(step);
   }
 
   goToPrevious(pagesToGoBack?: number) {
     // If book mode is active and no explicit step is provided, move by 2
     const step = pagesToGoBack ?? (this.iiifViewerService.isBookMode() ? 2 : 1);
-    this.goToPage(this._currentPageIndex() - step);
+    this.goToPageOffset(-step);
+  }
+
+  /**
+   * Indexes into `_pages()` of the items that page navigation steps through.
+   * The list can also hold other children (articles, internal parts, sound
+   * units, ...) that the "12 of 232" counters leave out, so paging skips them
+   * too; otherwise the last page could be followed by "13 of 12". Documents
+   * without any real pages fall back to every item.
+   */
+  private navigableIndexes(): number[] {
+    const pages = this._pages();
+    const indexes: number[] = [];
+    pages.forEach((p, i) => { if (p.model === DocumentTypeEnum.page) indexes.push(i); });
+    return indexes.length > 0 ? indexes : pages.map((_, i) => i);
+  }
+
+  /**
+   * Position (0-based) among the navigable pages that is `delta` pages away
+   * from the current item, or -1 when that would leave the document. From a
+   * non-page item, +1 is the first page after it and -1 the last page before.
+   */
+  private pagePositionAtOffset(delta: number): number {
+    const order = this.navigableIndexes();
+    const current = this._currentPageIndex();
+    const position = order.indexOf(current);
+    let target: number;
+    if (position !== -1) {
+      target = position + delta;
+    } else {
+      const before = order.filter(i => i < current).length;
+      target = delta > 0 ? before + delta - 1 : before + delta;
+    }
+    return target >= 0 && target < order.length ? target : -1;
+  }
+
+  private goToPageOffset(delta: number): void {
+    const target = this.pagePositionAtOffset(delta);
+    if (target !== -1) this.goToPageNumber(target);
+  }
+
+  /** Go to the n-th (0-based) page as counted by currentPageNumber / totalPagesOnly. */
+  goToPageNumber(position: number): void {
+    const index = this.navigableIndexes()[position];
+    if (index !== undefined) this.goToPage(index);
+  }
+
+  /**
+   * 1-based number of the current page as shown to the reader ("12 of 232"),
+   * counting real pages only. On a non-page item it is the page before it.
+   */
+  get currentPageNumber(): number {
+    const order = this.navigableIndexes();
+    const current = this._currentPageIndex();
+    return Math.max(1, order.filter(i => i <= current).length);
+  }
+
+  /** 1-based page number of the given page, or 0 when it is not a navigable page. */
+  pageNumberOf(pid: string): number {
+    const pages = this._pages();
+    return this.navigableIndexes().findIndex(i => pages[i]?.pid === pid) + 1;
+  }
+
+  /** The n-th (0-based) page as counted by currentPageNumber, if any. */
+  pageByNumber(position: number): Page | null {
+    const index = this.navigableIndexes()[position];
+    return index === undefined ? null : this._pages()[index] ?? null;
+  }
+
+  /** The page `delta` pages away from the current one (e.g. the swipe neighbour), if any. */
+  pageAtOffset(delta: number): Page | null {
+    const target = this.pagePositionAtOffset(delta);
+    return target === -1 ? null : this._pages()[this.navigableIndexes()[target]] ?? null;
+  }
+
+  hasNextPage(step = 1): boolean {
+    return this.pagePositionAtOffset(step) !== -1;
+  }
+
+  hasPreviousPage(step = 1): boolean {
+    return this.pagePositionAtOffset(-step) !== -1;
   }
 
   goToNextPeriodicalIssue() {

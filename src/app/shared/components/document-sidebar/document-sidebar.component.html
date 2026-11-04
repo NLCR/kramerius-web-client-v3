@@ -100,11 +100,11 @@
         }
 
         <app-page-navigator
-          [currentPage]="detailViewService.currentPageIndex + 1"
+          [currentPage]="detailViewService.currentPageNumber"
           [totalPages]="detailViewService.totalPagesOnly"
           (next)="detailViewService.goToNext()"
           (prev)="detailViewService.goToPrevious()"
-          (pageChange)="detailViewService.goToPage($event)"
+          (pageChange)="detailViewService.goToPageNumber($event)"
         ></app-page-navigator>
 
       @if (!isSoundRecording) {

@@ -379,7 +379,7 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     if (this.isEpubDocument) return this.epubCurrentPage();
     return this.detailViewService.isPdf
       ? this.pdfCurrentPage()
-      : this.detailViewService.currentPageIndex + 1;
+      : this.detailViewService.currentPageNumber;
   }
 
   get mobileTotalPages(): number {
@@ -424,7 +424,7 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
       this.pdfService.navigateToPage(pageIndex + 1);
       return;
     }
-    this.detailViewService.goToPage(pageIndex);
+    this.detailViewService.goToPageNumber(pageIndex);
   }
 
   /** Viewer type for the mobile viewer-controls menu, mirroring the main-content viewer selection. */
@@ -562,7 +562,7 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   /** Thumbnail of the page the picker currently points at (image documents only). */
   readonly pageJumpThumbnail = computed(() => {
     if (!this.pageJumpOpen() || this.detailViewService.isPdf || this.isEpubDocument) return null;
-    const page = this.detailViewService.pages[this.pageJumpValue() - 1];
+    const page = this.detailViewService.pageByNumber(this.pageJumpValue() - 1);
     return page?.pid ? this.iiifViewerService.getThumbnailUrl(page.pid) : null;
   });
 
@@ -662,7 +662,7 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     const pages = this.detailViewService.pages;
     const savedIndex = saved ? pages.findIndex(p => p.pid === saved.pid) : -1;
     if (savedIndex > 0 && this.detailViewService.currentPageIndex === 0) {
-      this.resumeOffer.set({ pid: saved.pid, page: savedIndex + 1 });
+      this.resumeOffer.set({ pid: saved.pid, page: this.detailViewService.pageNumberOf(saved.pid) || savedIndex + 1 });
       this.resumeTimer = setTimeout(() => this.resumeOffer.set(null), DetailViewPageComponent.RESUME_OFFER_MS);
     }
   }

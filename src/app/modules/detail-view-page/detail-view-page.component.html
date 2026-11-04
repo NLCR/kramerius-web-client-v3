@@ -60,11 +60,11 @@
 
               <hr>
               <app-page-navigator
-                [currentPage]="detailViewService.currentPageIndex + 1"
+                [currentPage]="detailViewService.currentPageNumber"
                 [totalPages]="detailViewService.totalPagesOnly"
                 (next)="detailViewService.goToNext()"
                 (prev)="detailViewService.goToPrevious()"
-                (pageChange)="detailViewService.goToPage($event)"
+                (pageChange)="detailViewService.goToPageNumber($event)"
               ></app-page-navigator>
 
               <div class="sidebar--wrapper--scroll-content">
@@ -367,16 +367,16 @@
   <div class="mobile-page-pill tablet-page-pill">
     <button type="button" class="mobile-page-pill__btn"
             [attr.aria-label]="'go-to-previous-page' | translate"
-            [disabled]="detailViewService.currentPageIndex <= 0"
+            [disabled]="!detailViewService.hasPreviousPage()"
             (click)="onTabletPagePill('prev')">
       <i class="icon-arrow-left-3" aria-hidden="true"></i>
     </button>
     <span class="mobile-page-pill__count" role="status" aria-live="polite">
-      {{ detailViewService.currentPageIndex + 1 }} / {{ detailViewService.totalPages }}
+      {{ detailViewService.currentPageNumber }} / {{ detailViewService.totalPagesOnly }}
     </span>
     <button type="button" class="mobile-page-pill__btn"
             [attr.aria-label]="'go-to-next-page' | translate"
-            [disabled]="detailViewService.currentPageIndex >= detailViewService.totalPages - 1"
+            [disabled]="!detailViewService.hasNextPage()"
             (click)="onTabletPagePill('next')">
       <i class="icon-arrow-right-3" aria-hidden="true"></i>
     </button>

@@ -1117,14 +1117,7 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
    * Returns null if there is no next page
    */
   private getNextPagePid(): string | null {
-    const pages = this.detailViewService.pages;
-    const currentPageIndex = this.detailViewService.currentPageIndex;
-
-    if (currentPageIndex < pages.length - 1) {
-      return pages[currentPageIndex + 1].pid;
-    }
-
-    return null;
+    return this.detailViewService.pageAtOffset(1)?.pid ?? null;
   }
 
   private currentImageRect: OpenSeadragon.Rect | null = null;
@@ -1362,11 +1355,11 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   }
 
   private get canGoNext(): boolean {
-    return this.detailViewService.currentPageIndex < this.detailViewService.totalPages - 1;
+    return this.detailViewService.hasNextPage(this.pageStep);
   }
 
   private get canGoPrevious(): boolean {
-    return this.detailViewService.currentPageIndex > 0;
+    return this.detailViewService.hasPreviousPage(this.pageStep);
   }
 
   private onSwipePointerDown = (e: PointerEvent): void => {
@@ -1462,9 +1455,8 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   }
 
   private neighbourPid(direction: 'next' | 'previous'): string | null {
-    const pages = this.detailViewService.pages;
-    const i = this.detailViewService.currentPageIndex + (direction === 'next' ? this.pageStep : -this.pageStep);
-    return pages[i]?.pid ?? null;
+    const delta = direction === 'next' ? this.pageStep : -this.pageStep;
+    return this.detailViewService.pageAtOffset(delta)?.pid ?? null;
   }
 
   /** Paint the neighbour thumbnails into the peek elements as a drag starts. */
@@ -1571,11 +1563,9 @@ export class IIIFViewer implements OnInit, OnDestroy, OnChanges, AfterViewInit {
    * IIIF info.json (the round trip that precedes every tile request).
    */
   private prefetchNeighbours(): void {
-    const pages = this.detailViewService.pages;
-    const idx = this.detailViewService.currentPageIndex;
     const step = this.pageStep;
-    const candidates = [idx + step, idx - step, idx + 2 * step]
-      .map(i => pages[i]?.pid)
+    const candidates = [step, -step, 2 * step]
+      .map(delta => this.detailViewService.pageAtOffset(delta)?.pid)
       .filter((pid): pid is string => !!pid && !this.prefetchedPids.has(pid));
     if (candidates.length === 0) return;
 

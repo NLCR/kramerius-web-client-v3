@@ -92,7 +92,7 @@ export class PageNavigationService {
         // EPUB service doesn't expose current page, would need to add
         return 0;
       case 'iiif':
-        return this.detailViewService.currentPageIndex + 1;
+        return this.detailViewService.currentPageNumber;
       default:
         return 0;
     }
