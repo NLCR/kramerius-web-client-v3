@@ -36,12 +36,14 @@ import { isViewerRoutePath } from '../../../shared/constants/viewer-routes';
 import { LocalizedPipe } from '../../../shared/pipes/localized.pipe';
 import { FixedPanelEdgeDirective } from '../../../shared/components/fixed-panel/fixed-panel-edge.directive';
 import { LocalizedLabel } from '../../config/config.interfaces';
+import { SiteBannerComponent } from '../../../shared/components/site-banner/site-banner.component';
 
 @Component({
   selector: 'app-header',
   hostDirectives: [{ directive: FixedPanelEdgeDirective, inputs: ['appFixedPanelEdge'] }],
   templateUrl: './header.component.html',
   imports: [
+    SiteBannerComponent,
     NgClass,
     NgIf,
     AutocompleteComponent,

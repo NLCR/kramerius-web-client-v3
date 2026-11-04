@@ -941,5 +941,6 @@
   "saved-lists--empty-cta": "Prehliadať knižnicu",
   "metadata--show-all-items": "Zobraziť všetko ({{count}})",
   "metadata--show-full-text": "Zobraziť celé",
-  "metadata--show-less": "Zobraziť menej"
+  "metadata--show-less": "Zobraziť menej",
+  "site-banner--kramerius-unavailable": "Ospravedlňujeme sa, Kramerius zrejme nie je plne funkčný."
 }

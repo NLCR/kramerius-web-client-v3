@@ -942,5 +942,6 @@
   "saved-lists--empty-cta": "Bibliothek durchsuchen",
   "metadata--show-all-items": "Alle anzeigen ({{count}})",
   "metadata--show-full-text": "Ganzen Text anzeigen",
-  "metadata--show-less": "Weniger anzeigen"
+  "metadata--show-less": "Weniger anzeigen",
+  "site-banner--kramerius-unavailable": "Wir bitten um Entschuldigung, Kramerius scheint nicht voll funktionsfähig zu sein."
 }

@@ -908,5 +908,6 @@
   "saved-lists--empty-cta": "Browse the library",
   "metadata--show-all-items": "Show all ({{count}})",
   "metadata--show-full-text": "Show full text",
-  "metadata--show-less": "Show less"
+  "metadata--show-less": "Show less",
+  "site-banner--kramerius-unavailable": "Elnézést kérünk, a Kramerius úgy tűnik, nem működik teljesen."
 }

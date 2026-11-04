@@ -51,8 +51,9 @@
   @include type-tokens(true);
 
   // Includes the top safe area (status bar / notch) the header pads itself by,
-  // so every `100dvh - var(--header-height)` layout stays exact.
-  --header-height: calc(56px + env(safe-area-inset-top, 0px));
+  // and the site banner strips above it (--site-banner-height, set by
+  // SiteBannerComponent), so every `100dvh - var(--header-height)` layout stays exact.
+  --header-height: calc(56px + env(safe-area-inset-top, 0px) + var(--site-banner-height, 0px));
   --toolbar-height: 48px;
   --small-gap: 1px;
   --license-bar-height: 38px;

@@ -1,0 +1,73 @@
+:host {
+  display: block;
+}
+
+.site-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-x2);
+  min-height: 36px;
+  padding: var(--spacing-x1) var(--spacing-x2) var(--spacing-x1) var(--spacing-x3);
+  padding-left: max(var(--spacing-x3), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--spacing-x2), env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+  font-size: var(--font-size-small);
+  line-height: 1.35;
+  color: var(--color-text-base);
+
+  // Tinted from the semantic colour, so light, dark and high-contrast themes follow.
+  &--warning {
+    background: color-mix(in srgb, var(--color-warning) 18%, var(--color-bg-base));
+    border-bottom: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+
+    .site-banner__icon {
+      color: var(--color-warning);
+    }
+  }
+
+  &--info {
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg-base));
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+
+    .site-banner__icon {
+      color: var(--color-primary);
+    }
+  }
+
+  &__icon {
+    flex: 0 0 auto;
+    font-size: 18px;
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+
+  &__close {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      background: color-mix(in srgb, currentColor 10%, transparent);
+    }
+
+    i {
+      font-size: 16px;
+    }
+  }
+}

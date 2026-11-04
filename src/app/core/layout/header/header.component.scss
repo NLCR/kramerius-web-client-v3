@@ -6,7 +6,8 @@
   align-items: center;
   padding: var(--spacing-x2) var(--spacing-x3);
   padding-top: calc(var(--spacing-x2) + env(safe-area-inset-top, 0px));
-  height: var(--header-height);
+  // --header-height also counts the site banner strips drawn above the bar.
+  height: calc(var(--header-height) - var(--site-banner-height, 0px));
   gap: var(--spacing-x4);
   position: relative;
   // Landscape iPhone: keep logo and menu out of the notch (viewport-fit=cover).

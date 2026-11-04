@@ -1,5 +1,5 @@
 import { normalizeLicenseBar } from './license-bar';
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { LANG_FALLBACK_CHAIN, DEFAULT_LANG_FALLBACK } from '../../shared/translation/translation-fallback-chain';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -82,6 +82,13 @@ export const EXTRA_LIBRARY_REGISTRY: Record<string, { code: string; name: string
 
 @Injectable({ providedIn: 'root' })
 export class ConfigService {
+  /**
+   * The /ui-config API was asked for a config and failed (server error or
+   * unreachable), i.e. Kramerius is probably not fully working. Only set when
+   * API config is enabled for the deployment; a 404 (config not set) is fine.
+   */
+  readonly apiConfigUnavailable = signal(false);
+
   constructor(
     private envService: EnvironmentService,
     private cdkSource: CdkSourceService,
@@ -192,12 +199,18 @@ export class ConfigService {
     const timestamp = Date.now();
     try {
       const response = await fetch(`${base}/ui-config/${endpoint}?t=${timestamp}`);
-      if (!response.ok) return null;
+      // 404 = this config is simply not set in Kramerius; anything else means
+      // Kramerius itself is in trouble (the site shows a warning strip).
+      if (!response.ok) {
+        if (response.status !== 404) this.apiConfigUnavailable.set(true);
+        return null;
+      }
       const text = await response.text();
       if (!text.trim()) return null;
       return new Response(text, { headers: { 'Content-Type': 'application/json' } });
     } catch (err) {
       console.warn(`ConfigService: Failed to load '${endpoint}' from API.`, err);
+      this.apiConfigUnavailable.set(true);
       return null;
     }
   }

@@ -950,5 +950,6 @@
   "saved-lists--empty-cta": "Browse the library",
   "metadata--show-all-items": "Show all ({{count}})",
   "metadata--show-full-text": "Show full text",
-  "metadata--show-less": "Show less"
+  "metadata--show-less": "Show less",
+  "site-banner--kramerius-unavailable": "We apologise, Kramerius does not seem to be fully working."
 }
