@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpContext } from '@angular/common/http';
-import { Observable, from, of, throwError } from 'rxjs';
-import { catchError, concatMap, map, toArray } from 'rxjs/operators';
+import { HttpClient, HttpHeaders, HttpContext, HttpEventType } from '@angular/common/http';
+import { Observable, defer, from, of, throwError } from 'rxjs';
+import { catchError, concatMap, filter, map, toArray } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfigService } from '../../core/config/config.service';
 import { AiLlmAuthMode } from '../../core/config/config.interfaces';
@@ -14,6 +14,20 @@ export interface AiModel {
 }
 
 export type TranslateProvider = 'google' | 'deepl';
+
+/**
+ * Receives the answer generated so far while it is still streaming, so the
+ * panel can show it word by word instead of after the whole response. Each call
+ * gets the full text so far, not just the new part.
+ */
+export type AiPartialHandler = (textSoFar: string) => void;
+
+/** Where reading a server-sent-events body has got to. */
+interface SseState {
+  offset: number;
+  content: string;
+  sawData: boolean;
+}
 
 /**
  * Error code the AI proxy returns once the monthly token budget is spent
@@ -78,8 +92,8 @@ export class AiApiService {
 
   // --- Translation ---
 
-  translate(input: string, targetLanguage: string, _provider: TranslateProvider = 'google', format: 'text' | 'html' = 'text'): Observable<string> {
-    return this.translateWithQwen(input, targetLanguage, format);
+  translate(input: string, targetLanguage: string, _provider: TranslateProvider = 'google', format: 'text' | 'html' = 'text', onPartial?: AiPartialHandler): Observable<string> {
+    return this.translateWithQwen(input, targetLanguage, format, onPartial);
   }
 
   // --- Language Detection ---
@@ -175,12 +189,17 @@ export class AiApiService {
 
   // --- LLM ---
 
-  askLLM(input: string, instructions: string, model?: AiModel, maxTokens: number = 1000): Observable<string> {
+  /**
+   * With `onPartial` the configured OpenAI-compatible endpoint is asked to
+   * stream; the returned Observable still emits only the complete answer. The
+   * legacy proxy providers do not stream and ignore the handler.
+   */
+  askLLM(input: string, instructions: string, model?: AiModel, maxTokens: number = 1000, onPartial?: AiPartialHandler): Observable<string> {
     const llmConfig = this.configService.ai.llm;
     if (llmConfig?.provider === 'qwen') {
       const configuredModel = llmConfig.model || 'Qwen/Qwen3.5-9B';
       const modelCode = model?.provider === 'qwen' ? model.code : configuredModel;
-      return this.askQwen(input, instructions, modelCode, maxTokens);
+      return this.askQwen(input, instructions, modelCode, maxTokens, onPartial);
     }
 
     const m = model || this.getDefaultModel();
@@ -192,7 +211,7 @@ export class AiApiService {
       case 'google':
         return this.askGemini(input, instructions, m.code, maxTokens);
       case 'qwen':
-        return this.askQwen(input, instructions, m.code, maxTokens);
+        return this.askQwen(input, instructions, m.code, maxTokens, onPartial);
       default:
         return this.askGPT(input, instructions, m.code, maxTokens);
     }
@@ -239,7 +258,7 @@ export class AiApiService {
     );
   }
 
-  private askQwen(input: string, instructions: string, model: string, maxTokens: number): Observable<string> {
+  private askQwen(input: string, instructions: string, model: string, maxTokens: number, onPartial?: AiPartialHandler): Observable<string> {
     const config = this.configService.ai.llm;
     const baseUrl = (config?.baseUrl || 'http://localhost:8010/v1').replace(/\/+$/, '');
     const url = baseUrl.endsWith('/chat/completions')
@@ -253,10 +272,13 @@ export class AiApiService {
       ],
       temperature: this.temperature,
       max_tokens: maxTokens,
-      stream: false,
+      stream: !!onPartial,
       chat_template_kwargs: { enable_thinking: false }
     };
 
+    if (onPartial) {
+      return this.postStreamAbsolute(url, body, config?.auth ?? 'kramerius', onPartial);
+    }
     return this.postAbsolute<any>(url, body, config?.auth ?? 'kramerius').pipe(
       map(response => {
         const content = response?.choices?.[0]?.message?.content;
@@ -268,12 +290,12 @@ export class AiApiService {
     );
   }
 
-  private askConfiguredQwen(input: string, instructions: string, maxTokens: number): Observable<string> {
+  private askConfiguredQwen(input: string, instructions: string, maxTokens: number, onPartial?: AiPartialHandler): Observable<string> {
     const model = this.configService.ai.llm?.model || 'Qwen/Qwen3.5-9B';
-    return this.askQwen(input, instructions, model, maxTokens);
+    return this.askQwen(input, instructions, model, maxTokens, onPartial);
   }
 
-  private translateWithQwen(input: string, targetLanguage: string, format: 'text' | 'html'): Observable<string> {
+  private translateWithQwen(input: string, targetLanguage: string, format: 'text' | 'html', onPartial?: AiPartialHandler): Observable<string> {
     const formatRule = format === 'html'
       ? 'Preserve all HTML elements, attributes and document structure; translate only human-readable text nodes.'
       : 'Preserve paragraph breaks and punctuation.';
@@ -283,9 +305,18 @@ export class AiApiService {
       'Return only the translated content, without commentary, labels or Markdown code fences.'
     ].join(' ');
 
-    return this.askConfiguredQwen(input, instructions, 2048).pipe(
+    const partial = onPartial && ((text: string) => onPartial(this.removePartialCodeFence(text)));
+    return this.askConfiguredQwen(input, instructions, 2048, partial).pipe(
       map(result => this.removeOuterCodeFence(result))
     );
+  }
+
+  /** removeOuterCodeFence for an answer that may still be missing its closing fence. */
+  private removePartialCodeFence(value: string): string {
+    return value.trim()
+      .replace(/^```(?:html|text|json)?[ \t]*(?:\n|$)/i, '')
+      .replace(/\n?`{1,3}$/, '')
+      .trim();
   }
 
   private removeOuterCodeFence(value: string): string {
@@ -374,31 +405,12 @@ export class AiApiService {
   }
 
   private postAbsolute<T>(url: string, body: any, authMode: AiLlmAuthMode): Observable<T> {
-    const token = this.authService.getAccessToken();
-    if (authMode === 'kramerius' && (!token || this.authService.isTokenExpired())) {
-      // Do not start a potentially long request without a usable JWT. In
-      // particular, never rely on the global interceptor to call the Kramerius
-      // code-exchange endpoint as if it supported refresh tokens.
+    const options = this.requestOptions(authMode);
+    if (!options) {
       return throwError(() => new Error('ai.error-unauthorized'));
     }
 
-    let headers = new HttpHeaders()
-      .set('X-Tai-Source', location.href)
-      .set('X-Tai-Project', 'Kramerius')
-      .set('Content-Type', 'application/json');
-    if (authMode === 'kramerius' && token) {
-      headers = headers.set('Authorization', `Bearer ${token}`);
-    }
-
-    const context = new HttpContext().set(SKIP_ERROR_INTERCEPTOR, true);
-    if (authMode === 'none') {
-      context.set(SKIP_AUTH_INTERCEPTOR, true);
-    }
-
-    return this.http.post<T>(url, body, {
-      headers,
-      context,
-    }).pipe(
+    return this.http.post<T>(url, body, options).pipe(
       // The proxy reports quota exhaustion as an `errorCode` body. Some endpoints
       // send it with an error status, others with 200 — in the 200 case it would
       // otherwise flow into the per-endpoint `map()`, which expects a success
@@ -417,10 +429,105 @@ export class AiApiService {
     );
   }
 
-  private postBlobAbsolute(url: string, body: any, authMode: AiLlmAuthMode): Observable<Blob> {
+  /**
+   * POSTs a `stream: true` chat completion and reads the server-sent events as
+   * they arrive. HttpClient (with withFetch) reports the body received so far
+   * on each download-progress event, so interceptors and the test backend keep
+   * working. A server that ignores `stream` and answers with plain JSON is
+   * accepted too: there is then simply no partial output.
+   */
+  private postStreamAbsolute(url: string, body: any, authMode: AiLlmAuthMode, onPartial: AiPartialHandler): Observable<string> {
+    const options = this.requestOptions(authMode);
+    if (!options) {
+      return throwError(() => new Error('ai.error-unauthorized'));
+    }
+
+    return defer(() => {
+      const state: SseState = { offset: 0, content: '', sawData: false };
+      return this.http.post(url, body, {
+        ...options,
+        observe: 'events',
+        reportProgress: true,
+        responseType: 'text',
+      }).pipe(
+        map(event => {
+          if (event.type === HttpEventType.DownloadProgress) {
+            const before = state.content;
+            this.readSse(event.partialText ?? '', state, false);
+            if (state.content !== before) onPartial(state.content);
+            return null;
+          }
+          if (event.type !== HttpEventType.Response) return null;
+          const text = event.body ?? '';
+          this.readSse(text, state, true);
+          if (state.sawData) return state.content;
+          return this.contentFromJson(text);
+        }),
+        filter((content): content is string => content !== null),
+        catchError(error => throwError(() => new Error(this.getErrorMessage(this.parseTextError(error)))))
+      );
+    });
+  }
+
+  /** Appends the content deltas of every complete `data:` line not read yet. */
+  private readSse(text: string, state: SseState, final: boolean): void {
+    const end = final ? text.length : text.lastIndexOf('\n') + 1;
+    if (end <= state.offset) return;
+    const lines = text.slice(state.offset, end).split('\n');
+    state.offset = end;
+
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      state.sawData = true;
+      if (!data || data === '[DONE]') continue;
+      let chunk: any;
+      try {
+        chunk = JSON.parse(data);
+      } catch {
+        continue;
+      }
+      if (typeof chunk?.errorCode === 'string') throw new Error(chunk.errorCode);
+      if (typeof chunk?.error?.message === 'string') throw new Error(chunk.error.message);
+      const delta = chunk?.choices?.[0]?.delta?.content;
+      if (typeof delta === 'string') state.content += delta;
+    }
+  }
+
+  private contentFromJson(text: string): string {
+    let response: any;
+    try {
+      response = JSON.parse(text);
+    } catch {
+      throw new Error('invalid_ai_response');
+    }
+    if (typeof response?.errorCode === 'string') throw new Error(response.errorCode);
+    const content = response?.choices?.[0]?.message?.content;
+    if (typeof content !== 'string') throw new Error('invalid_ai_response');
+    return content;
+  }
+
+  /** A text-typed request leaves a JSON error body as a string; parse it so getErrorMessage sees its codes. */
+  private parseTextError(error: any): any {
+    if (typeof error?.error !== 'string') return error;
+    try {
+      return { status: error.status, error: JSON.parse(error.error) };
+    } catch {
+      return error;
+    }
+  }
+
+  /**
+   * Headers and context for an AI request, or null when a required token is
+   * missing. Do not start a potentially long request without a usable JWT. In
+   * particular, never rely on the global interceptor to call the Kramerius
+   * code-exchange endpoint as if it supported refresh tokens.
+   */
+  private requestOptions(authMode: AiLlmAuthMode): { headers: HttpHeaders; context: HttpContext } | null {
     const token = this.authService.getAccessToken();
     if (authMode === 'kramerius' && (!token || this.authService.isTokenExpired())) {
-      return throwError(() => new Error('ai.error-unauthorized'));
+      return null;
     }
 
     let headers = new HttpHeaders()
@@ -435,10 +542,17 @@ export class AiApiService {
     if (authMode === 'none') {
       context.set(SKIP_AUTH_INTERCEPTOR, true);
     }
+    return { headers, context };
+  }
+
+  private postBlobAbsolute(url: string, body: any, authMode: AiLlmAuthMode): Observable<Blob> {
+    const options = this.requestOptions(authMode);
+    if (!options) {
+      return throwError(() => new Error('ai.error-unauthorized'));
+    }
 
     return this.http.post(url, body, {
-      headers,
-      context,
+      ...options,
       responseType: 'blob',
     }).pipe(
       catchError(error => throwError(() => new Error(this.getErrorMessage(error))))

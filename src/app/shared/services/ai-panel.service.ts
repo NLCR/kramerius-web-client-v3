@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { AltoService, OcrPageContent, TextRegion } from './alto.service';
-import { AiApiService, AiModel, TranslateProvider, isQuotaExceeded } from './ai-api.service';
+import { AiApiService, AiModel, AiPartialHandler, TranslateProvider, isQuotaExceeded } from './ai-api.service';
 import { LocalStorageService } from './local-storage.service';
 import { DocumentInfoService } from './document-info.service';
 import { TranslateService } from '@ngx-translate/core';
@@ -64,6 +64,8 @@ export class AiPanelService {
   readonly content = signal<string>('');
   readonly styledHtml = signal<string>('');
   readonly isLoading = signal(false);
+  /** The answer is being shown while the model is still writing it. */
+  readonly isStreaming = signal(false);
   readonly error = signal<string | null>(null);
 
   // UI state
@@ -123,7 +125,7 @@ export class AiPanelService {
         const inputToTranslate = html || text;
         const format = html ? 'html' as const : 'text' as const;
 
-        this.activeSubscription = this.aiApiService.translate(inputToTranslate, lang, this.translateProvider(), format).pipe(take(1)).subscribe({
+        this.activeSubscription = this.aiApiService.translate(inputToTranslate, lang, this.translateProvider(), format, this.showPartial(format)).pipe(take(1)).subscribe({
           next: (translated) => {
             if (format === 'html') {
               this.styledHtml.set(translated);
@@ -132,10 +134,10 @@ export class AiPanelService {
               this.styledHtml.set('');
               this.content.set(translated);
             }
-            this.isLoading.set(false);
+            this.finishLoading();
           },
           error: (err) => {
-            this.isLoading.set(false);
+            this.finishLoading();
             this.error.set(this.describeError(err, 'Translation failed'));
           }
         });
@@ -171,14 +173,14 @@ export class AiPanelService {
         }
 
         const instructions = this.buildSummaryInstructions(this.summaryLanguage());
-        this.activeSubscription = this.aiApiService.askLLM(text, instructions, this.selectedModel(), SUMMARY_MAX_TOKENS).pipe(take(1)).subscribe({
+        this.activeSubscription = this.aiApiService.askLLM(text, instructions, this.selectedModel(), SUMMARY_MAX_TOKENS, this.showPartial('text')).pipe(take(1)).subscribe({
           next: (summary) => {
             this.styledHtml.set('');
             this.content.set(summary);
-            this.isLoading.set(false);
+            this.finishLoading();
           },
           error: (err) => {
-            this.isLoading.set(false);
+            this.finishLoading();
             this.error.set(this.describeError(err, 'Summary failed'));
           }
         });
@@ -255,14 +257,14 @@ export class AiPanelService {
         }
 
         const instructions = this.buildBookSummaryInstructions(this.summaryLanguage());
-        this.activeSubscription = this.aiApiService.askLLM(input, instructions, this.selectedModel(), BOOK_SUMMARY_MAX_TOKENS).pipe(take(1)).subscribe({
+        this.activeSubscription = this.aiApiService.askLLM(input, instructions, this.selectedModel(), BOOK_SUMMARY_MAX_TOKENS, this.showPartial('text')).pipe(take(1)).subscribe({
           next: (summary) => {
             this.styledHtml.set('');
             this.content.set(summary);
-            this.isLoading.set(false);
+            this.finishLoading();
           },
           error: (err) => {
-            this.isLoading.set(false);
+            this.finishLoading();
             this.error.set(this.describeError(err, 'Book summary failed'));
           }
         });
@@ -493,7 +495,29 @@ export class AiPanelService {
       : this.altoService.fetchOcrContent(pagePid, this.documentInfoService.hasAlto());
   }
 
+  /**
+   * Shows a streamed answer as it grows. The loader stays until the first
+   * visible text arrives. A half-received HTML tag is held back so it never
+   * shows up as raw markup.
+   */
+  private showPartial(format: 'text' | 'html'): AiPartialHandler {
+    return partial => {
+      const visible = format === 'html' ? partial.replace(/<[^>]*$/, '') : partial;
+      if (!visible.trim()) return;
+      this.isLoading.set(false);
+      this.isStreaming.set(true);
+      this.styledHtml.set(format === 'html' ? visible : '');
+      this.content.set(format === 'html' ? '' : visible);
+    };
+  }
+
+  private finishLoading(): void {
+    this.isLoading.set(false);
+    this.isStreaming.set(false);
+  }
+
   private cancelPending(): void {
+    this.isStreaming.set(false);
     if (this.activeSubscription) {
       this.activeSubscription.unsubscribe();
       this.activeSubscription = null;

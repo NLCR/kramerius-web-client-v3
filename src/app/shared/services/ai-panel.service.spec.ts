@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { TranslateService } from '@ngx-translate/core';
 import { AiPanelService } from './ai-panel.service';
 import { AltoService } from './alto.service';
@@ -273,7 +273,7 @@ describe('AiPanelService with a selected area', () => {
     service.showTranslation('uuid:page-1', 'en', region);
 
     expect(fetchOcrContent).not.toHaveBeenCalled();
-    expect(translate).toHaveBeenCalledWith('selected text', 'en', 'google', 'text');
+    expect(translate).toHaveBeenCalledWith('selected text', 'en', 'google', 'text', jasmine.any(Function));
     expect(service.content()).toBe('translated');
   });
 
@@ -294,6 +294,39 @@ describe('AiPanelService with a selected area', () => {
     expect(fetchOcrContent).toHaveBeenCalled();
     expect(fetchRegionText).not.toHaveBeenCalled();
     expect(service.currentRegion()).toBeNull();
+  });
+
+  it('shows a streamed summary while it is still being written', () => {
+    service = configure();
+    const result = new Subject<string>();
+    askLLM.and.callFake((_i: string, _p: string, _m: unknown, _t: number, onPartial: (t: string) => void) => {
+      onPartial('');
+      expect(service.isLoading()).toBeTrue();
+      onPartial('Část');
+      return result;
+    });
+    service.showSummary('uuid:page-1', region);
+
+    expect(service.isLoading()).toBeFalse();
+    expect(service.isStreaming()).toBeTrue();
+    expect(service.content()).toBe('Část');
+
+    result.next('Část shrnutí');
+    expect(service.isStreaming()).toBeFalse();
+    expect(service.content()).toBe('Část shrnutí');
+  });
+
+  it('holds back a half-received HTML tag of a streamed translation', () => {
+    service = configure();
+    translate.and.callFake((_i: string, _l: string, _p: string, _f: string, onPartial: (t: string) => void) => {
+      onPartial('<p>Hello</p><p cla');
+      return new Subject<string>();
+    });
+    service.showTranslation('uuid:page-1', 'en');
+
+    expect(service.styledHtml()).toBe('<p>Hello</p>');
+    service.close();
+    expect(service.isStreaming()).toBeFalse();
   });
 
   it('reports an empty selection instead of falling back to the page', () => {

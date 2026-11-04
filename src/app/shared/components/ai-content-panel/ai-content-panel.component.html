@@ -15,9 +15,11 @@
     } @else if (aiPanelService.styledHtml()) {
       <div class="ai-content-panel__content" [style.font-size.px]="aiPanelService.fontSize()"
            [appNoTextCopy]="textCopyBlocked()"
+           [class.ai-content-panel__content--streaming]="aiPanelService.isStreaming()"
            [innerHTML]="aiPanelService.styledHtml()"></div>
     } @else if (aiPanelService.content()) {
       <div class="ai-content-panel__content" [style.font-size.px]="aiPanelService.fontSize()"
+           [class.ai-content-panel__content--streaming]="aiPanelService.isStreaming()"
            [appNoTextCopy]="textCopyBlocked()">@if (aiPanelService.contentType() === 'book-summary') {<p class="ai-content-panel__note">{{ 'ai.book-summary-note' | translate }}</p>}@for (segment of contentSegments(); track $index) {@if (segment.match) {<mark>{{ segment.text }}</mark>} @else {<span>{{ segment.text }}</span>}}</div>
     }
   </div>

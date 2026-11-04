@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpEventType, HttpResponse } from '@angular/common/http';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
@@ -194,5 +195,77 @@ describe('AiApiService Qwen integration', () => {
       .flush('Gateway Timeout', { status: 504, statusText: 'Gateway Timeout' });
 
     expect(errorMessage).toBe('ai.error-timeout');
+  });
+
+  describe('streaming', () => {
+    const URL = 'https://ai.example.org/v1/chat/completions';
+    const sse = (...deltas: string[]) => deltas.map(d =>
+      `data: ${JSON.stringify({ choices: [{ delta: { content: d } }] })}\n\n`).join('');
+
+    it('reports the answer so far and emits the full answer at the end', () => {
+      const partials: string[] = [];
+      const results: string[] = [];
+      service.askLLM('Text', 'Shrň', undefined, 600, p => partials.push(p))
+        .subscribe(value => results.push(value));
+
+      const request = httpMock.expectOne(URL);
+      expect(request.request.body.stream).toBeTrue();
+      expect(request.request.reportProgress).toBeTrue();
+      const first = sse('Krátké', ' shr');
+      // A line cut in the middle is held back until it is complete.
+      request.event({ type: HttpEventType.DownloadProgress, loaded: 1, partialText: first + 'data: {"choi' });
+      const body = first + sse('nutí') + 'data: [DONE]\n\n';
+      request.event({ type: HttpEventType.DownloadProgress, loaded: 2, partialText: body });
+      request.event(new HttpResponse({ body, status: 200 }));
+
+      expect(partials).toEqual(['Krátké shr', 'Krátké shrnutí']);
+      expect(results).toEqual(['Krátké shrnutí']);
+    });
+
+    it('accepts a server that answers with plain JSON instead of a stream', () => {
+      const partials: string[] = [];
+      let result = '';
+      service.askLLM('Text', 'Shrň', undefined, 600, p => partials.push(p)).subscribe(v => result = v);
+
+      httpMock.expectOne(URL).event(new HttpResponse({
+        body: JSON.stringify({ choices: [{ message: { content: 'Celé shrnutí' } }] }), status: 200,
+      }));
+
+      expect(partials).toEqual([]);
+      expect(result).toBe('Celé shrnutí');
+    });
+
+    it('keeps the quota code from an error body', () => {
+      let errorMessage = '';
+      service.askLLM('Text', 'Shrň', undefined, 600, () => {}).subscribe({ error: e => errorMessage = e.message });
+
+      httpMock.expectOne(URL).flush(JSON.stringify({ errorCode: 'quota_exceeded' }),
+        { status: 429, statusText: 'Too Many Requests' });
+
+      expect(errorMessage).toBe('quota_exceeded');
+    });
+
+    it('fails on an error sent inside the stream', () => {
+      let errorMessage = '';
+      service.askLLM('Text', 'Shrň', undefined, 600, () => {}).subscribe({ error: e => errorMessage = e.message });
+
+      httpMock.expectOne(URL).event(new HttpResponse({
+        body: sse('Za') + 'data: {"errorCode":"quota_exceeded"}\n\n', status: 200,
+      }));
+
+      expect(errorMessage).toBe('quota_exceeded');
+    });
+
+    it('strips a code fence from a streamed translation while it arrives', () => {
+      const partials: string[] = [];
+      service.translate('<p>Ahoj</p>', 'en', 'google', 'html', p => partials.push(p)).subscribe();
+
+      const request = httpMock.expectOne(URL);
+      const body = sse('```html\n<p>Hel', 'lo</p>\n``', '`');
+      request.event({ type: HttpEventType.DownloadProgress, loaded: 1, partialText: body });
+      request.event(new HttpResponse({ body, status: 200 }));
+
+      expect(partials).toEqual(['<p>Hello</p>']);
+    });
   });
 });

@@ -69,6 +69,24 @@
     }
   }
 
+  // Blinking caret at the end of an answer the model is still writing.
+  &__content--streaming::after,
+  &__content--streaming:has(p) > p:last-child::after {
+    content: '';
+    display: inline-block;
+    width: 0.5em;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background: currentColor;
+    opacity: 0.6;
+    animation: ai-content-caret 1s steps(2, start) infinite;
+  }
+
+  &__content--streaming:has(p)::after {
+    content: none;
+  }
+
   &__note {
     display: block;
     color: var(--color-text-tertiary);
@@ -82,5 +100,16 @@
     font-size: var(--font-size-small);
     padding: var(--spacing-x4);
     text-align: center;
+  }
+}
+
+@keyframes ai-content-caret {
+  to { visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-content-panel__content--streaming::after,
+  .ai-content-panel__content--streaming > p:last-child::after {
+    animation: none;
   }
 }
