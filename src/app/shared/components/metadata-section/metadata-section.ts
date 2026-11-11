@@ -2,7 +2,7 @@ import { Component, inject, Input, Output, EventEmitter, OnInit, OnChanges, Simp
 import { NgForOf, NgIf, NgTemplateOutlet } from '@angular/common';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Author, Metadata, Publisher, PhysicalDescription, NoteInfo, Location, InCollections } from '../../models/metadata.model';
-import { ActivatedRoute, RouterLink, Router } from '@angular/router';
+import { ActivatedRoute, NavigationCancel, NavigationEnd, NavigationError, RouterLink, Router } from '@angular/router';
 import { APP_ROUTES_ENUM } from '../../../app.routes';
 import { ModsParserService } from '../../services/mods-parser.service';
 import { SearchService } from '../../services/search.service';
@@ -13,7 +13,7 @@ import { Store } from '@ngrx/store';
 import { selectDocumentDetail } from '../../state/document-detail/document-detail.selectors';
 import { reloadPagesForCdkCollection } from '../../state/document-detail/document-detail.actions';
 import { selectAvailableYears } from '../../../modules/periodical/state/periodical-detail/periodical-detail.selectors';
-import { distinctUntilChanged, firstValueFrom, map, take } from 'rxjs';
+import { distinctUntilChanged, filter, firstValueFrom, map, take } from 'rxjs';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { AccessibilityBadgeComponent } from '../accessibility-badge/accessibility-badge.component';
 import { ModelBadgeComponent } from '../model-badge/model-badge.component';
@@ -403,6 +403,9 @@ export class MetadataSection implements OnInit, OnChanges {
 
   @Output() cdkCollectionChange = new EventEmitter<string>();
 
+  // Root pid the hand-picked source is remembered under (null in collections mode).
+  private sourceRootPid: string | null = null;
+
   @Input() showTitle: boolean = true;
 
   get articleViewLink(): any[] {
@@ -471,7 +474,13 @@ export class MetadataSection implements OnInit, OnChanges {
     if (this.isCdk()) {
       const cdkSource = pickCdkSourceRecord(solrData, this.metadata, this.collectionsMode);
       const collections = cdkSource?.cdkCollections ?? [];
-      const urlSource = this.route.snapshot.queryParamMap.get('source');
+      // A source picked earlier for another part of the same title (another
+      // issue, the volume, the periodical page) carries over: the links between
+      // them don't hold ?source=. The URL still wins when it names one.
+      this.sourceRootPid = this.collectionsMode ? null : (cdkSource?.rootPid || this.uuid || null);
+      const remembered = this.cdkSource.rememberedForRoot(this.sourceRootPid);
+      const urlParam = this.route.snapshot.queryParamMap.get('source');
+      const urlSource = urlParam || remembered;
       this.cdkCollections.set(collections);
       if (this.includeAllOption) {
         // "All sources" is the deliberate default here; only a concrete ?source=
@@ -490,6 +499,12 @@ export class MetadataSection implements OnInit, OnChanges {
             this.userService.licenses,
           ) ?? ''
         );
+      }
+      // Put the carried-over source back in the URL so the view stays linkable
+      // and pages that scope their grid by ?source= (periodical, multivolume
+      // monograph) pick it up.
+      if (!urlParam && remembered && this.selectedCdkCollection() === remembered) {
+        this.addSourceParamWhenIdle(remembered);
       }
     } else {
       this.cdkCollections.set([]);
@@ -551,7 +566,12 @@ export class MetadataSection implements OnInit, OnChanges {
     generation = this.metadataLoadGeneration,
     inputMetadata: Metadata | null = this.metadata,
   ): Promise<any | null> {
-    const modsData = await this.modsParser.getMods(expectedUuid, 'full', libraryCode);
+    // A missing MODS must not blank the whole panel: Solr fills the fields below.
+    const modsData = await this.modsParser.getModsOrAggregate(expectedUuid, 'full', libraryCode)
+      .catch(e => {
+        console.warn('MetadataSection: no MODS for', expectedUuid, e);
+        return new Metadata();
+      });
     if (generation !== this.metadataLoadGeneration || expectedUuid !== this.uuid) return null;
     const solrData = this._solrData();
 
@@ -562,7 +582,7 @@ export class MetadataSection implements OnInit, OnChanges {
     const rootPid = solrData?.rootPid;
     if (rootPid && rootPid !== expectedUuid) {
       try {
-        const rootMods = await this.modsParser.getMods(rootPid, 'full', libraryCode);
+        const rootMods = await this.modsParser.getModsOrAggregate(rootPid, 'full', libraryCode);
         if (generation !== this.metadataLoadGeneration || expectedUuid !== this.uuid) return null;
         if (rootMods) {
           const child = modsData as any;
@@ -616,6 +636,27 @@ export class MetadataSection implements OnInit, OnChanges {
     return baseMods;
   }
 
+  /**
+   * Adds ?source= once no other navigation is in flight. The reader sets
+   * ?page= at about the same moment when it opens a document; a second
+   * navigation would cancel that one and, merging from the not yet updated
+   * URL, drop its page param.
+   */
+  private async addSourceParamWhenIdle(source: string): Promise<void> {
+    if (this.router.currentNavigation()) {
+      await firstValueFrom(this.router.events.pipe(
+        filter(e => e instanceof NavigationEnd || e instanceof NavigationCancel || e instanceof NavigationError),
+      ));
+    }
+    if (this.route.snapshot.queryParamMap.get('source')) return;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { source },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
   private stripSourceParamIfPresent(): void {
     if (!this.route.snapshot.queryParamMap.has('source')) return;
     this.router.navigate([], {
@@ -661,6 +702,7 @@ export class MetadataSection implements OnInit, OnChanges {
   async onCdkCollectionChange(collection: string) {
     if (!collection || collection === this.selectedCdkCollection()) return;
     this.selectedCdkCollection.set(collection);
+    this.cdkSource.rememberForRoot(this.sourceRootPid, collection === ALL_SOURCES ? null : collection);
 
     // Collections mode, or any host that owns the source-driven behaviour (URL
     // persistence and re-scoping its own child document grid — the multivolume
@@ -719,7 +761,7 @@ export class MetadataSection implements OnInit, OnChanges {
     this._trackData.set(null);
     if (!pid) return;
     try {
-      const mods = await this.modsParser.getMods(pid, 'full', this.effectiveLibraryCode());
+      const mods = await this.modsParser.getModsOrAggregate(pid, 'full', this.effectiveLibraryCode());
       // Ignore a late response for a track that is no longer playing.
       if (this.activeTrack()?.pid === pid) {
         this._trackData.set(mods);

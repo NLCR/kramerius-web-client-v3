@@ -62,4 +62,25 @@ describe('DetailViewService page navigation', () => {
     service.goToNext();
     expect(service.currentPageIndex).toBe(1);
   });
+
+  it('returns from an odd book spread to the first real page, skipping non-page items', () => {
+    const service = serviceWithPages([part('start'), page('p1'), part('article'), page('p2'), page('p3')], 3);
+    (service as any).iiifViewerService.isBookMode = () => true;
+
+    expect(service.hasPreviousPage(2)).toBe(true);
+    expect(service.pageAtOffset(-2)?.pid).toBe('p1');
+    service.goToPrevious();
+    expect(service.currentPageIndex).toBe(1);
+    expect(service.currentPageNumber).toBe(1);
+    expect(service.hasPreviousPage(2)).toBe(false);
+  });
+
+  it('stops after the final book spread without opening a trailing non-page item', () => {
+    const service = serviceWithPages([page('p1'), part('article'), page('p2'), part('end')], 0);
+    (service as any).iiifViewerService.isBookMode = () => true;
+
+    expect(service.hasNextPage(2)).toBe(false);
+    service.goToNext();
+    expect(service.currentPageIndex).toBe(0);
+  });
 });

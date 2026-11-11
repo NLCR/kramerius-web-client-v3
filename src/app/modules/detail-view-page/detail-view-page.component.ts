@@ -92,6 +92,10 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
   @HostBinding('style.--license-bar-offset')
   get licenseBarOffset() { return this.uiState.licenseBarVisible() ? 'var(--license-bar-height)' : '0px'; }
 
+  /** The image viewer's "showing a preview only" notice; the viewer controls sit below it. */
+  @HostBinding('style.--viewer-notice-offset')
+  get viewerNoticeOffset() { return `${this.iiifViewerService.fallbackNoticeHeight()}px`; }
+
   // TODO: set to false to keep TTS playing when navigating away
   private readonly stopTtsOnLeave = true;
 
@@ -387,6 +391,19 @@ export class DetailViewPageComponent implements OnInit, OnDestroy, AfterViewInit
     return this.detailViewService.isPdf
       ? this.pdfTotalPages()
       : this.detailViewService.totalPagesOnly;
+  }
+
+  get mobilePageStep(): number {
+    return !this.isEpubDocument && !this.detailViewService.isPdf && this.iiifViewerService.isBookMode() ? 2 : 1;
+  }
+
+  /** Book-mode counter uses real page numbers, skipping articles and internal parts. */
+  get pagePillLabel(): string {
+    const current = this.detailViewService.currentPageNumber;
+    const total = this.detailViewService.totalPagesOnly;
+    return this.mobilePageStep === 2 && current < total
+      ? `${current}–${current + 1} / ${total}`
+      : `${current} / ${total}`;
   }
 
   goToNextMobilePage(): void {

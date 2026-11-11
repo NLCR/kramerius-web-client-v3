@@ -12,18 +12,18 @@
       <button type="button" class="compact-indicator compact-indicator--button" aria-live="polite"
               [attr.aria-label]="'current-page-input--arialabel' | translate"
               (click)="indicatorClick.emit()">
-        {{ currentPage }} {{ 'pagination-of' | translate }} {{ totalPages }}
+        {{ compactPageLabel }} {{ 'pagination-of' | translate }} {{ totalPages }}
       </button>
     } @else {
       <span class="compact-indicator" aria-live="polite">
-        {{ currentPage }} {{ 'pagination-of' | translate }} {{ totalPages }}
+        {{ compactPageLabel }} {{ 'pagination-of' | translate }} {{ totalPages }}
       </span>
     }
 
     <button class="button primary"
             [attr.aria-label]="'go-to-next-page--arialabel' | translate"
             (click)="goNext()"
-            [disabled]="currentPage >= totalPages">
+            [disabled]="nextDisabled">
       <i class="icon-arrow-right-1"></i>
     </button>
   } @else {

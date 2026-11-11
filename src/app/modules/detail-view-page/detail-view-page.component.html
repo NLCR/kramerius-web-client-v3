@@ -372,11 +372,11 @@
       <i class="icon-arrow-left-3" aria-hidden="true"></i>
     </button>
     <span class="mobile-page-pill__count" role="status" aria-live="polite">
-      {{ detailViewService.currentPageNumber }} / {{ detailViewService.totalPagesOnly }}
+      {{ pagePillLabel }}
     </span>
     <button type="button" class="mobile-page-pill__btn"
             [attr.aria-label]="'go-to-next-page' | translate"
-            [disabled]="!detailViewService.hasNextPage()"
+            [disabled]="!detailViewService.hasNextPage(mobilePageStep)"
             (click)="onTabletPagePill('next')">
       <i class="icon-arrow-right-3" aria-hidden="true"></i>
     </button>
@@ -446,6 +446,7 @@
           [compact]="true"
           [currentPage]="mobileCurrentPage"
           [totalPages]="mobileTotalPages"
+          [pageStep]="mobilePageStep"
           (next)="goToNextMobilePage()"
           (prev)="goToPreviousMobilePage()"
           (pageChange)="goToMobilePage($event)"

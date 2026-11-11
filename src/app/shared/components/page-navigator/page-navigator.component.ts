@@ -14,6 +14,8 @@ export class PageNavigatorComponent {
   @Input() currentPage = 1;
   @Input() totalPages = 1;
   @Input() compact = false;
+  /** Number of pages shown by an image spread. */
+  @Input() pageStep = 1;
   /** Translation key for the leading label; "Strana" unless overridden. */
   @Input() label = 'page';
 
@@ -30,9 +32,19 @@ export class PageNavigatorComponent {
   }
 
   goNext() {
-    if (this.currentPage < this.totalPages) {
+    if (!this.nextDisabled) {
       this.next.emit();
     }
+  }
+
+  get nextDisabled(): boolean {
+    return this.currentPage + this.pageStep > this.totalPages;
+  }
+
+  get compactPageLabel(): string {
+    return this.pageStep > 1 && this.currentPage < this.totalPages
+      ? `${this.currentPage}–${Math.min(this.currentPage + this.pageStep - 1, this.totalPages)}`
+      : String(this.currentPage);
   }
 
   get currentPageString(): string {
